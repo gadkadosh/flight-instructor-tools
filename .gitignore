@@ -1,3 +1,9 @@
 # Private local reference documents used only for visual comparison.
 /example.pdf
 /example.pages
+
+# Generated invoice artifacts.
+/output/
+
+# Private signature assets.
+/signature.png

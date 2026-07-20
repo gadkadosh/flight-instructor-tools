@@ -9,10 +9,8 @@ The application will:
 1. Read and validate session and configuration JSON.
 2. Select sessions for an invoice period.
 3. Convert sessions and flights into billable activities.
-4. Group and price those activities deterministically.
-5. Render an HTML invoice matching the existing Pages invoice.
-6. Convert the HTML to PDF.
-7. Retain a JSON snapshot, HTML document, and PDF as invoice artifacts.
+4. Render an HTML invoice from a template.
+5. Convert the HTML to PDF and retain a JSON snapshot, HTML document, and PDF as invoice artifacts.
 
 The initial implementation targets one issuer, one flight school, EUR, German formatting, and the current flight-instruction billing model.
 
@@ -243,8 +241,8 @@ Use hardcoded invoice data to test the largest technical uncertainty before buil
 
 - [x] Initialize the Go module and a minimal executable.
 - [x] Represent the supplied example invoice as hardcoded Go data.
-- [ ] Recreate the supplied invoice using `html/template` and CSS.
-- [ ] Write a standalone HTML artifact.
+- [x] Recreate the supplied invoice using `html/template` and CSS.
+- [x] Write a standalone HTML artifact.
 - [ ] Locate and invoke WeasyPrint without shell interpolation.
 - [ ] Report a useful error when WeasyPrint is unavailable.
 - [ ] Generate an A4 PDF and compare it visually with `example.pdf`.
