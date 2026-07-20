@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,11 +29,16 @@ func run() error {
 		return fmt.Errorf("read signature: %w", err)
 	}
 
-	path := filepath.Join(referenceOutputDirectory, "Rechnung-2026-05.html")
-	if err := writeInvoiceHTML(path, ReferenceDocument(), signaturePNG); err != nil {
+	htmlPath := filepath.Join(referenceOutputDirectory, "Rechnung-2026-05.html")
+	if err := writeInvoiceHTML(htmlPath, ReferenceDocument(), signaturePNG); err != nil {
 		return err
 	}
 
-	fmt.Printf("Wrote %s\n", path)
+	pdfPath := filepath.Join(referenceOutputDirectory, "Rechnung-2026-05.pdf")
+	if err := writeInvoicePDF(context.Background(), htmlPath, pdfPath); err != nil {
+		return err
+	}
+
+	fmt.Printf("Wrote %s\nWrote %s\n", htmlPath, pdfPath)
 	return nil
 }

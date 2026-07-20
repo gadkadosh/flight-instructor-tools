@@ -243,10 +243,10 @@ Use hardcoded invoice data to test the largest technical uncertainty before buil
 - [x] Represent the supplied example invoice as hardcoded Go data.
 - [x] Recreate the supplied invoice using `html/template` and CSS.
 - [x] Write a standalone HTML artifact.
-- [ ] Locate and invoke WeasyPrint without shell interpolation.
-- [ ] Report a useful error when WeasyPrint is unavailable.
-- [ ] Generate an A4 PDF and compare it visually with `example.pdf`.
-- [ ] Confirm that fonts, table alignment, footer placement, and print backgrounds are reliable.
+- [x] Locate and invoke WeasyPrint without shell interpolation.
+- [x] Report a useful error when WeasyPrint is unavailable.
+- [x] Generate an A4 PDF and compare it visually with `example.pdf`.
+- [x] Confirm that fonts, table alignment, footer placement, and print backgrounds are reliable.
 
 **Runnable check:** one command generates inspectable HTML and PDF for the hardcoded reference invoice.
 
