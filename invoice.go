@@ -3,9 +3,9 @@ package main
 import "time"
 
 type Party struct {
-	Name         string
-	AddressLines []string
-	Email        string
+	Name         string   `json:"name"`
+	AddressLines []string `json:"addressLines"`
+	Email        string   `json:"email,omitempty"`
 }
 
 type Line struct {
@@ -24,8 +24,8 @@ type Totals struct {
 }
 
 type BankDetails struct {
-	IBAN string
-	BIC  string
+	IBAN string `json:"iban"`
+	BIC  string `json:"bic"`
 }
 
 type Document struct {

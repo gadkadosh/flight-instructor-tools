@@ -1,0 +1,28 @@
+{
+  "currency": "EUR",
+  "issuer": {
+    "name": "Erika Musterfrau",
+    "addressLines": ["Musterstraße 6", "12345 Musterstadt"],
+    "email": "erika@example.com"
+  },
+  "customer": {
+    "name": "Musterflugschule GmbH",
+    "addressLines": ["Flugplatzstraße 2", "54321 Beispielstadt"]
+  },
+  "taxNumber": "00/000/00000",
+  "bankDetails": {
+    "iban": "DE00 0000 0000 0000 0000 00",
+    "bic": "XXXXXXXXXXX"
+  },
+  "vatRatePercent": 0,
+  "vatStatement": "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.",
+  "paymentText": "Bitte überweisen Sie den Rechnungsbetrag auf meinem Bankkonto.",
+  "closingText": "Mit freundlichen Grüßen",
+  "rates": [
+    {
+      "effectiveFrom": "2026-01-01",
+      "preparationCentsPerHour": 2500,
+      "blockCentsPerHour": 3000
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "invoiceNumber": "2026-05",
+  "issueDate": "2026-06-09",
+  "currency": "EUR",
+  "issuer": {
+    "name": "Erika Musterfrau",
+    "addressLines": [
+      "Musterstraße 6",
+      "12345 Musterstadt"
+    ],
+    "email": "erika@example.com"
+  },
+  "customer": {
+    "name": "Musterflugschule GmbH",
+    "addressLines": [
+      "Flugplatzstraße 2",
+      "54321 Beispielstadt"
+    ]
+  },
+  "lines": [
+    {
+      "date": "2026-05-03",
+      "description": "Alex Beispiel - Flugvorbereitung",
+      "minutes": 30,
+      "hourlyRateCents": 2500,
+      "vatRatePercent": 0,
+      "totalCents": 1250
+    },
+    {
+      "date": "2026-05-03",
+      "description": "Alex Beispiel - Blockzeit",
+      "minutes": 65,
+      "hourlyRateCents": 3000,
+      "vatRatePercent": 0,
+      "totalCents": 3250
+    }
+  ],
+  "totals": {
+    "netCents": 4500,
+    "vatCents": 0,
+    "grossCents": 4500
+  },
+  "paymentText": "Bitte überweisen Sie den Rechnungsbetrag auf meinem Bankkonto.",
+  "vatStatement": "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.",
+  "closingText": "Mit freundlichen Grüßen",
+  "taxNumber": "00/000/00000",
+  "bankDetails": {
+    "iban": "DE00 0000 0000 0000 0000 00",
+    "bic": "XXXXXXXXXXX"
+  }
+}

@@ -1,9 +1,12 @@
 package main
 
-import "time"
+import (
+	"testing"
+	"time"
+)
 
-// ReferenceDocument returns anonymized data shaped like the local reference invoice.
-func ReferenceDocument() Document {
+// referenceDocument returns anonymized data shaped like the local reference invoice.
+func referenceDocument() Document {
 	date := func(day int) time.Time {
 		return time.Date(2026, time.May, day, 0, 0, 0, 0, time.Local)
 	}
@@ -51,5 +54,18 @@ func ReferenceDocument() Document {
 			IBAN: "DE00 0000 0000 0000 0000 00",
 			BIC:  "XXXXXXXXXXX",
 		},
+	}
+}
+
+func TestReferenceDocumentLinesMatchNetTotal(t *testing.T) {
+	document := referenceDocument()
+
+	var total int
+	for _, line := range document.Lines {
+		total += line.TotalCents
+	}
+
+	if total != document.Totals.NetCents {
+		t.Fatalf("line total = %d cents, net total = %d cents", total, document.Totals.NetCents)
 	}
 }

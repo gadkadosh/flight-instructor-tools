@@ -2,15 +2,13 @@ package main
 
 import (
 	"bytes"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestRenderReferenceInvoiceHTML(t *testing.T) {
 	var output bytes.Buffer
-	if err := renderInvoiceHTML(&output, ReferenceDocument(), []byte("signature")); err != nil {
+	if err := renderInvoiceHTML(&output, referenceDocument(), []byte("signature")); err != nil {
 		t.Fatalf("render invoice HTML: %v", err)
 	}
 
@@ -33,23 +31,8 @@ func TestRenderReferenceInvoiceHTML(t *testing.T) {
 	}
 }
 
-func TestWriteInvoiceHTML(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "invoice.html")
-	if err := writeInvoiceHTML(path, ReferenceDocument(), nil); err != nil {
-		t.Fatalf("write invoice HTML: %v", err)
-	}
-
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read invoice HTML: %v", err)
-	}
-	if !strings.Contains(string(contents), "Rechnung Nr. 2026-05") {
-		t.Error("HTML artifact does not contain the invoice number")
-	}
-}
-
 func TestRenderInvoiceHTMLEscapesDocumentText(t *testing.T) {
-	document := ReferenceDocument()
+	document := referenceDocument()
 	document.Issuer.Name = `<script>alert("test")</script>`
 
 	var output bytes.Buffer

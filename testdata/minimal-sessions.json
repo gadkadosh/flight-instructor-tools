@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "sessions": [
+    {
+      "id": "2026-05-03-alex",
+      "date": "2026-05-03",
+      "student": "Alex Beispiel",
+      "preparationMinutes": 30,
+      "flights": [
+        {
+          "id": "flight-1",
+          "blockMinutes": 65
+        }
+      ]
+    }
+  ]
+}

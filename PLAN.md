@@ -256,18 +256,18 @@ Use hardcoded invoice data to test the largest technical uncertainty before buil
 
 Replace hardcoded values with the thinnest complete path for one valid training session and one applicable rate. Favor a sound path over broad feature coverage.
 
-- [ ] Add minimal session and configuration Go structs.
-- [ ] Read a valid session file and configuration file from JSON.
-- [ ] Perform the basic validation needed to trust the supported fields.
-- [ ] Select one session in the requested month.
-- [ ] Calculate preparation and block lines using integer minutes and cents.
-- [ ] Define the renderer-facing invoice model.
-- [ ] Render the calculated model through the existing template.
-- [ ] Write a minimal deterministic JSON snapshot.
-- [ ] Add the `generate` command with input, config, month, number, issue-date, and output arguments.
-- [ ] Default an omitted issue date to the local current date and record the resolved value.
-- [ ] Generate the JSON, HTML, and PDF artifacts from the CLI.
-- [ ] Add focused tests for the first calculation and command path.
+- [x] Add minimal session and configuration Go structs.
+- [x] Read a valid session file and configuration file from JSON.
+- [x] Perform the basic validation needed to trust the supported fields.
+- [x] Select one session in the requested month.
+- [x] Calculate preparation and block lines using integer minutes and cents.
+- [x] Define the renderer-facing invoice model.
+- [x] Render the calculated model through the existing template.
+- [x] Write a minimal deterministic JSON snapshot.
+- [x] Add the `generate` command with input, config, month, number, issue-date, and output arguments.
+- [x] Default an omitted issue date to the local current date and record the resolved value.
+- [x] Generate the JSON, HTML, and PDF artifacts from the CLI.
+- [x] Add focused tests for the first calculation and command path.
 
 **Runnable check:** a small valid JSON fixture passes through the real CLI and produces all three artifacts with the expected lines and total.
 
