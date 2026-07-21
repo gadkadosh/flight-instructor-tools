@@ -277,8 +277,8 @@ Replace hardcoded values with the thinnest complete path for one valid training 
 
 Deepen the working path until representative session data reproduces the supplied invoice.
 
-- [ ] Support multiple sessions and multiple flights per session.
-- [ ] Support preparation-only sessions with an empty flights array.
+- [x] Support multiple sessions and multiple flights per session.
+- [x] Support preparation-only sessions with an empty flights array.
 - [ ] Support student names and free-form descriptions.
 - [ ] Resolve effective-dated preparation and block rates.
 - [ ] Convert sessions into billable activities.

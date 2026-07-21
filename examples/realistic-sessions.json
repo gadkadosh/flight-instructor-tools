@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "sessions": [
+    {
+      "id": "2026-04-30-pat",
+      "date": "2026-04-30",
+      "student": "Pat Beispiel",
+      "preparationMinutes": 30,
+      "flights": [
+        {
+          "id": "2026-04-30-pat-flight-1",
+          "blockMinutes": 55
+        }
+      ]
+    },
+    {
+      "id": "2026-05-03-alex-1",
+      "date": "2026-05-03",
+      "student": "Alex Beispiel",
+      "preparationMinutes": 15,
+      "flights": [
+        {
+          "id": "2026-05-03-alex-flight-1",
+          "blockMinutes": 65
+        }
+      ]
+    },
+    {
+      "id": "2026-05-03-alex-2",
+      "date": "2026-05-03",
+      "student": "Alex Beispiel",
+      "preparationMinutes": 15,
+      "flights": [
+        {
+          "id": "2026-05-03-alex-flight-2",
+          "blockMinutes": 70
+        }
+      ]
+    },
+    {
+      "id": "2026-05-03-robin",
+      "date": "2026-05-03",
+      "student": "Robin Muster",
+      "preparationMinutes": 60,
+      "flights": [
+        {
+          "id": "2026-05-03-robin-flight-1",
+          "blockMinutes": 35
+        },
+        {
+          "id": "2026-05-03-robin-flight-2",
+          "blockMinutes": 45
+        }
+      ]
+    },
+    {
+      "id": "2026-05-10-taylor-ground",
+      "date": "2026-05-10",
+      "student": "Taylor Test",
+      "preparationMinutes": 30,
+      "flights": []
+    },
+    {
+      "id": "2026-05-10-taylor-flight",
+      "date": "2026-05-10",
+      "student": "Taylor Test",
+      "flights": [
+        {
+          "id": "2026-05-10-taylor-flight-1",
+          "blockMinutes": 30
+        }
+      ]
+    },
+    {
+      "id": "2026-05-10-chris",
+      "date": "2026-05-10",
+      "student": "Chris Beispiel",
+      "preparationMinutes": 30,
+      "flights": [
+        {
+          "id": "2026-05-10-chris-flight-1",
+          "blockMinutes": 60
+        },
+        {
+          "id": "2026-05-10-chris-flight-2",
+          "blockMinutes": 62
+        }
+      ]
+    },
+    {
+      "id": "2026-05-10-robin",
+      "date": "2026-05-10",
+      "student": "Robin Muster",
+      "preparationMinutes": 30,
+      "flights": [
+        {
+          "id": "2026-05-10-robin-flight-1",
+          "blockMinutes": 88
+        }
+      ]
+    },
+    {
+      "id": "2026-05-24-sightseeing",
+      "date": "2026-05-24",
+      "description": "Rundflug 45°",
+      "flights": [
+        {
+          "id": "2026-05-24-sightseeing-flight-1",
+          "blockMinutes": 45
+        }
+      ]
+    },
+    {
+      "id": "2026-05-24-sam",
+      "date": "2026-05-24",
+      "student": "Sam Muster",
+      "preparationMinutes": 60,
+      "flights": [
+        {
+          "id": "2026-05-24-sam-flight-1",
+          "blockMinutes": 50
+        },
+        {
+          "id": "2026-05-24-sam-flight-2",
+          "blockMinutes": 56
+        }
+      ]
+    },
+    {
+      "id": "2026-05-24-dana-1",
+      "date": "2026-05-24",
+      "student": "Dana Beispiel",
+      "preparationMinutes": 15,
+      "flights": [
+        {
+          "id": "2026-05-24-dana-flight-1",
+          "blockMinutes": 69
+        }
+      ]
+    },
+    {
+      "id": "2026-05-24-dana-2",
+      "date": "2026-05-24",
+      "student": "Dana Beispiel",
+      "preparationMinutes": 15,
+      "flights": [
+        {
+          "id": "2026-05-24-dana-flight-2",
+          "blockMinutes": 70
+        }
+      ]
+    },
+    {
+      "id": "2026-06-01-joerg",
+      "date": "2026-06-01",
+      "student": "Jörg Übung",
+      "preparationMinutes": 25,
+      "flights": [
+        {
+          "id": "2026-06-01-joerg-flight-1",
+          "blockMinutes": 47
+        }
+      ]
+    }
+  ]
+}

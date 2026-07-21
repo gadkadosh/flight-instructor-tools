@@ -7,23 +7,28 @@ import (
 )
 
 func buildInvoiceDocument(input SessionFile, config Config, month, number string, issueDate time.Time) (Document, error) {
-	session, err := selectSingleSession(input.Sessions, month)
+	sessions, err := selectSessions(input.Sessions, month)
 	if err != nil {
 		return Document{}, err
 	}
 
-	sessionDate, err := parseDate(session.Date)
-	if err != nil {
-		return Document{}, fmt.Errorf("session %q date: %w", session.ID, err)
-	}
-	rate, err := rateForDate(config.Rates, sessionDate)
-	if err != nil {
-		return Document{}, fmt.Errorf("session %q: %w", session.ID, err)
-	}
+	var lines []Line
+	for _, session := range sessions {
+		sessionDate, err := parseDate(session.Date)
+		if err != nil {
+			return Document{}, fmt.Errorf("session %q date: %w", session.ID, err)
+		}
+		rate, err := rateForDate(config.Rates, sessionDate)
+		if err != nil {
+			return Document{}, fmt.Errorf("session %q: %w", session.ID, err)
+		}
 
-	lines, err := calculateSessionLines(session, sessionDate, rate, config.VATRatePercent)
-	if err != nil {
-		return Document{}, fmt.Errorf("session %q: %w", session.ID, err)
+		newLines, err := calculateSessionLines(session, sessionDate, rate, config.VATRatePercent)
+		if err != nil {
+			return Document{}, fmt.Errorf("session %q: %w", session.ID, err)
+		}
+
+		lines = append(lines, newLines...)
 	}
 
 	netCents := 0
@@ -47,31 +52,28 @@ func buildInvoiceDocument(input SessionFile, config Config, month, number string
 	}, nil
 }
 
-func selectSingleSession(sessions []Session, month string) (Session, error) {
+func selectSessions(sessions []Session, month string) ([]Session, error) {
 	requestedMonth, err := parseMonth(month)
 	if err != nil {
-		return Session{}, err
+		return []Session{}, err
 	}
 
 	var selected []Session
 	for _, session := range sessions {
 		date, err := parseDate(session.Date)
 		if err != nil {
-			return Session{}, fmt.Errorf("session %q date: %w", session.ID, err)
+			return []Session{}, fmt.Errorf("session %q date: %w", session.ID, err)
 		}
 		if date.Year() == requestedMonth.Year() && date.Month() == requestedMonth.Month() {
 			selected = append(selected, session)
 		}
 	}
 
-	switch len(selected) {
-	case 0:
-		return Session{}, fmt.Errorf("no session found for month %s", month)
-	case 1:
-		return selected[0], nil
-	default:
-		return Session{}, fmt.Errorf("month %s contains %d sessions; the minimal invoice path currently supports exactly one", month, len(selected))
+	if len(selected) == 0 {
+		return selected, fmt.Errorf("no session found for month %s", month)
 	}
+
+	return selected, nil
 }
 
 func rateForDate(rates []Rate, date time.Time) (Rate, error) {

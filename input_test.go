@@ -53,6 +53,43 @@ func TestReadSessionFileValidatesSupportedFields(t *testing.T) {
 	}
 }
 
+func TestReadSessionFileAcceptsPreparationOnlySession(t *testing.T) {
+	contents := `{
+		"schemaVersion": 1,
+		"sessions": [{
+			"id": "session-1",
+			"date": "2026-05-01",
+			"student": "Robin",
+			"preparationMinutes": 60,
+			"flights": []
+		}]
+	}`
+
+	path := filepath.Join(t.TempDir(), "sessions.json")
+	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+		t.Fatalf("write session file: %v", err)
+	}
+
+	input, err := readSessionFile(path)
+	if err != nil {
+		t.Fatalf("read preparation-only session: %v", err)
+	}
+
+	if got, want := len(input.Sessions), 1; got != want {
+		t.Fatalf("session count = %d, want %d", got, want)
+	}
+	session := input.Sessions[0]
+	if got, want := len(session.Flights), 0; got != want {
+		t.Errorf("flight count = %d, want %d", got, want)
+	}
+	if session.PreparationMinutes == nil {
+		t.Fatal("preparationMinutes is nil")
+	}
+	if got, want := *session.PreparationMinutes, 60; got != want {
+		t.Errorf("preparationMinutes = %d, want %d", got, want)
+	}
+}
+
 func TestReadConfigValidatesRates(t *testing.T) {
 	contents, err := os.ReadFile(filepath.Join("testdata", "minimal-config.json"))
 	if err != nil {

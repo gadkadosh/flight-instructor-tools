@@ -10,3 +10,6 @@
 
 # Private signature assets.
 /signature.png
+
+# Private local configuration and session data.
+/local/

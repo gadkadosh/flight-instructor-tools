@@ -70,42 +70,151 @@ func TestBuildMinimalInvoiceDocument(t *testing.T) {
 	}
 }
 
-func TestSelectSingleSessionForMonth(t *testing.T) {
-	sessions := []Session{
-		{ID: "april", Date: "2026-04-30"},
-		{ID: "may", Date: "2026-05-03"},
-		{ID: "june", Date: "2026-06-01"},
+func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
+	input := SessionFile{
+		SchemaVersion: 1,
+		Sessions: []Session{
+			{
+				ID:      "april",
+				Date:    "2026-04-30",
+				Student: "April Student",
+				Flights: []Flight{{ID: "april-flight", BlockMinutes: new(60)}},
+			},
+			{
+				ID:                 "may-1",
+				Date:               "2026-05-03",
+				Student:            "Alex",
+				PreparationMinutes: new(30),
+				Flights: []Flight{
+					{ID: "flight-1", BlockMinutes: new(20)},
+					{ID: "flight-2", BlockMinutes: new(30)},
+				},
+			},
+			{
+				ID:      "may-2",
+				Date:    "2026-05-07",
+				Student: "Robin",
+				Flights: []Flight{
+					{ID: "flight-3", BlockMinutes: new(40)},
+					{ID: "flight-4", BlockMinutes: new(50)},
+				},
+			},
+			{
+				ID:                 "may-3",
+				Date:               "2026-05-16",
+				Student:            "Betty",
+				PreparationMinutes: new(60),
+				Flights:            []Flight{},
+			},
+			{
+				ID:      "june",
+				Date:    "2026-06-01",
+				Student: "June Student",
+				Flights: []Flight{{ID: "june-flight", BlockMinutes: new(60)}},
+			},
+		},
+	}
+	config := Config{
+		Currency: "EUR",
+		Rates: []Rate{
+			{
+				EffectiveFrom:           "2026-01-01",
+				PreparationCentsPerHour: 2500,
+				BlockCentsPerHour:       3000,
+			}},
+	}
+	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, time.Local)
+
+	document, err := buildInvoiceDocument(input, config, "2026-05", "2026-05", issueDate)
+	if err != nil {
+		t.Fatalf("build invoice document: %v", err)
 	}
 
-	selected, err := selectSingleSession(sessions, "2026-05")
-	if err != nil {
-		t.Fatalf("select session: %v", err)
+	expectedLines := []Line{
+		{
+			Date:            time.Date(2026, 5, 3, 0, 0, 0, 0, time.Local),
+			Description:     "Alex - Flugvorbereitung",
+			Minutes:         30,
+			HourlyRateCents: 2500,
+			VATRatePercent:  0,
+			TotalCents:      1250,
+		},
+		{
+			Date:            time.Date(2026, 5, 3, 0, 0, 0, 0, time.Local),
+			Description:     "Alex - Blockzeit",
+			Minutes:         50,
+			HourlyRateCents: 3000,
+			VATRatePercent:  0,
+			TotalCents:      2500,
+		},
+		{
+			Date:            time.Date(2026, 5, 7, 0, 0, 0, 0, time.Local),
+			Description:     "Robin - Blockzeit",
+			Minutes:         90,
+			HourlyRateCents: 3000,
+			VATRatePercent:  0,
+			TotalCents:      4500,
+		},
+		{
+			Date:            time.Date(2026, 5, 16, 0, 0, 0, 0, time.Local),
+			Description:     "Betty - Flugvorbereitung",
+			Minutes:         60,
+			HourlyRateCents: 2500,
+			VATRatePercent:  0,
+			TotalCents:      2500,
+		},
 	}
-	if got, want := selected.ID, "may"; got != want {
-		t.Fatalf("selected session = %q, want %q", got, want)
+
+	if got, want := len(document.Lines), len(expectedLines); want != got {
+		t.Fatalf("Incorrect line count = %d, expected = %d", got, want)
+	}
+
+	for i, want := range expectedLines {
+		if got := document.Lines[i]; got != want {
+			t.Fatalf("Incorrect line %d = %+v, expected = %+v", i, got, want)
+		}
+	}
+
+	if got, want := document.Totals, (Totals{NetCents: 10750, VATCents: 0, GrossCents: 10750}); got != want {
+		t.Fatalf("totals = %+v, want %+v", got, want)
 	}
 }
 
-func TestSelectSingleSessionRejectsUnsupportedCounts(t *testing.T) {
-	tests := []struct {
-		name     string
-		sessions []Session
-		want     string
-	}{
-		{name: "none", sessions: []Session{{ID: "april", Date: "2026-04-30"}}, want: "no session"},
-		{name: "multiple", sessions: []Session{{ID: "one", Date: "2026-05-03"}, {ID: "two", Date: "2026-05-04"}}, want: "2 sessions"},
+func TestSelectSessionsForMonth(t *testing.T) {
+	sessions := []Session{
+		{ID: "april", Date: "2026-04-30"},
+		{ID: "may-1", Date: "2026-05-03"},
+		{ID: "may-2", Date: "2026-05-07"},
+		{ID: "june", Date: "2026-06-01"},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := selectSingleSession(test.sessions, "2026-05")
-			if err == nil {
-				t.Fatal("select session unexpectedly succeeded")
-			}
-			if !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("error %q does not contain %q", err, test.want)
-			}
-		})
+	selected, err := selectSessions(sessions, "2026-05")
+	if err != nil {
+		t.Fatalf("select session: %v", err)
+	}
+
+	wantIDs := []string{"may-1", "may-2"}
+
+	if got, want := len(selected), len(wantIDs); got != want {
+		t.Fatalf("Selected sessions length = %d, want %d", got, want)
+	}
+
+	for i, want := range wantIDs {
+		if got := selected[i].ID; want != got {
+			t.Fatalf("selected session = %q, want %q", got, want)
+		}
+	}
+}
+
+func TestSelectSessionsRejectsNoSessions(t *testing.T) {
+	sessions := []Session{{ID: "april", Date: "2026-04-30"}}
+
+	_, err := selectSessions(sessions, "2026-05")
+	if err == nil {
+		t.Fatal("select session unexpectedly succeeded")
+	}
+	if !strings.Contains(err.Error(), "no session") {
+		t.Fatalf("error %q does not contain no session", err)
 	}
 }
 
