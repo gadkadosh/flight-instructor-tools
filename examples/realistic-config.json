@@ -2,18 +2,12 @@
   "currency": "EUR",
   "issuer": {
     "name": "Max Mustermann",
-    "addressLines": [
-      "Musterstraße 6",
-      "12345 Musterstadt"
-    ],
+    "addressLines": ["Musterstraße 6", "12345 Musterstadt"],
     "email": "erika@example.com"
   },
   "customer": {
     "name": "Musterflugschule GmbH",
-    "addressLines": [
-      "Flugplatzstraße 2",
-      "54321 Beispielstadt"
-    ]
+    "addressLines": ["Flugplatzstraße 2", "54321 Beispielstadt"]
   },
   "taxNumber": "00/000/00000",
   "bankDetails": {

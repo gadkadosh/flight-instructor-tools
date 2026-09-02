@@ -6,7 +6,7 @@
   <style>
     @page {
       size: A4;
-      margin: 0;
+      margin: 18mm 18mm 15mm;
     }
 
     * {
@@ -146,6 +146,7 @@
     .closing {
       margin-top: 4mm;
       line-height: 1.45;
+      page-break-inside: avoid;
     }
 
     .closing p {
@@ -175,11 +176,18 @@
       }
 
       .invoice {
+        width: auto;
         margin: 0;
+        padding: 0;
       }
 
       thead {
         display: table-header-group;
+      }
+
+      .footer {
+          position: fixed;
+          bottom: -5mm;
       }
     }
   </style>

@@ -13,3 +13,5 @@
 
 # Private local configuration and session data.
 /local/
+
+.zed

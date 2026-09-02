@@ -28,7 +28,6 @@ func run(ctx context.Context, arguments []string, stdout io.Writer, now func() t
 	}
 
 	flags := flag.NewFlagSet("generate", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
 	inputPath := flags.String("input", "", "session JSON file")
 	configPath := flags.String("config", "", "invoice configuration JSON file")
 	month := flags.String("month", "", "invoice month in YYYY-MM format")
@@ -87,6 +86,19 @@ func run(ctx context.Context, arguments []string, stdout io.Writer, now func() t
 	jsonPath := filepath.Join(*outputDirectory, baseName+".json")
 	htmlPath := filepath.Join(*outputDirectory, baseName+".html")
 	pdfPath := filepath.Join(*outputDirectory, baseName+".pdf")
+
+	for _, path := range []string{jsonPath, htmlPath, pdfPath} {
+		if _, err := os.Stat(path); err == nil {
+			// File exists already
+			var i string
+			fmt.Fprintf(stdout, "%s exists already... overwrite? (y/n) ", path)
+			fmt.Scan(&i)
+			if i != "y" && i != "Y" {
+				fmt.Fprintf(stdout, "aborting.\n")
+				os.Exit(1)
+			}
+		}
+	}
 
 	if err := writeInvoiceSnapshot(jsonPath, document); err != nil {
 		return err
