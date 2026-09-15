@@ -4,6 +4,8 @@
     {
       "id": "2026-05-03-alex",
       "date": "2026-05-03",
+      "dutyStart": "2026-05-03T10:00:00Z",
+      "dutyEnd": "2026-05-03T13:00:00Z",
       "student": "Alex Beispiel",
       "preparationMinutes": 30,
       "flights": [

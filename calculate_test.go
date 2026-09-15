@@ -80,14 +80,16 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 		SchemaVersion: 1,
 		Sessions: []Session{
 			{
-				ID:      "april",
-				Date:    "2026-04-30",
-				Student: "April Student",
-				Flights: []Flight{{ID: "april-flight", BlockMinutes: new(60)}},
+				ID:        "april",
+				DutyStart: "2026-04-30T10:00:00Z",
+				DutyEnd:   "2026-04-30T12:00:00Z",
+				Student:   "April Student",
+				Flights:   []Flight{{ID: "april-flight", BlockMinutes: new(60)}},
 			},
 			{
 				ID:                 "may-1",
-				Date:               "2026-05-03",
+				DutyStart:          "2026-05-03T10:00:00Z",
+				DutyEnd:            "2026-05-03T11:30:00Z",
 				Student:            "Alex",
 				PreparationMinutes: new(30),
 				Flights: []Flight{
@@ -96,9 +98,10 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 				},
 			},
 			{
-				ID:      "may-2",
-				Date:    "2026-05-07",
-				Student: "Robin",
+				ID:        "may-2",
+				DutyStart: "2026-05-07T10:00:00Z",
+				DutyEnd:   "2026-05-07T11:30:00Z",
+				Student:   "Robin",
 				Flights: []Flight{
 					{ID: "flight-3", BlockMinutes: new(40)},
 					{ID: "flight-4", BlockMinutes: new(50)},
@@ -106,16 +109,18 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 			},
 			{
 				ID:                 "may-3",
-				Date:               "2026-05-16",
+				DutyStart:          "2026-05-16T10:00:00Z",
+				DutyEnd:            "2026-05-16T11:30:00Z",
 				Student:            "Betty",
 				PreparationMinutes: new(60),
 				Flights:            []Flight{},
 			},
 			{
-				ID:      "june",
-				Date:    "2026-06-01",
-				Student: "June Student",
-				Flights: []Flight{{ID: "june-flight", BlockMinutes: new(60)}},
+				ID:        "june",
+				DutyStart: "2026-06-01T10:00:00Z",
+				DutyEnd:   "2026-06-01T11:30:00Z",
+				Student:   "June Student",
+				Flights:   []Flight{{ID: "june-flight", BlockMinutes: new(60)}},
 			},
 		},
 	}
@@ -142,7 +147,7 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 
 	expectedLines := []Line{
 		{
-			Date:            time.Date(2026, 5, 3, 0, 0, 0, 0, time.Local),
+			Date:            time.Date(2026, 5, 3, 10, 0, 0, 0, time.UTC),
 			Description:     "Alex - Flugvorbereitung",
 			Minutes:         30,
 			HourlyRateCents: 2500,
@@ -150,7 +155,7 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 			TotalCents:      1250,
 		},
 		{
-			Date:            time.Date(2026, 5, 3, 0, 0, 0, 0, time.Local),
+			Date:            time.Date(2026, 5, 3, 10, 0, 0, 0, time.UTC),
 			Description:     "Alex - Blockzeit",
 			Minutes:         50,
 			HourlyRateCents: 3000,
@@ -158,7 +163,7 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 			TotalCents:      2500,
 		},
 		{
-			Date:            time.Date(2026, 5, 7, 0, 0, 0, 0, time.Local),
+			Date:            time.Date(2026, 5, 7, 10, 0, 0, 0, time.UTC),
 			Description:     "Robin - Blockzeit",
 			Minutes:         90,
 			HourlyRateCents: 3000,
@@ -166,7 +171,7 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 			TotalCents:      4500,
 		},
 		{
-			Date:            time.Date(2026, 5, 16, 0, 0, 0, 0, time.Local),
+			Date:            time.Date(2026, 5, 16, 10, 0, 0, 0, time.UTC),
 			Description:     "Betty - Flugvorbereitung",
 			Minutes:         60,
 			HourlyRateCents: 2500,
@@ -192,10 +197,10 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 
 func TestSelectSessionsForMonth(t *testing.T) {
 	sessions := []Session{
-		{ID: "april", Date: "2026-04-30"},
-		{ID: "may-1", Date: "2026-05-03"},
-		{ID: "may-2", Date: "2026-05-07"},
-		{ID: "june", Date: "2026-06-01"},
+		{ID: "april", DutyStart: "2026-04-30T12:00:00Z"},
+		{ID: "may-1", DutyStart: "2026-05-03T12:00:00Z"},
+		{ID: "may-2", DutyStart: "2026-05-07T12:00:00Z"},
+		{ID: "june", DutyStart: "2026-06-01T12:00:00Z"},
 	}
 
 	selected, err := selectSessions(sessions, "2026-05")
@@ -217,7 +222,7 @@ func TestSelectSessionsForMonth(t *testing.T) {
 }
 
 func TestSelectSessionsRejectsNoSessions(t *testing.T) {
-	sessions := []Session{{ID: "april", Date: "2026-04-30"}}
+	sessions := []Session{{ID: "april", DutyStart: "2026-04-30T14:00:00Z"}}
 
 	_, err := selectSessions(sessions, "2026-05")
 	if err == nil {

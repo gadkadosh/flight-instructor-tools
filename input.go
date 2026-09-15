@@ -16,7 +16,8 @@ type SessionFile struct {
 
 type Session struct {
 	ID                 string   `json:"id"`
-	Date               string   `json:"date"`
+	DutyStart          string   `json:"dutyStart"`
+	DutyEnd            string   `json:"dutyEnd"`
 	Student            string   `json:"student,omitempty"`
 	Description        string   `json:"description,omitempty"`
 	PreparationMinutes *int     `json:"preparationMinutes,omitempty"`
@@ -93,8 +94,11 @@ func validateSessionFile(input SessionFile) error {
 		if strings.TrimSpace(session.ID) == "" {
 			return fmt.Errorf("%s.id: must not be empty", path)
 		}
-		if err := validateDate(session.Date); err != nil {
-			return fmt.Errorf("%s.date: %w", path, err)
+		if err := validateDateTime(session.DutyStart); err != nil {
+			return fmt.Errorf("%s.dutyStart: %w", path, err)
+		}
+		if err := validateDateTime(session.DutyEnd); err != nil {
+			return fmt.Errorf("%s.dutyEnd: %w", path, err)
 		}
 		if strings.TrimSpace(session.Student) == "" && strings.TrimSpace(session.Description) == "" {
 			return fmt.Errorf("%s: student or description is required", path)
@@ -194,5 +198,10 @@ func validateParty(path string, party Party, requireEmail bool) error {
 
 func validateDate(value string) error {
 	_, err := parseDate(value)
+	return err
+}
+
+func validateDateTime(value string) error {
+	_, err := parseDateTime(value)
 	return err
 }

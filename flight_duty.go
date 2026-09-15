@@ -31,7 +31,7 @@ func buildDutyReport(sessions []Session, config Config, month string, issueDate 
 	currentMonth := 0
 
 	for _, session := range sessions {
-		date, err := parseDate(session.Date)
+		date, err := parseDateTime(session.DutyStart)
 		if err != nil {
 			return DutyReport{}, err
 		}

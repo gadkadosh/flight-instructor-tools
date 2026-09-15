@@ -3,7 +3,8 @@
   "sessions": [
     {
       "id": "2026-04-30-pat",
-      "date": "2026-04-30",
+      "dutyStart": "2026-04-30T10:00:00Z",
+      "dutyEnd": "2026-04-30T11:30:00Z",
       "student": "Pat Beispiel",
       "preparationMinutes": 30,
       "flights": [
@@ -15,7 +16,8 @@
     },
     {
       "id": "2026-05-03-alex-1",
-      "date": "2026-05-03",
+      "dutyStart": "2026-05-03T10:00:00Z",
+      "dutyEnd": "2026-05-03T11:30:00Z",
       "student": "Alex Beispiel",
       "preparationMinutes": 15,
       "flights": [
@@ -27,7 +29,8 @@
     },
     {
       "id": "2026-05-03-alex-2",
-      "date": "2026-05-03",
+      "dutyStart": "2026-05-03T11:30:00Z",
+      "dutyEnd": "2026-05-03T13:30:00Z",
       "student": "Alex Beispiel",
       "preparationMinutes": 15,
       "flights": [
@@ -39,7 +42,8 @@
     },
     {
       "id": "2026-05-03-robin",
-      "date": "2026-05-03",
+      "dutyStart": "2026-05-03T13:30:00Z",
+      "dutyEnd": "2026-05-03T15:00:00Z",
       "student": "Robin Muster",
       "preparationMinutes": 60,
       "flights": [
@@ -55,14 +59,16 @@
     },
     {
       "id": "2026-05-10-taylor-ground",
-      "date": "2026-05-10",
+      "dutyStart": "2026-05-10T12:00:00Z",
+      "dutyEnd": "2026-05-10T13:00:00Z",
       "student": "Taylor Test",
       "preparationMinutes": 30,
       "flights": []
     },
     {
       "id": "2026-05-10-taylor-flight",
-      "date": "2026-05-10",
+      "dutyStart": "2026-05-10T13:00:00Z",
+      "dutyEnd": "2026-05-10T14:00:00Z",
       "student": "Taylor Test",
       "flights": [
         {
@@ -73,7 +79,8 @@
     },
     {
       "id": "2026-05-10-chris",
-      "date": "2026-05-10",
+      "dutyStart": "2026-05-10T14:00:00Z",
+      "dutyEnd": "2026-05-10T17:00:00Z",
       "student": "Chris Beispiel",
       "preparationMinutes": 30,
       "flights": [
@@ -89,7 +96,8 @@
     },
     {
       "id": "2026-05-10-robin",
-      "date": "2026-05-10",
+      "dutyStart": "2026-05-10T17:00:00Z",
+      "dutyEnd": "2026-05-10T19:00:00Z",
       "student": "Robin Muster",
       "preparationMinutes": 30,
       "flights": [
@@ -101,7 +109,8 @@
     },
     {
       "id": "2026-05-24-sightseeing",
-      "date": "2026-05-24",
+      "dutyStart": "2026-05-24T10:00:00Z",
+      "dutyEnd": "2026-05-24T11:00:00Z",
       "description": "Rundflug 45°",
       "flights": [
         {
@@ -112,7 +121,8 @@
     },
     {
       "id": "2026-05-24-sam",
-      "date": "2026-05-24",
+      "dutyStart": "2026-05-24T11:00:00Z",
+      "dutyEnd": "2026-05-24T14:00:00Z",
       "student": "Sam Muster",
       "preparationMinutes": 60,
       "flights": [
@@ -128,7 +138,8 @@
     },
     {
       "id": "2026-05-24-dana-1",
-      "date": "2026-05-24",
+      "dutyStart": "2026-05-24T14:30:00Z",
+      "dutyEnd": "2026-05-24T16:30:00Z",
       "student": "Dana Beispiel",
       "preparationMinutes": 15,
       "flights": [
@@ -140,7 +151,8 @@
     },
     {
       "id": "2026-05-24-dana-2",
-      "date": "2026-05-24",
+      "dutyStart": "2026-05-24T17:00:00Z",
+      "dutyEnd": "2026-05-24T19:00:00Z",
       "student": "Dana Beispiel",
       "preparationMinutes": 15,
       "flights": [
@@ -152,7 +164,8 @@
     },
     {
       "id": "2026-06-01-joerg",
-      "date": "2026-06-01",
+      "dutyStart": "2026-06-01T08:00:00Z",
+      "dutyEnd": "2026-06-01T10:00:00Z",
       "student": "Jörg Übung",
       "preparationMinutes": 25,
       "flights": [

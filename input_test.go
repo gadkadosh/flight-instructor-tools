@@ -19,18 +19,23 @@ func TestReadSessionFileValidatesSupportedFields(t *testing.T) {
 			wantError: "schemaVersion",
 		},
 		{
-			name:      "invalid date",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","date":"2026-02-30","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
-			wantError: "sessions[0].date",
+			name:      "invalid dutyStart date",
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-02-30T08:00:00Z","dutyEnd":"2026-03-01T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
+			wantError: "sessions[0].dutyStart",
+		},
+		{
+			name:      "invalid dutyEnd date",
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-02-20T08:00:00Z","dutyEnd":"2026-02-30T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
+			wantError: "sessions[0].dutyEnd",
 		},
 		{
 			name:      "zero preparation duration",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","date":"2026-05-03","student":"Alex","preparationMinutes":0,"flights":[]}]}`,
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","preparationMinutes":0,"flights":[]}]}`,
 			wantError: "sessions[0].preparationMinutes",
 		},
 		{
 			name:      "missing block duration",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","date":"2026-05-03","student":"Alex","flights":[{"id":"flight-1"}]}]}`,
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","flights":[{"id":"flight-1"}]}]}`,
 			wantError: "sessions[0].flights[0].blockMinutes",
 		},
 	}
@@ -58,7 +63,8 @@ func TestReadSessionFileAcceptsPreparationOnlySession(t *testing.T) {
 		"schemaVersion": 1,
 		"sessions": [{
 			"id": "session-1",
-			"date": "2026-05-01",
+			"dutyStart": "2026-05-03T10:00:00Z",
+			"dutyEnd": "2026-05-03T12:00:00Z",
 			"student": "Robin",
 			"preparationMinutes": 60,
 			"flights": []
