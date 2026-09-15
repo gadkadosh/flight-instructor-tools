@@ -6,12 +6,7 @@ import (
 	"time"
 )
 
-func buildInvoiceDocument(input SessionFile, config Config, month, number string, issueDate time.Time) (Document, error) {
-	sessions, err := selectSessions(input.Sessions, month)
-	if err != nil {
-		return Document{}, err
-	}
-
+func buildInvoiceDocument(sessions []Session, config Config, number string, issueDate time.Time) (Document, error) {
 	var lines []Line
 	for _, session := range sessions {
 		sessionDate, err := parseDate(session.Date)

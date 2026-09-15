@@ -70,7 +70,13 @@ func run(ctx context.Context, arguments []string, stdout io.Writer, now func() t
 	if err != nil {
 		return err
 	}
-	document, err := buildInvoiceDocument(input, config, *month, *number, issueDate)
+
+	sessions, err := selectSessions(input.Sessions, *month)
+	if err != nil {
+		return err
+	}
+
+	document, err := buildInvoiceDocument(sessions, config, *number, issueDate)
 	if err != nil {
 		return fmt.Errorf("build invoice: %w", err)
 	}

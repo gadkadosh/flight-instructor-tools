@@ -19,7 +19,12 @@ func TestBuildMinimalInvoiceDocument(t *testing.T) {
 	}
 	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, time.Local)
 
-	document, err := buildInvoiceDocument(input, config, "2026-05", "2026-05", issueDate)
+	sessions, err := selectSessions(input.Sessions, "2026-05")
+	if err != nil {
+		t.Fatalf("select sessions: %v", err)
+	}
+
+	document, err := buildInvoiceDocument(sessions, config, "2026-05", issueDate)
 	if err != nil {
 		t.Fatalf("build invoice document: %v", err)
 	}
@@ -125,7 +130,12 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 	}
 	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, time.Local)
 
-	document, err := buildInvoiceDocument(input, config, "2026-05", "2026-05", issueDate)
+	sessions, err := selectSessions(input.Sessions, "2026-05")
+	if err != nil {
+		t.Fatalf("select sessions: %v", err)
+	}
+
+	document, err := buildInvoiceDocument(sessions, config, "2026-05", issueDate)
 	if err != nil {
 		t.Fatalf("build invoice document: %v", err)
 	}
