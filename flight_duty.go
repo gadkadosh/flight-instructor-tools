@@ -36,7 +36,7 @@ func buildDutyReport(sessions []Session, config Config, month string, issueDate 
 			return DutyReport{}, err
 		}
 		day := date.Day()
-		if day > 31 {
+		if day >= 31 {
 			return DutyReport{}, err
 		}
 

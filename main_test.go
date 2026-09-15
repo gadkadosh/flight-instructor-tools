@@ -91,7 +91,7 @@ func TestRunRequiresGenerateCommand(t *testing.T) {
 	if err == nil {
 		t.Fatal("run unexpectedly succeeded")
 	}
-	if !strings.Contains(err.Error(), "invoice generate") {
+	if !strings.Contains(err.Error(), "fitools generate") {
 		t.Fatalf("error %q does not contain command usage", err)
 	}
 }

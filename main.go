@@ -17,14 +17,14 @@ const (
 
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Stdout, time.Now); err != nil {
-		fmt.Fprintf(os.Stderr, "invoice: %v\n", err)
+		fmt.Fprintf(os.Stderr, "fitools: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 func run(ctx context.Context, arguments []string, stdout io.Writer, now func() time.Time) error {
 	if len(arguments) == 0 || arguments[0] != "generate" {
-		return fmt.Errorf("usage: invoice generate --input FILE --config FILE --month YYYY-MM --number NUMBER [--issue-date YYYY-MM-DD] [--output-dir DIR] [--signature FILE]")
+		return fmt.Errorf("usage: fitools generate --input FILE --config FILE --month YYYY-MM --number NUMBER [--issue-date YYYY-MM-DD] [--output-dir DIR] [--signature FILE]")
 	}
 
 	flags := flag.NewFlagSet("generate", flag.ContinueOnError)
@@ -78,7 +78,7 @@ func run(ctx context.Context, arguments []string, stdout io.Writer, now func() t
 
 	document, err := buildInvoiceDocument(sessions, config, *number, issueDate)
 	if err != nil {
-		return fmt.Errorf("build invoice: %w", err)
+		return fmt.Errorf("build fitools: %w", err)
 	}
 	signaturePNG, err := os.ReadFile(*signaturePath)
 	if err != nil {

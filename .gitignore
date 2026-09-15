@@ -1,6 +1,9 @@
 # Operating-system metadata.
 .DS_Store
 
+# fitools binary
+fitools
+
 # Private local reference documents used only for visual comparison.
 /example.pdf
 /example.pages
