@@ -29,6 +29,16 @@ func TestReadSessionFileValidatesSupportedFields(t *testing.T) {
 			wantError: "sessions[0].dutyEnd",
 		},
 		{
+			name:      "dutyEnd before dutyStart",
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-02-20T08:00:00Z","dutyEnd":"2026-02-10T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
+			wantError: "sessions[0].dutyEnd: must be after dutyStart",
+		},
+		{
+			name:      "dutyEnd equals dutyStart",
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-02-20T08:00:00Z","dutyEnd":"2026-02-20T08:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
+			wantError: "sessions[0].dutyEnd: must be after dutyStart",
+		},
+		{
 			name:      "zero preparation duration",
 			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","preparationMinutes":0,"flights":[]}]}`,
 			wantError: "sessions[0].preparationMinutes",

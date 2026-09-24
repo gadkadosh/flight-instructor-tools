@@ -94,12 +94,19 @@ func validateSessionFile(input SessionFile) error {
 		if strings.TrimSpace(session.ID) == "" {
 			return fmt.Errorf("%s.id: must not be empty", path)
 		}
-		if err := validateDateTime(session.DutyStart); err != nil {
+
+		dutyStart, err := parseDateTime(session.DutyStart)
+		if err != nil {
 			return fmt.Errorf("%s.dutyStart: %w", path, err)
 		}
-		if err := validateDateTime(session.DutyEnd); err != nil {
+		dutyEnd, err := parseDateTime(session.DutyEnd)
+		if err != nil {
 			return fmt.Errorf("%s.dutyEnd: %w", path, err)
 		}
+		if !dutyEnd.After(dutyStart) {
+			return fmt.Errorf("%s.dutyEnd: must be after dutyStart", path)
+		}
+
 		if strings.TrimSpace(session.Student) == "" && strings.TrimSpace(session.Description) == "" {
 			return fmt.Errorf("%s: student or description is required", path)
 		}

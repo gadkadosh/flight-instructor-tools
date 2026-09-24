@@ -38,12 +38,13 @@ func TestBuildFlightDuty(t *testing.T) {
 		t.Errorf("len(Lines) = %v, want %v", got, expected)
 	}
 
-	for day, line := range dutyReport.Lines {
-		if day == 3 {
+	for dayIndex, line := range dutyReport.Lines {
+		if dayIndex == 2 {
 			if got, expected := line.BlockMinutes, 65; got != expected {
 				t.Errorf("block time = %d, want %v", got, expected)
 			}
 		} else {
+			day := dayIndex + 1
 			if !line.Start.IsZero() {
 				t.Errorf("start time not empty for day %d", day)
 			}
@@ -70,5 +71,39 @@ func TestBuildFlightDuty(t *testing.T) {
 	}
 	if got, expected := dutyReport.Totals.CurrentYear, 120; got != expected {
 		t.Errorf("currentYear = %v, want %d", got, expected)
+	}
+}
+
+func TestBuildDutyReportDayBoundaries(t *testing.T) {
+	tests := []struct {
+		name      string
+		date      string
+		wantIndex int
+	}{
+		{name: "first day", date: "2026-05-01", wantIndex: 0},
+		{name: "last day", date: "2026-05-31", wantIndex: 30},
+	}
+	issueDate := time.Date(2026, time.June, 10, 0, 0, 0, 0, time.Local)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sessions := []Session{
+				{
+					ID:                 "session-id",
+					DutyStart:          test.date + "T10:00:00Z",
+					DutyEnd:            test.date + "T12:00:00Z",
+					Student:            "Test Student",
+					PreparationMinutes: new(30),
+					Flights:            []Flight{{ID: "flight-1", BlockMinutes: new(60)}},
+				},
+			}
+			dutyReport, err := buildDutyReport(sessions, Config{}, "2026-05", issueDate, 0)
+			if err != nil {
+				t.Fatalf("buildDutyReport failed: %v", err)
+			}
+			if got, want := dutyReport.Lines[test.wantIndex].BlockMinutes, 60; got != want {
+				t.Errorf("%s: blockMinutes = %d, want %d", test.name, got, want)
+			}
+		})
 	}
 }
