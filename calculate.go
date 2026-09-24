@@ -9,10 +9,7 @@ import (
 func buildInvoiceDocument(sessions []Session, config Config, number string, issueDate time.Time) (Document, error) {
 	var lines []Line
 	for _, session := range sessions {
-		sessionDate, err := parseDateTime(session.DutyStart)
-		if err != nil {
-			return Document{}, fmt.Errorf("session %q date: %w", session.ID, err)
-		}
+		sessionDate := session.DutyStart
 		rate, err := rateForDate(config.Rates, sessionDate)
 		if err != nil {
 			return Document{}, fmt.Errorf("session %q: %w", session.ID, err)
@@ -55,10 +52,7 @@ func selectSessions(sessions []Session, month string) ([]Session, error) {
 
 	var selected []Session
 	for _, session := range sessions {
-		date, err := parseDateTime(session.DutyStart)
-		if err != nil {
-			return []Session{}, fmt.Errorf("session %q date: %w", session.ID, err)
-		}
+		date := session.DutyStart
 		if date.Year() == requestedMonth.Year() && date.Month() == requestedMonth.Month() {
 			selected = append(selected, session)
 		}
@@ -169,14 +163,6 @@ func parseDate(value string) (time.Time, error) {
 			return time.Time{}, fmt.Errorf("must be a valid date in YYYY-MM-DD format: %w", err)
 		}
 		return time.Time{}, fmt.Errorf("must be a valid date in YYYY-MM-DD format")
-	}
-	return date, nil
-}
-
-func parseDateTime(value string) (time.Time, error) {
-	date, err := time.Parse(time.RFC3339, value)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("must be a valid date in YYYY-MM-DDTHH:MM:SSZ format (RFC 3339)")
 	}
 	return date, nil
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 const supportedSessionSchemaVersion = 1
@@ -15,13 +16,13 @@ type SessionFile struct {
 }
 
 type Session struct {
-	ID                 string   `json:"id"`
-	DutyStart          string   `json:"dutyStart"`
-	DutyEnd            string   `json:"dutyEnd"`
-	Student            string   `json:"student,omitempty"`
-	Description        string   `json:"description,omitempty"`
-	PreparationMinutes *int     `json:"preparationMinutes,omitempty"`
-	Flights            []Flight `json:"flights"`
+	ID                 string    `json:"id"`
+	DutyStart          time.Time `json:"dutyStart"`
+	DutyEnd            time.Time `json:"dutyEnd"`
+	Student            string    `json:"student,omitempty"`
+	Description        string    `json:"description,omitempty"`
+	PreparationMinutes *int      `json:"preparationMinutes,omitempty"`
+	Flights            []Flight  `json:"flights"`
 }
 
 type Flight struct {
@@ -95,15 +96,13 @@ func validateSessionFile(input SessionFile) error {
 			return fmt.Errorf("%s.id: must not be empty", path)
 		}
 
-		dutyStart, err := parseDateTime(session.DutyStart)
-		if err != nil {
-			return fmt.Errorf("%s.dutyStart: %w", path, err)
+		if session.DutyStart.IsZero() {
+			return fmt.Errorf("%s.dutyStart: missing or zero", path)
 		}
-		dutyEnd, err := parseDateTime(session.DutyEnd)
-		if err != nil {
-			return fmt.Errorf("%s.dutyEnd: %w", path, err)
+		if session.DutyEnd.IsZero() {
+			return fmt.Errorf("%s.dutyEnd: missing or zero", path)
 		}
-		if !dutyEnd.After(dutyStart) {
+		if !session.DutyEnd.After(session.DutyStart) {
 			return fmt.Errorf("%s.dutyEnd: must be after dutyStart", path)
 		}
 
@@ -205,10 +204,5 @@ func validateParty(path string, party Party, requireEmail bool) error {
 
 func validateDate(value string) error {
 	_, err := parseDate(value)
-	return err
-}
-
-func validateDateTime(value string) error {
-	_, err := parseDateTime(value)
 	return err
 }

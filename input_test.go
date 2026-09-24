@@ -19,14 +19,34 @@ func TestReadSessionFileValidatesSupportedFields(t *testing.T) {
 			wantError: "schemaVersion",
 		},
 		{
+			name:      "dutyStart date is null",
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":null,"dutyEnd":"2026-03-01T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
+			wantError: "sessions[0].dutyStart: missing or zero",
+		},
+		{
+			name:      "missing dutyStart date",
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyEnd":"2026-03-01T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
+			wantError: "sessions[0].dutyStart: missing or zero",
+		},
+		{
+			name:      "dutyEnd date is null",
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-03-01T09:00:00Z","dutyEnd":null,"student":"Alex","preparationMinutes":30,"flights":[]}]}`,
+			wantError: "sessions[0].dutyEnd: missing or zero",
+		},
+		{
+			name:      "missing dutyEnd date",
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-03-01T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
+			wantError: "sessions[0].dutyEnd: missing or zero",
+		},
+		{
 			name:      "invalid dutyStart date",
 			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-02-30T08:00:00Z","dutyEnd":"2026-03-01T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
-			wantError: "sessions[0].dutyStart",
+			wantError: "2026-02-30T08:00:00Z",
 		},
 		{
 			name:      "invalid dutyEnd date",
 			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-02-20T08:00:00Z","dutyEnd":"2026-02-30T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
-			wantError: "sessions[0].dutyEnd",
+			wantError: "2026-02-30T09:00:00Z",
 		},
 		{
 			name:      "dutyEnd before dutyStart",

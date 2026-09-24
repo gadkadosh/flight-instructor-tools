@@ -31,11 +31,7 @@ func buildDutyReport(sessions []Session, config Config, month string, issueDate 
 	currentMonth := 0
 
 	for _, session := range sessions {
-		date, err := parseDateTime(session.DutyStart)
-		if err != nil {
-			return DutyReport{}, err
-		}
-		dayIndex := date.Day() - 1
+		dayIndex := session.DutyStart.Day() - 1
 		// TODO: add flight duty time to currentMonth
 		current := &lines[dayIndex]
 		for _, flight := range session.Flights {

@@ -75,21 +75,29 @@ func TestBuildMinimalInvoiceDocument(t *testing.T) {
 	}
 }
 
+func mustTimestamp(t *testing.T, value string) time.Time {
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		t.Fatalf("invalid test timestamp %q: %v", value, err)
+	}
+	return parsed
+}
+
 func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 	input := SessionFile{
 		SchemaVersion: 1,
 		Sessions: []Session{
 			{
 				ID:        "april",
-				DutyStart: "2026-04-30T10:00:00Z",
-				DutyEnd:   "2026-04-30T12:00:00Z",
+				DutyStart: mustTimestamp(t, "2026-04-30T10:00:00Z"),
+				DutyEnd:   mustTimestamp(t, "2026-04-30T12:00:00Z"),
 				Student:   "April Student",
 				Flights:   []Flight{{ID: "april-flight", BlockMinutes: new(60)}},
 			},
 			{
 				ID:                 "may-1",
-				DutyStart:          "2026-05-03T10:00:00Z",
-				DutyEnd:            "2026-05-03T11:30:00Z",
+				DutyStart:          mustTimestamp(t, "2026-05-03T10:00:00Z"),
+				DutyEnd:            mustTimestamp(t, "2026-05-03T11:30:00Z"),
 				Student:            "Alex",
 				PreparationMinutes: new(30),
 				Flights: []Flight{
@@ -99,8 +107,8 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 			},
 			{
 				ID:        "may-2",
-				DutyStart: "2026-05-07T10:00:00Z",
-				DutyEnd:   "2026-05-07T11:30:00Z",
+				DutyStart: mustTimestamp(t, "2026-05-07T10:00:00Z"),
+				DutyEnd:   mustTimestamp(t, "2026-05-07T11:30:00Z"),
 				Student:   "Robin",
 				Flights: []Flight{
 					{ID: "flight-3", BlockMinutes: new(40)},
@@ -109,16 +117,16 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 			},
 			{
 				ID:                 "may-3",
-				DutyStart:          "2026-05-16T10:00:00Z",
-				DutyEnd:            "2026-05-16T11:30:00Z",
+				DutyStart:          mustTimestamp(t, "2026-05-16T10:00:00Z"),
+				DutyEnd:            mustTimestamp(t, "2026-05-16T11:30:00Z"),
 				Student:            "Betty",
 				PreparationMinutes: new(60),
 				Flights:            []Flight{},
 			},
 			{
 				ID:        "june",
-				DutyStart: "2026-06-01T10:00:00Z",
-				DutyEnd:   "2026-06-01T11:30:00Z",
+				DutyStart: mustTimestamp(t, "2026-06-01T10:00:00Z"),
+				DutyEnd:   mustTimestamp(t, "2026-06-01T11:30:00Z"),
 				Student:   "June Student",
 				Flights:   []Flight{{ID: "june-flight", BlockMinutes: new(60)}},
 			},
@@ -197,10 +205,10 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 
 func TestSelectSessionsForMonth(t *testing.T) {
 	sessions := []Session{
-		{ID: "april", DutyStart: "2026-04-30T12:00:00Z"},
-		{ID: "may-1", DutyStart: "2026-05-03T12:00:00Z"},
-		{ID: "may-2", DutyStart: "2026-05-07T12:00:00Z"},
-		{ID: "june", DutyStart: "2026-06-01T12:00:00Z"},
+		{ID: "april", DutyStart: mustTimestamp(t, "2026-04-30T12:00:00Z")},
+		{ID: "may-1", DutyStart: mustTimestamp(t, "2026-05-03T12:00:00Z")},
+		{ID: "may-2", DutyStart: mustTimestamp(t, "2026-05-07T12:00:00Z")},
+		{ID: "june", DutyStart: mustTimestamp(t, "2026-06-01T12:00:00Z")},
 	}
 
 	selected, err := selectSessions(sessions, "2026-05")
@@ -222,7 +230,7 @@ func TestSelectSessionsForMonth(t *testing.T) {
 }
 
 func TestSelectSessionsRejectsNoSessions(t *testing.T) {
-	sessions := []Session{{ID: "april", DutyStart: "2026-04-30T14:00:00Z"}}
+	sessions := []Session{{ID: "april", DutyStart: mustTimestamp(t, "2026-04-30T14:00:00Z")}}
 
 	_, err := selectSessions(sessions, "2026-05")
 	if err == nil {

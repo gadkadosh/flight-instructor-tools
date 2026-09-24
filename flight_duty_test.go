@@ -90,8 +90,8 @@ func TestBuildDutyReportDayBoundaries(t *testing.T) {
 			sessions := []Session{
 				{
 					ID:                 "session-id",
-					DutyStart:          test.date + "T10:00:00Z",
-					DutyEnd:            test.date + "T12:00:00Z",
+					DutyStart:          mustTimestamp(t, test.date+"T10:00:00Z"),
+					DutyEnd:            mustTimestamp(t, test.date+"T12:00:00Z"),
 					Student:            "Test Student",
 					PreparationMinutes: new(30),
 					Flights:            []Flight{{ID: "flight-1", BlockMinutes: new(60)}},
