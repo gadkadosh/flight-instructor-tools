@@ -7,12 +7,15 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
+func setupGenerateTest(t *testing.T) (args []string, outputDir string) {
+	t.Helper()
+
 	if runtime.GOOS == "windows" {
 		t.Skip("test uses a POSIX test executable")
 	}
@@ -29,10 +32,8 @@ func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
 		t.Fatalf("write signature: %v", err)
 	}
 	outputDirectory := t.TempDir()
-	fixedNow := time.Date(2026, time.June, 9, 12, 34, 56, 0, time.UTC)
-	var stdout bytes.Buffer
 
-	err := run(context.Background(), []string{
+	args = []string{
 		"generate",
 		"--input", filepath.Join("testdata", "minimal-sessions.json"),
 		"--config", filepath.Join("testdata", "minimal-config.json"),
@@ -40,7 +41,17 @@ func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
 		"--number", "2026-05",
 		"--output-dir", outputDirectory,
 		"--signature", signaturePath,
-	}, &stdout, func() time.Time { return fixedNow })
+	}
+
+	return args, outputDirectory
+}
+
+func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
+	args, outputDirectory := setupGenerateTest(t)
+
+	var stdout bytes.Buffer
+	fixedNow := time.Date(2026, time.June, 9, 12, 34, 56, 0, time.UTC)
+	err := run(context.Background(), args, &stdout, strings.NewReader(""), func() time.Time { return fixedNow })
 	if err != nil {
 		t.Fatalf("run generate: %v", err)
 	}
@@ -69,6 +80,106 @@ func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
 	}
 }
 
+func TestRunGenerateOverwrite(t *testing.T) {
+
+	tests := []struct {
+		name        string
+		stdinString string
+		wantError   string
+		extraArgs   []string
+		wantPrompts int
+	}{
+		{
+			name:        "accept all",
+			stdinString: "y\ny\ny\n",
+			wantError:   "",
+			wantPrompts: 3,
+		},
+		{
+			name:        "decline second file",
+			stdinString: "y\nn\n",
+			wantError:   "aborting",
+			wantPrompts: 2,
+		},
+		{
+			name:        "empty input",
+			stdinString: "",
+			wantError:   "aborting: no confirmation received",
+			wantPrompts: 1,
+		},
+		{
+			name:        "empty input after accepting a file",
+			stdinString: "y\n",
+			wantError:   "aborting: no confirmation received",
+			wantPrompts: 2,
+		},
+		{
+			name:        "force overwrite",
+			stdinString: "",
+			wantError:   "",
+			extraArgs:   []string{"--force"},
+		},
+		{
+			name:        "force overwrite (shorthand)",
+			stdinString: "",
+			wantError:   "",
+			extraArgs:   []string{"-f"},
+		},
+	}
+
+	for _, test := range tests {
+
+		t.Run(test.name, func(t *testing.T) {
+			args, outputDirectory := setupGenerateTest(t)
+
+			for _, extension := range []string{"json", "html", "pdf"} {
+				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+extension)
+				original := "original " + extension
+				if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
+					t.Fatalf("failed to write artifact file %q: %v", path, err)
+				}
+			}
+
+			var stdout bytes.Buffer
+			fixedNow := time.Date(2026, time.June, 9, 12, 34, 56, 0, time.UTC)
+			err := run(context.Background(), slices.Concat(args, test.extraArgs), &stdout, strings.NewReader(test.stdinString), func() time.Time { return fixedNow })
+
+			gotPrompt := strings.Count(stdout.String(), "Overwrite?")
+			if test.wantPrompts != gotPrompt {
+				t.Errorf("\"Overwrite?\" prompt shown = %v, want = %v", gotPrompt, test.wantPrompts)
+			}
+
+			if test.wantError == "" {
+				if err != nil {
+					t.Errorf("expected success, received: %v", err)
+				}
+			} else {
+				if err == nil || !strings.Contains(err.Error(), test.wantError) {
+					t.Errorf("expected error containing %q, received: %v", test.wantError, err)
+				}
+			}
+
+			for _, extension := range []string{"json", "html", "pdf"} {
+				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+extension)
+				content, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("read artifact %q: %v", path, err)
+				}
+				original := "original " + extension
+				if test.wantError == "" {
+					if len(content) == 0 || string(content) == original {
+						t.Errorf("%s was not replaced with generated content", extension)
+					}
+				} else {
+					if string(content) != original {
+						t.Errorf("%s changed despite aborting", extension)
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestResolveExplicitIssueDateDoesNotReadClock(t *testing.T) {
 	clockRead := false
 	date, err := resolveIssueDate("2026-06-10", func() time.Time {
@@ -87,7 +198,7 @@ func TestResolveExplicitIssueDateDoesNotReadClock(t *testing.T) {
 }
 
 func TestRunRequiresGenerateCommand(t *testing.T) {
-	err := run(context.Background(), nil, &bytes.Buffer{}, time.Now)
+	err := run(context.Background(), nil, &bytes.Buffer{}, strings.NewReader(""), time.Now)
 	if err == nil {
 		t.Fatal("run unexpectedly succeeded")
 	}

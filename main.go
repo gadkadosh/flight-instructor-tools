@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -16,15 +19,15 @@ const (
 )
 
 func main() {
-	if err := run(context.Background(), os.Args[1:], os.Stdout, time.Now); err != nil {
+	if err := run(context.Background(), os.Args[1:], os.Stdout, os.Stdin, time.Now); err != nil {
 		fmt.Fprintf(os.Stderr, "fitools: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, arguments []string, stdout io.Writer, now func() time.Time) error {
+func run(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Reader, now func() time.Time) error {
 	if len(arguments) == 0 || arguments[0] != "generate" {
-		return fmt.Errorf("usage: fitools generate --input FILE --config FILE --month YYYY-MM --number NUMBER [--issue-date YYYY-MM-DD] [--output-dir DIR] [--signature FILE]")
+		return fmt.Errorf("usage: fitools generate --input FILE --config FILE --month YYYY-MM --number NUMBER [--issue-date YYYY-MM-DD] [--output-dir DIR] [--signature FILE] [-f|--force]")
 	}
 
 	flags := flag.NewFlagSet("generate", flag.ContinueOnError)
@@ -35,6 +38,9 @@ func run(ctx context.Context, arguments []string, stdout io.Writer, now func() t
 	issueDateValue := flags.String("issue-date", "", "invoice issue date in YYYY-MM-DD format")
 	outputDirectory := flags.String("output-dir", defaultOutputDirectory, "artifact output directory")
 	signaturePath := flags.String("signature", defaultSignaturePath, "signature PNG file")
+	var force bool
+	flags.BoolVar(&force, "f", false, "force overwrite existing files")
+	flags.BoolVar(&force, "force", false, "force overwrite existing files")
 	if err := flags.Parse(arguments[1:]); err != nil {
 		return fmt.Errorf("parse generate arguments: %w", err)
 	}
@@ -93,15 +99,30 @@ func run(ctx context.Context, arguments []string, stdout io.Writer, now func() t
 	htmlPath := filepath.Join(*outputDirectory, baseName+".html")
 	pdfPath := filepath.Join(*outputDirectory, baseName+".pdf")
 
-	for _, path := range []string{jsonPath, htmlPath, pdfPath} {
-		if _, err := os.Stat(path); err == nil {
+	if !force {
+		scanner := bufio.NewScanner(stdin)
+
+		for _, path := range []string{jsonPath, htmlPath, pdfPath} {
+			_, err := os.Stat(path)
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("file stat %s error: %w", path, err)
+			}
+
 			// File exists already
-			var i string
-			fmt.Fprintf(stdout, "%s exists already... overwrite? (y/n) ", path)
-			fmt.Scan(&i)
-			if i != "y" && i != "Y" {
-				fmt.Fprintf(stdout, "aborting.\n")
-				os.Exit(1)
+			fmt.Fprintf(stdout, "%s already exists. Overwrite? [y/N] ", path)
+			if !scanner.Scan() {
+				if err := scanner.Err(); err != nil {
+					return fmt.Errorf("read overwrite confirmation: %w", err)
+				}
+				return fmt.Errorf("aborting: no confirmation received")
+			}
+
+			input := scanner.Text()
+			if !strings.EqualFold(strings.TrimSpace(input), "y") {
+				return fmt.Errorf("aborting")
 			}
 		}
 	}
