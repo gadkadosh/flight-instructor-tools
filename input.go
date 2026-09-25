@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -72,13 +73,25 @@ func readConfig(path string) (Config, error) {
 }
 
 func readJSONFile(path string, destination any) error {
-	contents, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open %q: %w", path, err)
 	}
-	if err := json.Unmarshal(contents, destination); err != nil {
+	defer f.Close()
+	decoder := json.NewDecoder(f)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(destination); err != nil {
 		return fmt.Errorf("decode %q: %w", path, err)
 	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("decode %q: unexpected second value found", path)
+		}
+		return fmt.Errorf("decode %q: trailing content: %w", path, err)
+	}
+
 	return nil
 }
 

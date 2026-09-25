@@ -68,6 +68,16 @@ func TestReadSessionFileValidatesSupportedFields(t *testing.T) {
 			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","flights":[{"id":"flight-1"}]}]}`,
 			wantError: "sessions[0].flights[0].blockMinutes",
 		},
+		{
+			name:      "unknown fields",
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","unknown field":"unknown value","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","flights":[{"id":"flight-1"}]}]}`,
+			wantError: "unknown field",
+		},
+		{
+			name:      "trailing content",
+			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","flights":[{"id":"flight-1"}]}]}trailing content`,
+			wantError: "trailing content",
+		},
 	}
 
 	for _, test := range tests {
