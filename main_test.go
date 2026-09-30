@@ -80,6 +80,26 @@ func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
 	}
 }
 
+func TestRunGenerateHelp(t *testing.T) {
+	for _, argument := range []string{"-h", "--help"} {
+		t.Run(argument, func(t *testing.T) {
+			var stdout bytes.Buffer
+			err := run(context.Background(), []string{"generate", argument}, &stdout, strings.NewReader(""), time.Now)
+			if err != nil {
+				t.Fatalf("run generate help: %v", err)
+			}
+			for _, text := range []string{
+				"Usage: fitools generate --input FILE --config FILE --month YYYY-MM --number NUMBER [flags]",
+				"-input", "-config", "-month", "-number", "-issue-date", "-output-dir", "-signature", "-force",
+			} {
+				if !strings.Contains(stdout.String(), text) {
+					t.Errorf("help output does not contain %q", text)
+				}
+			}
+		})
+	}
+}
+
 func TestRunGenerateOverwrite(t *testing.T) {
 
 	tests := []struct {
@@ -197,12 +217,13 @@ func TestResolveExplicitIssueDateDoesNotReadClock(t *testing.T) {
 	}
 }
 
-func TestRunRequiresGenerateCommand(t *testing.T) {
-	err := run(context.Background(), nil, &bytes.Buffer{}, strings.NewReader(""), time.Now)
-	if err == nil {
-		t.Fatal("run unexpectedly succeeded")
+func TestRunRequiresCommand(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run(context.Background(), nil, &stdout, strings.NewReader(""), time.Now)
+	if err == nil || !strings.Contains(err.Error(), "must provide a command") {
+		t.Fatalf("error = %v, want missing command error", err)
 	}
-	if !strings.Contains(err.Error(), "fitools generate") {
-		t.Fatalf("error %q does not contain command usage", err)
+	if !strings.Contains(stdout.String(), "Usage: fitools <command>") {
+		t.Fatalf("output %q does not contain command usage", stdout.String())
 	}
 }

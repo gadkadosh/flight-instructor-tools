@@ -38,7 +38,17 @@ go run . generate \
 Writes `Rechnung-2026-05.json`, `Rechnung-2026-05.html` and `Rechnung-2026-05.pdf` to `output/`.
 See [examples](examples/) for input details and expected results. Keep private data in local/, which is ignored by Git.
 
-### Usage
+### Validate sessions
+
+Check a sessions file without generating invoice artifacts (WeasyPrint is not needed):
+
+```sh
+go run . validate examples/realistic-sessions.json
+```
+
+Returns a nonzero exit status if the file cannot be read or fails validation.
+
+### Generate usage
 
 | Flag                      | Purpose                           | Default            |
 | ------------------------- | --------------------------------- | ------------------ |
