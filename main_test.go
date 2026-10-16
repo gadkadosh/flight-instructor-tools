@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 )
 
@@ -181,99 +183,90 @@ func TestRunGenerateHelp(t *testing.T) {
 }
 
 func TestRunGenerateOverwrite(t *testing.T) {
-
-	tests := []struct {
-		name        string
-		stdinString string
-		wantError   string
-		extraArgs   []string
-		wantPrompts int
+	for _, test := range []struct {
+		name      string
+		existing  []string
+		input     string
+		inputErr  bool
+		force     string
+		wantError string
 	}{
-		{
-			name:        "accept all",
-			stdinString: "y\ny\ny\n",
-			wantError:   "",
-			wantPrompts: 3,
-		},
-		{
-			name:        "decline second file",
-			stdinString: "y\nn\n",
-			wantError:   "aborting",
-			wantPrompts: 2,
-		},
-		{
-			name:        "empty input",
-			stdinString: "",
-			wantError:   "aborting: no confirmation received",
-			wantPrompts: 1,
-		},
-		{
-			name:        "empty input after accepting a file",
-			stdinString: "y\n",
-			wantError:   "aborting: no confirmation received",
-			wantPrompts: 2,
-		},
-		{
-			name:        "force overwrite",
-			stdinString: "",
-			wantError:   "",
-			extraArgs:   []string{"--force"},
-		},
-		{
-			name:        "force overwrite (shorthand)",
-			stdinString: "",
-			wantError:   "",
-			extraArgs:   []string{"-f"},
-		},
-	}
-
-	for _, test := range tests {
-
+		{name: "no existing outputs"},
+		{name: "existing JSON", existing: []string{"json"}, input: "y\n"},
+		{name: "existing HTML", existing: []string{"html"}, input: "y\n"},
+		{name: "existing PDF", existing: []string{"pdf"}, input: "y\n"},
+		{name: "one confirmation for all outputs", existing: []string{"json", "html", "pdf"}, input: "y\n"},
+		{name: "case and whitespace", existing: []string{"json", "html", "pdf"}, input: " Y \n"},
+		{name: "decline", existing: []string{"json", "html", "pdf"}, input: "n\n", wantError: "aborting: overwrite not confirmed"},
+		{name: "blank response", existing: []string{"json"}, input: "\n", wantError: "aborting: overwrite not confirmed"},
+		{name: "other response", existing: []string{"html"}, input: "yes\n", wantError: "aborting: overwrite not confirmed"},
+		{name: "EOF", existing: []string{"pdf"}, wantError: "aborting: no confirmation received"},
+		{name: "input read error", existing: []string{"html"}, inputErr: true, wantError: "read overwrite confirmation: input failed"},
+		{name: "force overwrite", existing: []string{"json", "html", "pdf"}, input: "n\n", force: "--force"},
+		{name: "force shorthand", existing: []string{"json", "html", "pdf"}, input: "n\n", force: "-f"},
+	} {
 		t.Run(test.name, func(t *testing.T) {
 			args, outputDirectory := setupGenerateTest(t)
-
-			for _, extension := range []string{"json", "html", "pdf"} {
+			for _, extension := range test.existing {
 				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+extension)
-				original := "original " + extension
-				if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
-					t.Fatalf("failed to write artifact file %q: %v", path, err)
+				if err := os.WriteFile(path, []byte("original "+extension), 0o644); err != nil {
+					t.Fatalf("write existing artifact: %v", err)
 				}
 			}
+			if test.force != "" {
+				args = append(args, test.force)
+			}
 
+			var stdin io.Reader = strings.NewReader(test.input)
+			if test.inputErr {
+				stdin = iotest.ErrReader(fmt.Errorf("input failed"))
+			}
 			var stdout bytes.Buffer
-			fixedNow := time.Date(2026, time.June, 9, 12, 34, 56, 0, time.UTC)
-			err := run(context.Background(), slices.Concat(args, test.extraArgs), &stdout, strings.NewReader(test.stdinString), func() time.Time { return fixedNow })
-
-			gotPrompt := strings.Count(stdout.String(), "Overwrite?")
-			if test.wantPrompts != gotPrompt {
-				t.Errorf("\"Overwrite?\" prompt shown = %v, want = %v", gotPrompt, test.wantPrompts)
+			err := run(context.Background(), args, &stdout, stdin, time.Now)
+			if test.wantError != "" {
+				if err == nil || err.Error() != test.wantError {
+					t.Errorf("error = %v, want %q", err, test.wantError)
+				}
+			} else if err != nil {
+				t.Fatalf("generate: %v", err)
+			}
+			prompt := "Invoice 2026-05 has existing output files. Overwrite? [y/N] "
+			wantPrompts := 0
+			if len(test.existing) != 0 && test.force == "" {
+				wantPrompts = 1
+			}
+			if got := strings.Count(stdout.String(), prompt); got != wantPrompts {
+				t.Errorf("invoice prompts = %d, want %d; output: %q", got, wantPrompts, stdout.String())
+			}
+			if test.wantError != "" && stdout.String() != prompt {
+				t.Errorf("unexpected output on refusal: %q", stdout.String())
 			}
 
-			if test.wantError == "" {
-				if err != nil {
-					t.Errorf("expected success, received: %v", err)
-				}
-			} else {
-				if err == nil || !strings.Contains(err.Error(), test.wantError) {
-					t.Errorf("expected error containing %q, received: %v", test.wantError, err)
-				}
-			}
-
-			for _, extension := range []string{"json", "html", "pdf"} {
-				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+extension)
+			for _, artifact := range []struct {
+				extension string
+				marker    string
+			}{
+				{"json", `"grossCents": 4500`},
+				{"html", "Rechnung Nr. 2026-05"},
+				{"pdf", "pdf"},
+			} {
+				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+artifact.extension)
 				content, err := os.ReadFile(path)
-				if err != nil {
-					t.Fatalf("read artifact %q: %v", path, err)
+				if test.wantError != "" && !slices.Contains(test.existing, artifact.extension) {
+					if !os.IsNotExist(err) {
+						t.Errorf("%s should not be created; read error = %v", artifact.extension, err)
+					}
+					continue
 				}
-				original := "original " + extension
-				if test.wantError == "" {
-					if len(content) == 0 || string(content) == original {
-						t.Errorf("%s was not replaced with generated content", extension)
+				if err != nil {
+					t.Fatalf("read artifact: %v", err)
+				}
+				if test.wantError != "" {
+					if string(content) != "original "+artifact.extension {
+						t.Errorf("%s changed despite refusing overwrite", artifact.extension)
 					}
-				} else {
-					if string(content) != original {
-						t.Errorf("%s changed despite aborting", extension)
-					}
+				} else if !bytes.Contains(content, []byte(artifact.marker)) {
+					t.Errorf("%s does not contain generated content %q", artifact.extension, artifact.marker)
 				}
 			}
 		})

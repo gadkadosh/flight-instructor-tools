@@ -97,8 +97,7 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 	pdfPath := filepath.Join(*outputDirectory, baseName+".pdf")
 
 	if !force {
-		scanner := bufio.NewScanner(stdin)
-
+		hasExistingOutputs := false
 		for _, path := range []string{jsonPath, htmlPath, pdfPath} {
 			_, err := os.Stat(path)
 			if errors.Is(err, os.ErrNotExist) {
@@ -108,18 +107,19 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 				return fmt.Errorf("file stat %s error: %w", path, err)
 			}
 
-			// File exists already
-			fmt.Fprintf(stdout, "%s already exists. Overwrite? [y/N] ", path)
+			hasExistingOutputs = true
+		}
+		if hasExistingOutputs {
+			fmt.Fprintf(stdout, "Invoice %s has existing output files. Overwrite? [y/N] ", *number)
+			scanner := bufio.NewScanner(stdin)
 			if !scanner.Scan() {
 				if err := scanner.Err(); err != nil {
 					return fmt.Errorf("read overwrite confirmation: %w", err)
 				}
 				return fmt.Errorf("aborting: no confirmation received")
 			}
-
-			input := scanner.Text()
-			if !strings.EqualFold(strings.TrimSpace(input), "y") {
-				return fmt.Errorf("aborting")
+			if !strings.EqualFold(strings.TrimSpace(scanner.Text()), "y") {
+				return fmt.Errorf("aborting: overwrite not confirmed")
 			}
 		}
 	}

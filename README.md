@@ -57,6 +57,9 @@ Returns a nonzero exit status if the file cannot be read or fails validation.
 | `--number NUMBER`         | Invoice number                    | Required           |
 | `--issue-date YYYY-MM-DD` | Invoice date of issue             | Today (local time) |
 | `--output-dir DIR`        | Output directory                  | `output/`          |
+| `--force`, `-f`           | Overwrite without confirmation    | `false`            |
+
+If any output file already exists, generation asks once for confirmation to overwrite the invoice's output files. Only `y` (case-insensitive, with surrounding whitespace ignored) confirms; any other response or no input aborts without changing or creating invoice files. Use `--force` (or `-f`) to skip confirmation, including in scripts.
 
 ### Billing configuration
 
