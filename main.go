@@ -8,10 +8,7 @@ import (
 	"time"
 )
 
-const (
-	defaultOutputDirectory = "output"
-	defaultSignaturePath   = "signature.png"
-)
+const defaultOutputDirectory = "output"
 
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Stdout, os.Stdin, time.Now); err != nil {

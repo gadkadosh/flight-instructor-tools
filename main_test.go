@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,10 +28,6 @@ func setupGenerateTest(t *testing.T) (args []string, outputDir string) {
 	}
 	t.Setenv("PATH", binDirectory)
 
-	signaturePath := filepath.Join(t.TempDir(), "signature.png")
-	if err := os.WriteFile(signaturePath, []byte("signature"), 0o644); err != nil {
-		t.Fatalf("write signature: %v", err)
-	}
 	outputDirectory := t.TempDir()
 
 	args = []string{
@@ -40,7 +37,6 @@ func setupGenerateTest(t *testing.T) (args []string, outputDir string) {
 		"--month", "2026-05",
 		"--number", "2026-05",
 		"--output-dir", outputDirectory,
-		"--signature", signaturePath,
 	}
 
 	return args, outputDirectory
@@ -80,6 +76,87 @@ func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
 	}
 }
 
+func TestRunGenerateSignature(t *testing.T) {
+	signaturePath := filepath.Join(t.TempDir(), "signature.png")
+	if err := os.WriteFile(signaturePath, []byte("signature"), 0o644); err != nil {
+		t.Fatalf("write signature: %v", err)
+	}
+	fixture, err := os.ReadFile(filepath.Join("testdata", "minimal-config.json"))
+	if err != nil {
+		t.Fatalf("read config fixture: %v", err)
+	}
+
+	for _, test := range []struct {
+		name              string
+		signatureFileJSON string
+		wantSignature     bool
+		wantError         bool
+	}{
+		{name: "omitted"},
+		{name: "empty", signatureFileJSON: `""`},
+		{name: "absolute path", signatureFileJSON: fmt.Sprintf("%q", signaturePath), wantSignature: true},
+		{name: "relative path", signatureFileJSON: `"signature.png"`, wantSignature: true},
+		{name: "missing file", signatureFileJSON: `"missing.png"`, wantError: true},
+		{name: "directory instead of file", signatureFileJSON: `"."`, wantError: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			args, outputDirectory := setupGenerateTest(t)
+			configDirectory := t.TempDir()
+			if err := os.WriteFile(filepath.Join(configDirectory, "signature.png"), []byte("signature"), 0o644); err != nil {
+				t.Fatalf("write relative signature: %v", err)
+			}
+			var config map[string]json.RawMessage
+			if err := json.Unmarshal(fixture, &config); err != nil {
+				t.Fatalf("decode config fixture: %v", err)
+			}
+			if test.signatureFileJSON != "" {
+				config["signatureFile"] = json.RawMessage(test.signatureFileJSON)
+			}
+			contents, err := json.Marshal(config)
+			if err != nil {
+				t.Fatalf("encode config: %v", err)
+			}
+			configPath := filepath.Join(configDirectory, "config.json")
+			if err := os.WriteFile(configPath, contents, 0o644); err != nil {
+				t.Fatalf("write config: %v", err)
+			}
+			args = append(args, "--config", configPath)
+
+			var stdout bytes.Buffer
+			err = run(context.Background(), args, &stdout, strings.NewReader(""), time.Now)
+			if test.wantError {
+				if err == nil || !strings.Contains(err.Error(), "read signature") || !strings.Contains(err.Error(), configDirectory) {
+					t.Fatalf("error = %v, want signature read error with resolved path", err)
+				}
+				entries, err := os.ReadDir(outputDirectory)
+				if err != nil {
+					t.Fatalf("read output directory: %v", err)
+				}
+				if len(entries) != 0 {
+					t.Errorf("generated artifacts despite signature error: %v", entries)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("run generate: %v", err)
+			}
+			html, err := os.ReadFile(filepath.Join(outputDirectory, "Rechnung-2026-05.html"))
+			if err != nil {
+				t.Fatalf("read generated HTML: %v", err)
+			}
+			if !bytes.Contains(html, []byte("Rechnung Nr. 2026-05")) {
+				t.Error("generated HTML does not contain invoice number")
+			}
+			if got := bytes.Contains(html, []byte(`class="signature"`)); got != test.wantSignature {
+				t.Errorf("signature image present = %v, want %v", got, test.wantSignature)
+			}
+			if test.wantSignature && !bytes.Contains(html, []byte(`src="data:image/png;base64,c2lnbmF0dXJl"`)) {
+				t.Error("generated HTML does not embed the supplied signature")
+			}
+		})
+	}
+}
+
 func TestRunGenerateHelp(t *testing.T) {
 	for _, argument := range []string{"-h", "--help"} {
 		t.Run(argument, func(t *testing.T) {
@@ -90,11 +167,14 @@ func TestRunGenerateHelp(t *testing.T) {
 			}
 			for _, text := range []string{
 				"Usage: fitools generate --input FILE --config FILE --month YYYY-MM --number NUMBER [flags]",
-				"-input", "-config", "-month", "-number", "-issue-date", "-output-dir", "-signature", "-force",
+				"-input", "-config", "-month", "-number", "-issue-date", "-output-dir", "-force",
 			} {
 				if !strings.Contains(stdout.String(), text) {
 					t.Errorf("help output does not contain %q", text)
 				}
+			}
+			if strings.Contains(stdout.String(), "-signature") {
+				t.Error("help output still advertises the removed signature flag")
 			}
 		})
 	}

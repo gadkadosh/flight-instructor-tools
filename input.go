@@ -41,6 +41,7 @@ type Config struct {
 	VATStatement   string      `json:"vatStatement"`
 	PaymentText    string      `json:"paymentText"`
 	ClosingText    string      `json:"closingText"`
+	SignatureFile  string      `json:"signatureFile,omitempty"`
 	Rates          []Rate      `json:"rates"`
 }
 
