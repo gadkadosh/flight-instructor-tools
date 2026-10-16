@@ -72,4 +72,4 @@ Currently this is tailored to my own workflow: EUR invoices, German formatting, 
 
 ## License
 
-Licensed under the [MIT License](LICENSE).
+Licensed under the [MIT License](LICENSE.md).
