@@ -35,7 +35,7 @@ go run . generate \
 ```
 
 Writes `Rechnung-2026-05.json`, `Rechnung-2026-05.html` and `Rechnung-2026-05.pdf` to `output/`.
-See [examples](examples/) for input details and expected results. Keep private data in local/, which is ignored by Git.
+See [examples](examples/) for input details and expected results. Keep private data and signature images in `local/`, which is ignored by Git.
 
 ### Validate sessions
 
@@ -58,18 +58,11 @@ Returns a nonzero exit status if the file cannot be read or fails validation.
 | `--issue-date YYYY-MM-DD` | Invoice date of issue             | Today (local time) |
 | `--output-dir DIR`        | Output directory                  | `output/`          |
 
-### Optional signature
+### Billing configuration
 
-To include a signature, add a `signatureFile` field to your billing configuration:
+The `--config` JSON file contains issuer and customer details, bank and tax information, invoice text, and hourly rates with effective dates. See the [example configuration](examples/realistic-config.json).
 
-```json
-"signatureFile": "signature.png"
-```
-
-Relative paths are resolved from the configuration file's directory; absolute paths are also supported.
-Omit the field or use an empty string to generate an unsigned invoice. A configured file that cannot be read stops generation before any artifacts are written.
-
-This replaces `--signature` and the automatic lookup of `signature.png` in the working directory.
+Optional `signatureFile` adds a PNG signature; relative paths resolve from the config file's directory.
 
 ### Tests
 

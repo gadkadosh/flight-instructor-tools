@@ -11,9 +11,6 @@ fitools
 # Generated invoice artifacts.
 /output/
 
-# Private signature assets.
-/signature.png
-
 # Private local configuration and session data.
 /local/
 
