@@ -47,7 +47,7 @@ func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
 
 	var stdout bytes.Buffer
 	fixedNow := time.Date(2026, time.June, 9, 12, 34, 56, 0, time.UTC)
-	err := run(context.Background(), args, &stdout, strings.NewReader(""), func() time.Time { return fixedNow })
+	err := run(context.Background(), args, &stdout, func() time.Time { return fixedNow })
 	if err != nil {
 		t.Fatalf("run generate: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestRunGenerateSignature(t *testing.T) {
 			args = append(args, "--config", configPath)
 
 			var stdout bytes.Buffer
-			err = run(context.Background(), args, &stdout, strings.NewReader(""), time.Now)
+			err = run(context.Background(), args, &stdout, time.Now)
 			if test.wantError {
 				if err == nil || !strings.Contains(err.Error(), "read signature") || !strings.Contains(err.Error(), configDirectory) {
 					t.Fatalf("error = %v, want signature read error with resolved path", err)
@@ -161,7 +161,7 @@ func TestRunGenerateHelp(t *testing.T) {
 	for _, argument := range []string{"-h", "--help"} {
 		t.Run(argument, func(t *testing.T) {
 			var stdout bytes.Buffer
-			err := run(context.Background(), []string{"generate", argument}, &stdout, strings.NewReader(""), time.Now)
+			err := run(context.Background(), []string{"generate", argument}, &stdout, time.Now)
 			if err != nil {
 				t.Fatalf("run generate help: %v", err)
 			}
@@ -181,99 +181,70 @@ func TestRunGenerateHelp(t *testing.T) {
 }
 
 func TestRunGenerateOverwrite(t *testing.T) {
-
-	tests := []struct {
-		name        string
-		stdinString string
-		wantError   string
-		extraArgs   []string
-		wantPrompts int
+	for _, test := range []struct {
+		name     string
+		existing []string
+		force    string
 	}{
-		{
-			name:        "accept all",
-			stdinString: "y\ny\ny\n",
-			wantError:   "",
-			wantPrompts: 3,
-		},
-		{
-			name:        "decline second file",
-			stdinString: "y\nn\n",
-			wantError:   "aborting",
-			wantPrompts: 2,
-		},
-		{
-			name:        "empty input",
-			stdinString: "",
-			wantError:   "aborting: no confirmation received",
-			wantPrompts: 1,
-		},
-		{
-			name:        "empty input after accepting a file",
-			stdinString: "y\n",
-			wantError:   "aborting: no confirmation received",
-			wantPrompts: 2,
-		},
-		{
-			name:        "force overwrite",
-			stdinString: "",
-			wantError:   "",
-			extraArgs:   []string{"--force"},
-		},
-		{
-			name:        "force overwrite (shorthand)",
-			stdinString: "",
-			wantError:   "",
-			extraArgs:   []string{"-f"},
-		},
-	}
-
-	for _, test := range tests {
-
+		{name: "existing JSON", existing: []string{"json"}},
+		{name: "existing HTML", existing: []string{"html"}},
+		{name: "existing PDF", existing: []string{"pdf"}},
+		{name: "all existing", existing: []string{"json", "html", "pdf"}},
+		{name: "force overwrite", existing: []string{"json", "html", "pdf"}, force: "--force"},
+		{name: "force shorthand", existing: []string{"json", "html", "pdf"}, force: "-f"},
+	} {
 		t.Run(test.name, func(t *testing.T) {
 			args, outputDirectory := setupGenerateTest(t)
-
-			for _, extension := range []string{"json", "html", "pdf"} {
+			for _, extension := range test.existing {
 				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+extension)
-				original := "original " + extension
-				if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
-					t.Fatalf("failed to write artifact file %q: %v", path, err)
+				if err := os.WriteFile(path, []byte("original "+extension), 0o644); err != nil {
+					t.Fatalf("write existing artifact: %v", err)
 				}
+			}
+			if test.force != "" {
+				args = append(args, test.force)
 			}
 
 			var stdout bytes.Buffer
-			fixedNow := time.Date(2026, time.June, 9, 12, 34, 56, 0, time.UTC)
-			err := run(context.Background(), slices.Concat(args, test.extraArgs), &stdout, strings.NewReader(test.stdinString), func() time.Time { return fixedNow })
-
-			gotPrompt := strings.Count(stdout.String(), "Overwrite?")
-			if test.wantPrompts != gotPrompt {
-				t.Errorf("\"Overwrite?\" prompt shown = %v, want = %v", gotPrompt, test.wantPrompts)
+			err := run(context.Background(), args, &stdout, time.Now)
+			if test.force == "" {
+				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+test.existing[0])
+				want := fmt.Sprintf("output file %q already exists; use --force to overwrite", path)
+				if err == nil || err.Error() != want {
+					t.Errorf("error = %v, want %q", err, want)
+				}
+				if stdout.Len() != 0 {
+					t.Errorf("unexpected output when refusing overwrite: %q", stdout.String())
+				}
+			} else if err != nil {
+				t.Fatalf("force overwrite: %v", err)
 			}
 
-			if test.wantError == "" {
-				if err != nil {
-					t.Errorf("expected success, received: %v", err)
-				}
-			} else {
-				if err == nil || !strings.Contains(err.Error(), test.wantError) {
-					t.Errorf("expected error containing %q, received: %v", test.wantError, err)
-				}
-			}
-
-			for _, extension := range []string{"json", "html", "pdf"} {
-				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+extension)
+			for _, artifact := range []struct {
+				extension string
+				marker    string
+			}{
+				{"json", `"grossCents": 4500`},
+				{"html", "Rechnung Nr. 2026-05"},
+				{"pdf", "pdf"},
+			} {
+				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+artifact.extension)
 				content, err := os.ReadFile(path)
-				if err != nil {
-					t.Fatalf("read artifact %q: %v", path, err)
+				if test.force == "" && !slices.Contains(test.existing, artifact.extension) {
+					if !os.IsNotExist(err) {
+						t.Errorf("%s should not be created; read error = %v", artifact.extension, err)
+					}
+					continue
 				}
-				original := "original " + extension
-				if test.wantError == "" {
-					if len(content) == 0 || string(content) == original {
-						t.Errorf("%s was not replaced with generated content", extension)
+				if err != nil {
+					t.Fatalf("read artifact: %v", err)
+				}
+				if test.force == "" {
+					if string(content) != "original "+artifact.extension {
+						t.Errorf("%s changed despite refusing overwrite", artifact.extension)
 					}
-				} else {
-					if string(content) != original {
-						t.Errorf("%s changed despite aborting", extension)
-					}
+				} else if !bytes.Contains(content, []byte(artifact.marker)) {
+					t.Errorf("%s does not contain generated content %q", artifact.extension, artifact.marker)
 				}
 			}
 		})
@@ -299,7 +270,7 @@ func TestResolveExplicitIssueDateDoesNotReadClock(t *testing.T) {
 
 func TestRunRequiresCommand(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run(context.Background(), nil, &stdout, strings.NewReader(""), time.Now)
+	err := run(context.Background(), nil, &stdout, time.Now)
 	if err == nil || !strings.Contains(err.Error(), "must provide a command") {
 		t.Fatalf("error = %v, want missing command error", err)
 	}

@@ -78,7 +78,7 @@ func TestRunValidate(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var stdout bytes.Buffer
 			arguments := append([]string{"validate"}, test.arguments...)
-			err := run(context.Background(), arguments, &stdout, strings.NewReader(""), time.Now)
+			err := run(context.Background(), arguments, &stdout, time.Now)
 			if test.wantError != "" {
 				if err == nil || !strings.Contains(err.Error(), test.wantError) {
 					t.Fatalf("error = %v, want containing %q", err, test.wantError)
