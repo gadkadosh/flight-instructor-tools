@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 )
 
@@ -47,7 +49,7 @@ func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
 
 	var stdout bytes.Buffer
 	fixedNow := time.Date(2026, time.June, 9, 12, 34, 56, 0, time.UTC)
-	err := run(context.Background(), args, &stdout, func() time.Time { return fixedNow })
+	err := run(context.Background(), args, &stdout, strings.NewReader(""), func() time.Time { return fixedNow })
 	if err != nil {
 		t.Fatalf("run generate: %v", err)
 	}
@@ -123,7 +125,7 @@ func TestRunGenerateSignature(t *testing.T) {
 			args = append(args, "--config", configPath)
 
 			var stdout bytes.Buffer
-			err = run(context.Background(), args, &stdout, time.Now)
+			err = run(context.Background(), args, &stdout, strings.NewReader(""), time.Now)
 			if test.wantError {
 				if err == nil || !strings.Contains(err.Error(), "read signature") || !strings.Contains(err.Error(), configDirectory) {
 					t.Fatalf("error = %v, want signature read error with resolved path", err)
@@ -161,7 +163,7 @@ func TestRunGenerateHelp(t *testing.T) {
 	for _, argument := range []string{"-h", "--help"} {
 		t.Run(argument, func(t *testing.T) {
 			var stdout bytes.Buffer
-			err := run(context.Background(), []string{"generate", argument}, &stdout, time.Now)
+			err := run(context.Background(), []string{"generate", argument}, &stdout, strings.NewReader(""), time.Now)
 			if err != nil {
 				t.Fatalf("run generate help: %v", err)
 			}
@@ -182,16 +184,26 @@ func TestRunGenerateHelp(t *testing.T) {
 
 func TestRunGenerateOverwrite(t *testing.T) {
 	for _, test := range []struct {
-		name     string
-		existing []string
-		force    string
+		name      string
+		existing  []string
+		input     string
+		inputErr  bool
+		force     string
+		wantError string
 	}{
-		{name: "existing JSON", existing: []string{"json"}},
-		{name: "existing HTML", existing: []string{"html"}},
-		{name: "existing PDF", existing: []string{"pdf"}},
-		{name: "all existing", existing: []string{"json", "html", "pdf"}},
-		{name: "force overwrite", existing: []string{"json", "html", "pdf"}, force: "--force"},
-		{name: "force shorthand", existing: []string{"json", "html", "pdf"}, force: "-f"},
+		{name: "no existing outputs"},
+		{name: "existing JSON", existing: []string{"json"}, input: "y\n"},
+		{name: "existing HTML", existing: []string{"html"}, input: "y\n"},
+		{name: "existing PDF", existing: []string{"pdf"}, input: "y\n"},
+		{name: "one confirmation for all outputs", existing: []string{"json", "html", "pdf"}, input: "y\n"},
+		{name: "case and whitespace", existing: []string{"json", "html", "pdf"}, input: " Y \n"},
+		{name: "decline", existing: []string{"json", "html", "pdf"}, input: "n\n", wantError: "aborting: overwrite not confirmed"},
+		{name: "blank response", existing: []string{"json"}, input: "\n", wantError: "aborting: overwrite not confirmed"},
+		{name: "other response", existing: []string{"html"}, input: "yes\n", wantError: "aborting: overwrite not confirmed"},
+		{name: "EOF", existing: []string{"pdf"}, wantError: "aborting: no confirmation received"},
+		{name: "input read error", existing: []string{"html"}, inputErr: true, wantError: "read overwrite confirmation: input failed"},
+		{name: "force overwrite", existing: []string{"json", "html", "pdf"}, input: "n\n", force: "--force"},
+		{name: "force shorthand", existing: []string{"json", "html", "pdf"}, input: "n\n", force: "-f"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			args, outputDirectory := setupGenerateTest(t)
@@ -205,19 +217,29 @@ func TestRunGenerateOverwrite(t *testing.T) {
 				args = append(args, test.force)
 			}
 
+			var stdin io.Reader = strings.NewReader(test.input)
+			if test.inputErr {
+				stdin = iotest.ErrReader(fmt.Errorf("input failed"))
+			}
 			var stdout bytes.Buffer
-			err := run(context.Background(), args, &stdout, time.Now)
-			if test.force == "" {
-				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+test.existing[0])
-				want := fmt.Sprintf("output file %q already exists; use --force to overwrite", path)
-				if err == nil || err.Error() != want {
-					t.Errorf("error = %v, want %q", err, want)
-				}
-				if stdout.Len() != 0 {
-					t.Errorf("unexpected output when refusing overwrite: %q", stdout.String())
+			err := run(context.Background(), args, &stdout, stdin, time.Now)
+			if test.wantError != "" {
+				if err == nil || err.Error() != test.wantError {
+					t.Errorf("error = %v, want %q", err, test.wantError)
 				}
 			} else if err != nil {
-				t.Fatalf("force overwrite: %v", err)
+				t.Fatalf("generate: %v", err)
+			}
+			prompt := "Invoice 2026-05 has existing output files. Overwrite? [y/N] "
+			wantPrompts := 0
+			if len(test.existing) != 0 && test.force == "" {
+				wantPrompts = 1
+			}
+			if got := strings.Count(stdout.String(), prompt); got != wantPrompts {
+				t.Errorf("invoice prompts = %d, want %d; output: %q", got, wantPrompts, stdout.String())
+			}
+			if test.wantError != "" && stdout.String() != prompt {
+				t.Errorf("unexpected output on refusal: %q", stdout.String())
 			}
 
 			for _, artifact := range []struct {
@@ -230,7 +252,7 @@ func TestRunGenerateOverwrite(t *testing.T) {
 			} {
 				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+artifact.extension)
 				content, err := os.ReadFile(path)
-				if test.force == "" && !slices.Contains(test.existing, artifact.extension) {
+				if test.wantError != "" && !slices.Contains(test.existing, artifact.extension) {
 					if !os.IsNotExist(err) {
 						t.Errorf("%s should not be created; read error = %v", artifact.extension, err)
 					}
@@ -239,7 +261,7 @@ func TestRunGenerateOverwrite(t *testing.T) {
 				if err != nil {
 					t.Fatalf("read artifact: %v", err)
 				}
-				if test.force == "" {
+				if test.wantError != "" {
 					if string(content) != "original "+artifact.extension {
 						t.Errorf("%s changed despite refusing overwrite", artifact.extension)
 					}
@@ -270,7 +292,7 @@ func TestResolveExplicitIssueDateDoesNotReadClock(t *testing.T) {
 
 func TestRunRequiresCommand(t *testing.T) {
 	var stdout bytes.Buffer
-	err := run(context.Background(), nil, &stdout, time.Now)
+	err := run(context.Background(), nil, &stdout, strings.NewReader(""), time.Now)
 	if err == nil || !strings.Contains(err.Error(), "must provide a command") {
 		t.Fatalf("error = %v, want missing command error", err)
 	}

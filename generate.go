@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"flag"
@@ -8,10 +9,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
-func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, now func() time.Time) error {
+func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Reader, now func() time.Time) error {
 	flags := flag.NewFlagSet("generate", flag.ContinueOnError)
 	flags.SetOutput(stdout)
 	flags.Usage = func() {
@@ -95,6 +97,7 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, now 
 	pdfPath := filepath.Join(*outputDirectory, baseName+".pdf")
 
 	if !force {
+		hasExistingOutputs := false
 		for _, path := range []string{jsonPath, htmlPath, pdfPath} {
 			_, err := os.Stat(path)
 			if errors.Is(err, os.ErrNotExist) {
@@ -104,7 +107,20 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, now 
 				return fmt.Errorf("file stat %s error: %w", path, err)
 			}
 
-			return fmt.Errorf("output file %q already exists; use --force to overwrite", path)
+			hasExistingOutputs = true
+		}
+		if hasExistingOutputs {
+			fmt.Fprintf(stdout, "Invoice %s has existing output files. Overwrite? [y/N] ", *number)
+			scanner := bufio.NewScanner(stdin)
+			if !scanner.Scan() {
+				if err := scanner.Err(); err != nil {
+					return fmt.Errorf("read overwrite confirmation: %w", err)
+				}
+				return fmt.Errorf("aborting: no confirmation received")
+			}
+			if !strings.EqualFold(strings.TrimSpace(scanner.Text()), "y") {
+				return fmt.Errorf("aborting: overwrite not confirmed")
+			}
 		}
 	}
 

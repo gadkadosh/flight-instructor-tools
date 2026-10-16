@@ -11,7 +11,7 @@ import (
 const defaultOutputDirectory = "output"
 
 func main() {
-	if err := run(context.Background(), os.Args[1:], os.Stdout, time.Now); err != nil {
+	if err := run(context.Background(), os.Args[1:], os.Stdout, os.Stdin, time.Now); err != nil {
 		fmt.Fprintf(os.Stderr, "fitools: %v\n", err)
 		os.Exit(1)
 	}
@@ -28,7 +28,7 @@ Run fitools <command> --help for command options.
 `)
 }
 
-func run(ctx context.Context, arguments []string, stdout io.Writer, now func() time.Time) error {
+func run(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Reader, now func() time.Time) error {
 	if len(arguments) == 0 {
 		usage(stdout)
 		return fmt.Errorf("must provide a command")
@@ -39,7 +39,7 @@ func run(ctx context.Context, arguments []string, stdout io.Writer, now func() t
 		usage(stdout)
 		return nil
 	case "generate":
-		return runGenerate(ctx, arguments[1:], stdout, now)
+		return runGenerate(ctx, arguments[1:], stdout, stdin, now)
 	case "validate":
 		return runValidate(arguments[1:], stdout)
 	default:
