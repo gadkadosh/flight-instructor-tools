@@ -26,7 +26,6 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 	number := flags.String("number", "", "invoice number")
 	issueDateValue := flags.String("issue-date", "", "invoice issue date in YYYY-MM-DD format")
 	outputDirectory := flags.String("output-dir", defaultOutputDirectory, "artifact output directory")
-	signaturePath := flags.String("signature", defaultSignaturePath, "signature PNG file")
 	var force bool
 	flags.BoolVar(&force, "f", false, "force overwrite existing files")
 	flags.BoolVar(&force, "force", false, "force overwrite existing files")
@@ -48,7 +47,6 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 		{name: "month", value: *month},
 		{name: "number", value: *number},
 		{name: "output-dir", value: *outputDirectory},
-		{name: "signature", value: *signaturePath},
 	}
 	for _, argument := range requiredArguments {
 		if argument.value == "" {
@@ -78,9 +76,16 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 	if err != nil {
 		return fmt.Errorf("build fitools: %w", err)
 	}
-	signaturePNG, err := os.ReadFile(*signaturePath)
-	if err != nil {
-		return fmt.Errorf("read signature %q: %w", *signaturePath, err)
+	var signaturePNG []byte
+	if config.SignatureFile != "" {
+		signaturePath := config.SignatureFile
+		if !filepath.IsAbs(signaturePath) {
+			signaturePath = filepath.Join(filepath.Dir(*configPath), signaturePath)
+		}
+		signaturePNG, err = os.ReadFile(signaturePath)
+		if err != nil {
+			return fmt.Errorf("read signature %q: %w", signaturePath, err)
+		}
 	}
 
 	if err := os.MkdirAll(*outputDirectory, 0o755); err != nil {

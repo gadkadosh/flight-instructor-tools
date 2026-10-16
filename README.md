@@ -31,12 +31,11 @@ go run . generate \
     --config examples/realistic-config.json \
     --month 2026-05 \
     --number 2026-05 \
-    --issue-date 2026-06-09 \
-    --signature /path/to/your/signature.png
+    --issue-date 2026-06-09
 ```
 
 Writes `Rechnung-2026-05.json`, `Rechnung-2026-05.html` and `Rechnung-2026-05.pdf` to `output/`.
-See [examples](examples/) for input details and expected results. Keep private data in local/, which is ignored by Git.
+See [examples](examples/) for input details and expected results. Keep private data and signature images in `local/`, which is ignored by Git.
 
 ### Validate sessions
 
@@ -58,7 +57,12 @@ Returns a nonzero exit status if the file cannot be read or fails validation.
 | `--number NUMBER`         | Invoice number                    | Required           |
 | `--issue-date YYYY-MM-DD` | Invoice date of issue             | Today (local time) |
 | `--output-dir DIR`        | Output directory                  | `output/`          |
-| `--signature FILE`        | PNG signature file                | `signature.png`    |
+
+### Billing configuration
+
+The `--config` JSON file contains issuer and customer details, bank and tax information, invoice text, and hourly rates with effective dates. See the [example configuration](examples/realistic-config.json).
+
+Optional `signatureFile` adds a PNG signature; relative paths resolve from the config file's directory.
 
 ### Tests
 
