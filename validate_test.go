@@ -12,7 +12,7 @@ import (
 
 func TestRunValidate(t *testing.T) {
 	invalidPath := filepath.Join(t.TempDir(), "invalid-sessions.json")
-	if err := os.WriteFile(invalidPath, []byte(`{"schemaVersion":1,"sessions":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(invalidPath, []byte(`{"schemaVersion":2,"sessions":[]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	malformedPath := filepath.Join(t.TempDir(), "malformed.json")

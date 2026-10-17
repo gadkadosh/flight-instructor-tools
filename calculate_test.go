@@ -83,26 +83,26 @@ func mustTimestamp(t *testing.T, value string) time.Time {
 	return parsed
 }
 
-func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
+func TestBuildInvoiceDocumentWithMultipleSessionsAndActivities(t *testing.T) {
 	input := SessionFile{
-		SchemaVersion: 1,
+		SchemaVersion: 2,
 		Sessions: []Session{
 			{
-				ID:        "april",
-				DutyStart: mustTimestamp(t, "2026-04-30T10:00:00Z"),
-				DutyEnd:   mustTimestamp(t, "2026-04-30T12:00:00Z"),
-				Student:   "April Student",
-				Flights:   []Flight{{ID: "april-flight", BlockMinutes: new(60)}},
+				ID:         "april",
+				DutyStart:  mustTimestamp(t, "2026-04-30T10:00:00Z"),
+				DutyEnd:    mustTimestamp(t, "2026-04-30T12:00:00Z"),
+				Student:    "April Student",
+				Activities: []Activity{{ID: "april-flight", Type: ActivityDual, Minutes: 60}},
 			},
 			{
-				ID:                 "may-1",
-				DutyStart:          mustTimestamp(t, "2026-05-03T10:00:00Z"),
-				DutyEnd:            mustTimestamp(t, "2026-05-03T11:30:00Z"),
-				Student:            "Alex",
-				PreparationMinutes: new(30),
-				Flights: []Flight{
-					{ID: "flight-1", BlockMinutes: new(20)},
-					{ID: "flight-2", BlockMinutes: new(30)},
+				ID:        "may-1",
+				DutyStart: mustTimestamp(t, "2026-05-03T10:00:00Z"),
+				DutyEnd:   mustTimestamp(t, "2026-05-03T11:30:00Z"),
+				Student:   "Alex",
+				Activities: []Activity{
+					{ID: "prep-1", Type: ActivityPreparation, Minutes: 30},
+					{ID: "flight-1", Type: ActivityDual, Minutes: 20},
+					{ID: "flight-2", Type: ActivitySoloSupervision, Minutes: 30},
 				},
 			},
 			{
@@ -110,25 +110,24 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndFlights(t *testing.T) {
 				DutyStart: mustTimestamp(t, "2026-05-07T10:00:00Z"),
 				DutyEnd:   mustTimestamp(t, "2026-05-07T11:30:00Z"),
 				Student:   "Robin",
-				Flights: []Flight{
-					{ID: "flight-3", BlockMinutes: new(40)},
-					{ID: "flight-4", BlockMinutes: new(50)},
+				Activities: []Activity{
+					{ID: "flight-3", Type: ActivityDual, Minutes: 40},
+					{ID: "flight-4", Type: ActivityDual, Minutes: 50},
 				},
 			},
 			{
-				ID:                 "may-3",
-				DutyStart:          mustTimestamp(t, "2026-05-16T10:00:00Z"),
-				DutyEnd:            mustTimestamp(t, "2026-05-16T11:30:00Z"),
-				Student:            "Betty",
-				PreparationMinutes: new(60),
-				Flights:            []Flight{},
+				ID:         "may-3",
+				DutyStart:  mustTimestamp(t, "2026-05-16T10:00:00Z"),
+				DutyEnd:    mustTimestamp(t, "2026-05-16T11:30:00Z"),
+				Student:    "Betty",
+				Activities: []Activity{{ID: "prep-2", Type: ActivityPreparation, Minutes: 60}},
 			},
 			{
-				ID:        "june",
-				DutyStart: mustTimestamp(t, "2026-06-01T10:00:00Z"),
-				DutyEnd:   mustTimestamp(t, "2026-06-01T11:30:00Z"),
-				Student:   "June Student",
-				Flights:   []Flight{{ID: "june-flight", BlockMinutes: new(60)}},
+				ID:         "june",
+				DutyStart:  mustTimestamp(t, "2026-06-01T10:00:00Z"),
+				DutyEnd:    mustTimestamp(t, "2026-06-01T11:30:00Z"),
+				Student:    "June Student",
+				Activities: []Activity{{ID: "june-flight", Type: ActivityDual, Minutes: 60}},
 			},
 		},
 	}

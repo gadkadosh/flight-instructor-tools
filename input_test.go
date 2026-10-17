@@ -3,136 +3,101 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
 
-func TestReadSessionFileValidatesSupportedFields(t *testing.T) {
+func TestReadSessionFileRejectsInvalidInput(t *testing.T) {
+	const valid = `{"schemaVersion":2,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","activities":[{"id":"activity-1","type":"dual","minutes":60}]}]}`
 	tests := []struct {
-		name      string
-		contents  string
-		wantError string
+		name        string
+		find        string
+		replaceWith string
+		wantError   string
 	}{
-		{
-			name:      "unsupported schema",
-			contents:  `{"schemaVersion":2,"sessions":[{}]}`,
-			wantError: "schemaVersion",
-		},
-		{
-			name:      "dutyStart date is null",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":null,"dutyEnd":"2026-03-01T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
-			wantError: "sessions[0].dutyStart: missing or zero",
-		},
-		{
-			name:      "missing dutyStart date",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyEnd":"2026-03-01T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
-			wantError: "sessions[0].dutyStart: missing or zero",
-		},
-		{
-			name:      "dutyEnd date is null",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-03-01T09:00:00Z","dutyEnd":null,"student":"Alex","preparationMinutes":30,"flights":[]}]}`,
-			wantError: "sessions[0].dutyEnd: missing or zero",
-		},
-		{
-			name:      "missing dutyEnd date",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-03-01T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
-			wantError: "sessions[0].dutyEnd: missing or zero",
-		},
-		{
-			name:      "invalid dutyStart date",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-02-30T08:00:00Z","dutyEnd":"2026-03-01T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
-			wantError: "2026-02-30T08:00:00Z",
-		},
-		{
-			name:      "invalid dutyEnd date",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-02-20T08:00:00Z","dutyEnd":"2026-02-30T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
-			wantError: "2026-02-30T09:00:00Z",
-		},
-		{
-			name:      "dutyEnd before dutyStart",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-02-20T08:00:00Z","dutyEnd":"2026-02-10T09:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
-			wantError: "sessions[0].dutyEnd: must be after dutyStart",
-		},
-		{
-			name:      "dutyEnd equals dutyStart",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-02-20T08:00:00Z","dutyEnd":"2026-02-20T08:00:00Z","student":"Alex","preparationMinutes":30,"flights":[]}]}`,
-			wantError: "sessions[0].dutyEnd: must be after dutyStart",
-		},
-		{
-			name:      "zero preparation duration",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","preparationMinutes":0,"flights":[]}]}`,
-			wantError: "sessions[0].preparationMinutes",
-		},
-		{
-			name:      "missing block duration",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","flights":[{"id":"flight-1"}]}]}`,
-			wantError: "sessions[0].flights[0].blockMinutes",
-		},
-		{
-			name:      "unknown fields",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","unknown field":"unknown value","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","flights":[{"id":"flight-1"}]}]}`,
-			wantError: "unknown field",
-		},
-		{
-			name:      "trailing content",
-			contents:  `{"schemaVersion":1,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","flights":[{"id":"flight-1"}]}]}trailing content`,
-			wantError: "trailing content",
-		},
+		{"old schema", `"schemaVersion":2`, `"schemaVersion":1`, "schemaVersion: got 1, want 2"},
+		{"future schema", `"schemaVersion":2`, `"schemaVersion":3`, "schemaVersion: got 3, want 2"},
+		{"no sessions", `[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","activities":[{"id":"activity-1","type":"dual","minutes":60}]}]`, `[]`, "sessions: must contain at least one session"},
+		{"missing session ID", `"id":"session-1",`, ``, "sessions[0].id"},
+		{"dutyStart date is null", `"dutyStart":"2026-05-03T10:00:00Z"`, `"dutyStart":null`, "sessions[0].dutyStart: missing or zero"},
+		{"missing dutyStart date", `"dutyStart":"2026-05-03T10:00:00Z",`, ``, "sessions[0].dutyStart: missing or zero"},
+		{"dutyEnd date is null", `"dutyEnd":"2026-05-03T12:00:00Z"`, `"dutyEnd":null`, "sessions[0].dutyEnd: missing or zero"},
+		{"missing dutyEnd date", `"dutyEnd":"2026-05-03T12:00:00Z",`, ``, "sessions[0].dutyEnd: missing or zero"},
+		{"invalid dutyStart date", `2026-05-03T10:00:00Z`, `2026-02-30T10:00:00Z`, "2026-02-30T10:00:00Z"},
+		{"invalid dutyEnd date", `2026-05-03T12:00:00Z`, `2026-02-30T12:00:00Z`, "2026-02-30T12:00:00Z"},
+		{"dutyEnd before dutyStart", `2026-05-03T12:00:00Z`, `2026-05-03T09:00:00Z`, "sessions[0].dutyEnd: must be after dutyStart"},
+		{"dutyEnd equals dutyStart", `2026-05-03T12:00:00Z`, `2026-05-03T10:00:00Z`, "sessions[0].dutyEnd: must be after dutyStart"},
+		{"missing subject", `"student":"Alex",`, ``, "sessions[0]: student or description is required"},
+		{"missing activities", `,"activities":[{"id":"activity-1","type":"dual","minutes":60}]`, ``, "sessions[0].activities: must contain at least one activity"},
+		{"empty activities", `[{"id":"activity-1","type":"dual","minutes":60}]`, `[]`, "sessions[0].activities: must contain at least one activity"},
+		{"null activities", `[{"id":"activity-1","type":"dual","minutes":60}]`, `null`, "sessions[0].activities: must contain at least one activity"},
+		{"missing activity ID", `"id":"activity-1",`, ``, "sessions[0].activities[0].id"},
+		{"blank activity ID", `"id":"activity-1"`, `"id":" "`, "sessions[0].activities[0].id"},
+		{"missing type", `"type":"dual",`, ``, "sessions[0].activities[0].type"},
+		{"null type", `"type":"dual"`, `"type":null`, "sessions[0].activities[0].type"},
+		{"unknown type", `"type":"dual"`, `"type":"exam"`, "sessions[0].activities[0].type"},
+		{"missing duration", `,"minutes":60`, ``, "sessions[0].activities[0].minutes"},
+		{"null duration", `"minutes":60`, `"minutes":null`, "sessions[0].activities[0].minutes"},
+		{"zero duration", `"minutes":60`, `"minutes":0`, "sessions[0].activities[0].minutes"},
+		{"negative duration", `"minutes":60`, `"minutes":-1`, "sessions[0].activities[0].minutes"},
+		{"fractional duration", `"minutes":60`, `"minutes":1.5`, "minutes"},
+		{"legacy preparation field", `"student":"Alex"`, `"student":"Alex","preparationMinutes":30`, `unknown field "preparationMinutes"`},
+		{"legacy flights field", `"student":"Alex"`, `"student":"Alex","flights":[]`, `unknown field "flights"`},
+		{"legacy block duration", `"minutes":60`, `"blockMinutes":60`, `unknown field "blockMinutes"`},
+		{"unknown session field", `"student":"Alex"`, `"student":"Alex","unknown":true`, `unknown field "unknown"`},
+		{"unknown activity field", `"minutes":60`, `"minutes":60,"unknown":true`, `unknown field "unknown"`},
+		{"trailing content", valid, valid + `trailing content`, "trailing content"},
+		{"second JSON value", valid, valid + `{}`, "unexpected second value"},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			if strings.Count(valid, test.find) != 1 {
+				t.Fatal("test replacement must match exactly once")
+			}
+			contents := strings.Replace(valid, test.find, test.replaceWith, 1)
 			path := filepath.Join(t.TempDir(), "sessions.json")
-			if err := os.WriteFile(path, []byte(test.contents), 0o644); err != nil {
+			if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
 				t.Fatalf("write session file: %v", err)
 			}
-
 			_, err := readSessionFile(path)
-			if err == nil {
-				t.Fatal("read session file unexpectedly succeeded")
-			}
-			if !strings.Contains(err.Error(), test.wantError) {
-				t.Fatalf("error %q does not contain %q", err, test.wantError)
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("error = %v, want containing %q", err, test.wantError)
 			}
 		})
 	}
 }
 
-func TestReadSessionFileAcceptsPreparationOnlySession(t *testing.T) {
-	contents := `{
-		"schemaVersion": 1,
-		"sessions": [{
-			"id": "session-1",
-			"dutyStart": "2026-05-03T10:00:00Z",
-			"dutyEnd": "2026-05-03T12:00:00Z",
-			"student": "Robin",
-			"preparationMinutes": 60,
-			"flights": []
-		}]
-	}`
-
-	path := filepath.Join(t.TempDir(), "sessions.json")
-	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
-		t.Fatalf("write session file: %v", err)
-	}
-
-	input, err := readSessionFile(path)
-	if err != nil {
-		t.Fatalf("read preparation-only session: %v", err)
-	}
-
-	if got, want := len(input.Sessions), 1; got != want {
-		t.Fatalf("session count = %d, want %d", got, want)
-	}
-	session := input.Sessions[0]
-	if got, want := len(session.Flights), 0; got != want {
-		t.Errorf("flight count = %d, want %d", got, want)
-	}
-	if session.PreparationMinutes == nil {
-		t.Fatal("preparationMinutes is nil")
-	}
-	if got, want := *session.PreparationMinutes, 60; got != want {
-		t.Errorf("preparationMinutes = %d, want %d", got, want)
+func TestReadSessionFileAcceptsActivityTypes(t *testing.T) {
+	for _, activityType := range []ActivityType{ActivityPreparation, ActivityDual, ActivitySoloSupervision} {
+		t.Run(string(activityType), func(t *testing.T) {
+			contents := `{
+				"schemaVersion": 2,
+				"sessions": [{
+					"id": "session-1",
+					"dutyStart": "2026-05-03T10:00:00Z",
+					"dutyEnd": "2026-05-03T12:00:00Z",
+					"student": "Robin",
+					"activities": [{"id": "activity-1", "type": "` + string(activityType) + `", "minutes": 60}]
+				}]
+			}`
+			path := filepath.Join(t.TempDir(), "sessions.json")
+			if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+				t.Fatalf("write session file: %v", err)
+			}
+			input, err := readSessionFile(path)
+			if err != nil {
+				t.Fatalf("read session: %v", err)
+			}
+			if len(input.Sessions) != 1 {
+				t.Fatalf("session count = %d, want 1", len(input.Sessions))
+			}
+			want := []Activity{{ID: "activity-1", Type: activityType, Minutes: 60}}
+			if !slices.Equal(input.Sessions[0].Activities, want) {
+				t.Errorf("activities = %+v, want %+v", input.Sessions[0].Activities, want)
+			}
+		})
 	}
 }
 

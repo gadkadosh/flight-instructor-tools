@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const supportedSessionSchemaVersion = 1
+const supportedSessionSchemaVersion = 2
 
 type SessionFile struct {
 	SchemaVersion int       `json:"schemaVersion"`
@@ -17,18 +17,41 @@ type SessionFile struct {
 }
 
 type Session struct {
-	ID                 string    `json:"id"`
-	DutyStart          time.Time `json:"dutyStart"`
-	DutyEnd            time.Time `json:"dutyEnd"`
-	Student            string    `json:"student,omitempty"`
-	Description        string    `json:"description,omitempty"`
-	PreparationMinutes *int      `json:"preparationMinutes,omitempty"`
-	Flights            []Flight  `json:"flights"`
+	ID          string     `json:"id"`
+	DutyStart   time.Time  `json:"dutyStart"`
+	DutyEnd     time.Time  `json:"dutyEnd"`
+	Student     string     `json:"student,omitempty"`
+	Description string     `json:"description,omitempty"`
+	Activities  []Activity `json:"activities"`
 }
 
-type Flight struct {
-	ID           string `json:"id"`
-	BlockMinutes *int   `json:"blockMinutes,omitempty"`
+type ActivityType string
+
+const (
+	ActivityPreparation     ActivityType = "preparation"
+	ActivityDual            ActivityType = "dual"
+	ActivitySoloSupervision ActivityType = "soloSupervision"
+)
+
+type Activity struct {
+	ID      string       `json:"id"`
+	Type    ActivityType `json:"type"`
+	Minutes int          `json:"minutes"`
+}
+
+func (activity Activity) validate() error {
+	if strings.TrimSpace(activity.ID) == "" {
+		return fmt.Errorf("id: must not be empty")
+	}
+	switch activity.Type {
+	case ActivityPreparation, ActivityDual, ActivitySoloSupervision:
+	default:
+		return fmt.Errorf("type: got %q, want preparation, dual, or soloSupervision", activity.Type)
+	}
+	if activity.Minutes <= 0 {
+		return fmt.Errorf("minutes: must be positive")
+	}
+	return nil
 }
 
 type Config struct {
@@ -123,23 +146,12 @@ func validateSessionFile(input SessionFile) error {
 		if strings.TrimSpace(session.Student) == "" && strings.TrimSpace(session.Description) == "" {
 			return fmt.Errorf("%s: student or description is required", path)
 		}
-		if session.PreparationMinutes != nil && *session.PreparationMinutes <= 0 {
-			return fmt.Errorf("%s.preparationMinutes: must be positive", path)
+		if len(session.Activities) == 0 {
+			return fmt.Errorf("%s.activities: must contain at least one activity", path)
 		}
-		if session.PreparationMinutes == nil && len(session.Flights) == 0 {
-			return fmt.Errorf("%s: preparationMinutes or at least one flight is required", path)
-		}
-
-		for flightIndex, flight := range session.Flights {
-			flightPath := fmt.Sprintf("%s.flights[%d]", path, flightIndex)
-			if strings.TrimSpace(flight.ID) == "" {
-				return fmt.Errorf("%s.id: must not be empty", flightPath)
-			}
-			if flight.BlockMinutes == nil {
-				return fmt.Errorf("%s.blockMinutes: is required", flightPath)
-			}
-			if *flight.BlockMinutes <= 0 {
-				return fmt.Errorf("%s.blockMinutes: must be positive", flightPath)
+		for activityIndex, activity := range session.Activities {
+			if err := activity.validate(); err != nil {
+				return fmt.Errorf("%s.activities[%d].%w", path, activityIndex, err)
 			}
 		}
 	}
