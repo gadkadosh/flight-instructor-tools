@@ -17,6 +17,26 @@ The data deliberately exercises:
 - an effective rate change on 2026-06-01; and
 - a June duration whose block amount requires cent rounding.
 
+## Session format
+
+Sessions use `schemaVersion: 2`. Each session has an `activities` array with at least one entry. Every activity requires an `id`, a `type`, and positive integer `minutes`:
+
+```json
+"activities": [
+  { "id": "briefing-1", "type": "preparation", "minutes": 30 },
+  { "id": "flight-1", "type": "dual", "minutes": 60 },
+  { "id": "flight-2", "type": "soloSupervision", "minutes": 45 }
+]
+```
+
+- `preparation`: pre/post-flight briefing and preparation, billed at the preparation rate.
+- `dual`: flight block minutes, billed at the block-time rate.
+- `soloSupervision`: the supervised student's solo block minutes, billed at the same block-time rate.
+
+Types are required; unsupported values are rejected. Activities are grouped into preparation and block-time charges within each session before rounding, regardless of activity order. Session `dutyStart` and `dutyEnd` remain independent of activity durations.
+
+Version 1 is no longer supported. To migrate a file, replace `preparationMinutes` with a `preparation` activity, replace `flights` with the remaining activities, rename each flight's `blockMinutes` to `minutes`, assign every activity a type and ID, and set `schemaVersion` to `2`. Preserve existing flight IDs and explicitly identify solo supervision; the old format cannot distinguish it from dual flying. There is no automatic migration.
+
 ## Expected May 2026 invoice
 
 At preparation and block rates of EUR 25.00 and EUR 30.00 per hour, respectively, May should produce these grouped lines:
@@ -54,6 +74,6 @@ go run . generate \
   --issue-date 2026-06-09
 ```
 
-Multiple sessions and multiple flights per session are supported. Grouping across session boundaries is not implemented yet, so the current output contains separate lines for otherwise matching activities from different sessions.
+Multiple sessions and multiple activities per session are supported. Grouping across session boundaries is not implemented yet, so the current output contains separate lines for otherwise matching activities from different sessions.
 
 Keep real invoice data outside the repository, for example under `local/`, which is ignored by Git.

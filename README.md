@@ -35,7 +35,7 @@ go run . generate \
 ```
 
 Writes `Rechnung-2026-05.json`, `Rechnung-2026-05.html` and `Rechnung-2026-05.pdf` to `output/`.
-See [examples](examples/) for input details and expected results. Keep private data and signature images in `local/`, which is ignored by Git.
+Session files use schema version 2 with typed activities (`preparation`, `dual`, and `soloSupervision`). See [examples](examples/#session-format) for input details, version-1 migration instructions, and expected results. Keep private data and signature images in `local/`, which is ignored by Git.
 
 ### Validate sessions
 

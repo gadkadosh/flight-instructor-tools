@@ -97,27 +97,26 @@ func calculateSessionLines(session Session, date time.Time, rate Rate, vatRatePe
 		subject = strings.TrimSpace(session.Description)
 	}
 
-	lines := make([]Line, 0, 2)
-	if session.PreparationMinutes != nil {
-		if *session.PreparationMinutes <= 0 {
-			return nil, fmt.Errorf("preparationMinutes must be positive")
+	preparationMinutes, blockMinutes := 0, 0
+	for _, activity := range session.Activities {
+		if err := activity.validate(); err != nil {
+			return nil, fmt.Errorf("activity %q: %w", activity.ID, err)
 		}
+		switch activity.Type {
+		case ActivityPreparation:
+			preparationMinutes += activity.Minutes
+		case ActivityDual, ActivitySoloSupervision:
+			blockMinutes += activity.Minutes
+		}
+	}
+
+	lines := make([]Line, 0, 2)
+	if preparationMinutes > 0 {
 		description := subject
 		if strings.TrimSpace(session.Student) != "" {
 			description += " - Flugvorbereitung"
 		}
-		lines = append(lines, newInvoiceLine(date, description, *session.PreparationMinutes, rate.PreparationCentsPerHour, vatRatePercent))
-	}
-
-	blockMinutes := 0
-	for _, flight := range session.Flights {
-		if flight.BlockMinutes == nil {
-			return nil, fmt.Errorf("flight %q blockMinutes is required", flight.ID)
-		}
-		if *flight.BlockMinutes <= 0 {
-			return nil, fmt.Errorf("flight %q blockMinutes must be positive", flight.ID)
-		}
-		blockMinutes += *flight.BlockMinutes
+		lines = append(lines, newInvoiceLine(date, description, preparationMinutes, rate.PreparationCentsPerHour, vatRatePercent))
 	}
 	if blockMinutes > 0 {
 		description := subject
