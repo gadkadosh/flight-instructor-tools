@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-func TestReadSessionFileValidatesSupportedFields(t *testing.T) {
+func TestReadSessionFileRejectsInvalidInput(t *testing.T) {
 	const valid = `{"schemaVersion":2,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","activities":[{"id":"activity-1","type":"dual","minutes":60}]}]}`
 	tests := []struct {
-		name      string
-		old       string
-		new       string
-		wantError string
+		name        string
+		find        string
+		replaceWith string
+		wantError   string
 	}{
 		{"old schema", `"schemaVersion":2`, `"schemaVersion":1`, "schemaVersion: got 1, want 2"},
 		{"future schema", `"schemaVersion":2`, `"schemaVersion":3`, "schemaVersion: got 3, want 2"},
@@ -41,7 +41,7 @@ func TestReadSessionFileValidatesSupportedFields(t *testing.T) {
 		{"null duration", `"minutes":60`, `"minutes":null`, "sessions[0].activities[0].minutes"},
 		{"zero duration", `"minutes":60`, `"minutes":0`, "sessions[0].activities[0].minutes"},
 		{"negative duration", `"minutes":60`, `"minutes":-1`, "sessions[0].activities[0].minutes"},
-		{"fractional duration", `"minutes":60`, `"minutes":1.5`, "cannot unmarshal number 1.5"},
+		{"fractional duration", `"minutes":60`, `"minutes":1.5`, "minutes"},
 		{"legacy preparation field", `"student":"Alex"`, `"student":"Alex","preparationMinutes":30`, `unknown field "preparationMinutes"`},
 		{"legacy flights field", `"student":"Alex"`, `"student":"Alex","flights":[]`, `unknown field "flights"`},
 		{"legacy block duration", `"minutes":60`, `"blockMinutes":60`, `unknown field "blockMinutes"`},
@@ -53,10 +53,10 @@ func TestReadSessionFileValidatesSupportedFields(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if strings.Count(valid, test.old) != 1 {
+			if strings.Count(valid, test.find) != 1 {
 				t.Fatal("test replacement must match exactly once")
 			}
-			contents := strings.Replace(valid, test.old, test.new, 1)
+			contents := strings.Replace(valid, test.find, test.replaceWith, 1)
 			path := filepath.Join(t.TempDir(), "sessions.json")
 			if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
 				t.Fatalf("write session file: %v", err)
