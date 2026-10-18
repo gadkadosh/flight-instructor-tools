@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Duty {{.Month}}</title></head><body>
+<h1>{{.Issuer.Name}} — {{.Month}}</h1>
+<p>Issued {{formatLongDate .IssueDate}} ({{.TimeZone}})</p>
+<table><tbody>
+{{range .Lines}}<tr class="day"><td>{{if .Date}}{{printf "%02d" .Day}}{{end}}</td><td>{{formatTime .Start}}</td><td>{{formatTime .End}}</td><td>{{if not .Start.IsZero}}{{formatDuration .DutyMinutes}}{{end}}</td><td>{{if not .Start.IsZero}}{{formatDuration .BlockMinutes}}{{end}}</td><td>{{formatRestUntil .DutyOffUntil}}</td></tr>
+{{end}}</tbody></table>
+<p>Month {{formatDuration .Totals.CurrentMonth}}, carry {{formatDuration .Totals.CarryOver}}, year {{formatDuration .Totals.CurrentYear}}, block {{formatDuration .Totals.BlockMinutes}}</p>
+{{if .SignatureBase64}}<img alt="Signature" src="data:image/png;base64,{{.SignatureBase64}}">{{end}}
+</body></html>
