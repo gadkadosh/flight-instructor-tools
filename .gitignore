@@ -7,11 +7,16 @@ fitools
 # Private local reference documents used only for visual comparison.
 /example.pdf
 /example.pages
+/cli/example.pdf
+/cli/example.pages
 
 # Generated invoice artifacts.
 /output/
+/cli/output/
 
 # Private local configuration and session data.
 /local/
+/cli/local/
+/app/local/
 
 .zed

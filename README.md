@@ -1,82 +1,10 @@
 # Flight Instructor Tools
 
-A Go CLI that automates monthly invoicing for my work as a flight instructor.
+Tools for reducing the paperwork involved in my work as a freelance flight instructor.
 
-I built this to replace manual calculations and document preparation with a reproducible workflow. Session records and billing configuration serve as a single source of truth
-for JSON snapshots, HTML invoices, and PDF documents.
+- [CLI](cli/): the existing Go tool for validating session records and generating monthly invoices. Run its commands from `cli/`.
+- [App experiment](app/): a new approach to turning photos of handwritten school sheets into reviewed teaching records, with invoicing and logbook exports as possible outputs. Scaffolding has not started.
 
-## Features
-
-- Calculates preparation and block-time charges.
-- Applies billing rates based on their effective dates.
-- Generates invoices for a given month from HTML templates, with PDF conversion through WeasyPrint.
-
-<a href="invoice-screenshot.png">
-    <img src="invoice-screenshot.png"
-        alt="Example invoice generated from anonymized data"
-        width="300">
-</a>
-
-## Getting Started
-
-Requires Go 1.26.5 or newer and [WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) available on `PATH`.
-
-### Example
-
-From the repository root, using the anonymized example data:
-
-```sh
-go run . generate \
-    --input examples/realistic-sessions.json \
-    --config examples/realistic-config.json \
-    --month 2026-05 \
-    --number 2026-05 \
-    --issue-date 2026-06-09
-```
-
-Writes `Rechnung-2026-05.json`, `Rechnung-2026-05.html` and `Rechnung-2026-05.pdf` to `output/`.
-Session files use schema version 2 with typed activities (`preparation`, `dual`, and `soloSupervision`). See [examples](examples/#session-format) for input details, version-1 migration instructions, and expected results. Keep private data and signature images in `local/`, which is ignored by Git.
-
-### Validate sessions
-
-Check a sessions file without generating invoice artifacts (WeasyPrint is not needed):
-
-```sh
-go run . validate examples/realistic-sessions.json
-```
-
-Returns a nonzero exit status if the file cannot be read or fails validation.
-
-### Generate usage
-
-| Flag                      | Purpose                           | Default            |
-| ------------------------- | --------------------------------- | ------------------ |
-| `--input FILE`            | Sessions file (JSON)              | Required           |
-| `--config FILE`           | Billing configuration file (JSON) | Required           |
-| `--month YYYY-MM`         | Billing month                     | Required           |
-| `--number NUMBER`         | Invoice number                    | Required           |
-| `--issue-date YYYY-MM-DD` | Invoice date of issue             | Today (local time) |
-| `--output-dir DIR`        | Output directory                  | `output/`          |
-| `--force`, `-f`           | Overwrite without confirmation    | `false`            |
-
-If any output file already exists, generation asks once for confirmation to overwrite the invoice's output files. Only `y` (case-insensitive, with surrounding whitespace ignored) confirms; any other response or no input aborts without changing or creating invoice files. Use `--force` (or `-f`) to skip confirmation, including in scripts.
-
-### Billing configuration
-
-The `--config` JSON file contains issuer and customer details, bank and tax information, invoice text, and hourly rates with effective dates. See the [example configuration](examples/realistic-config.json).
-
-Optional `signatureFile` adds a PNG signature; relative paths resolve from the config file's directory.
-
-### Tests
-
-```sh
-go test .
-```
-
-## Limitations
-
-Currently this is tailored to my own workflow: EUR invoices, German formatting, and 0% VAT. Matching activities are combined within a session, but not across sessions. Review generated invoices before sending them.
-
-## License
+The app is an independent experiment. The CLI's billing rules, examples, and invoice layout are useful references; its implementation and input format do not constrain the app's design. Each tool owns its dependencies, build, tests, and usage documentation.
 
 Licensed under the [MIT License](LICENSE.md).

@@ -63,7 +63,7 @@ The expected net and gross total is **EUR 485.00**, with EUR 0.00 VAT.
 
 ## Running it
 
-The example can be generated with:
+Run this from `cli/` to generate the example:
 
 ```sh
 go run . generate \
