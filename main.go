@@ -22,6 +22,7 @@ func usage(w io.Writer) {
 
 Commands:
     generate    Generate invoice artifacts
+    duty-report Generate monthly duty-report artifacts
     validate    Validate a sessions file (JSON)
 
 Run fitools <command> --help for command options.
@@ -40,6 +41,8 @@ func run(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Rea
 		return nil
 	case "generate":
 		return runGenerate(ctx, arguments[1:], stdout, stdin, now)
+	case "duty-report":
+		return runDutyReport(ctx, arguments[1:], stdout, stdin, now)
 	case "validate":
 		return runValidate(arguments[1:], stdout)
 	default:
