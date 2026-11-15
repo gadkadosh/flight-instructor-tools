@@ -7,11 +7,10 @@ import (
 	"time"
 )
 
-// DutyReportLine is one calendar slot. A nonexistent date has an empty Date;
+// DutyReportLine is one calendar slot. A nonexistent date has Day zero;
 // a non-working day has zero Start/End and no durations.
 type DutyReportLine struct {
 	Day          int       `json:"day"`
-	Date         string    `json:"date,omitempty"`
 	Start        time.Time `json:"start,omitzero"`
 	End          time.Time `json:"end,omitzero"`
 	DutyMinutes  int       `json:"dutyMinutes"` // Both working time and flight-duty time.
@@ -61,11 +60,8 @@ func buildDutyReport(sessions []Session, config Config, month string, issueDate 
 	report := DutyReport{IssueDate: issueDate, Month: month, TimeZone: config.TimeZone, Issuer: config.Issuer}
 	next := first.AddDate(0, 1, 0)
 	for i := range report.Lines {
-		line := &report.Lines[i]
-		line.Day = i + 1
-		date := first.AddDate(0, 0, i)
-		if date.Before(next) {
-			line.Date = date.Format("2006-01-02")
+		if first.AddDate(0, 0, i).Before(next) {
+			report.Lines[i].Day = i + 1
 		}
 	}
 	for _, session := range sessions {

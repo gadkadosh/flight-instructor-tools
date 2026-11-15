@@ -132,8 +132,12 @@ func TestDutyReportEmptyMonthsAndCalendarSlots(t *testing.T) {
 			t.Fatalf("empty %s report = %+v", test.month, report)
 		}
 		for i, line := range report.Lines {
-			if (line.Date != "") != (i < test.days) || !line.Start.IsZero() || line.DutyMinutes != 0 {
-				t.Errorf("%s day %d = %+v", test.month, i+1, line)
+			var want DutyReportLine
+			if i < test.days {
+				want.Day = i + 1
+			}
+			if line != want {
+				t.Errorf("%s slot %d = %+v, want %+v", test.month, i+1, line, want)
 			}
 		}
 	}

@@ -123,12 +123,13 @@ func TestRunDutyReportEmptyFebruaryAndExplicitIssueDate(t *testing.T) {
 	if err := json.Unmarshal(readDutyArtifact(t, output, "2026-02", "json"), &snapshot); err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.Totals != (DutyReportTotals{}) || len(snapshot.Lines) != 31 || snapshot.Lines[28].Date != "" ||
+	if snapshot.Totals != (DutyReportTotals{}) || len(snapshot.Lines) != 31 || snapshot.Lines[27].Day != 28 || snapshot.Lines[28].Day != 0 ||
 		snapshot.IssueDate.Format("2006-01-02") != "2026-03-02" {
 		t.Fatalf("empty February = %+v", snapshot)
 	}
 	html := string(readDutyArtifact(t, output, "2026-02", "html"))
 	if strings.Count(html, `class="day"`) != 31 || strings.Count(html, `<tr class="day"><td></td><td></td><td></td><td></td><td></td><td></td></tr>`) != 3 ||
+		!strings.Contains(html, `<tr class="day"><td>28</td><td></td><td></td><td></td><td></td><td></td></tr>`) ||
 		!strings.Contains(html, "Month 0:00, carry 0:00, year 0:00, block 0:00") {
 		t.Fatalf("empty rows/totals incorrect: %s", html)
 	}
