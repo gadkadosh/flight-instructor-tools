@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Duty {{.Month}}</title></head><body>
-<h1>{{.Issuer.Name}} — {{.Month}}</h1>
+<h1>{{.Issuer.Name}} — {{formatMonth .Month}} {{slice .Month 0 4}}</h1>
 <p>Issued {{formatLongDate .IssueDate}} ({{.TimeZone}})</p>
 <table><tbody>
 {{range .Lines}}<tr class="day"><td>{{if .Day}}{{printf "%02d" .Day}}{{end}}</td><td>{{formatTime .Start}}</td><td>{{formatTime .End}}</td><td>{{if not .Start.IsZero}}{{formatDuration .DutyMinutes}}{{end}}</td><td>{{if not .Start.IsZero}}{{formatDuration .BlockMinutes}}{{end}}</td><td>{{formatRestUntil .DutyOffUntil}}</td></tr>

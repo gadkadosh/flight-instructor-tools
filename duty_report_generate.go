@@ -26,19 +26,25 @@ func renderDutyReportHTML(writer io.Writer, report DutyReport, templatePath stri
 	if err != nil {
 		return fmt.Errorf("read duty report template %q: %w", templatePath, err)
 	}
+	formatTime := func(value time.Time) string {
+		if value.IsZero() {
+			return ""
+		}
+		return value.Format("15:04")
+	}
 	tmpl, err := template.New("duty-report").Option("missingkey=error").Funcs(template.FuncMap{
-		"formatDuration": formatDuration,
-		"formatTime": func(value time.Time) string {
-			if value.IsZero() {
-				return ""
+		"formatDuration":  formatDuration,
+		"formatTime":      formatTime,
+		"formatRestUntil": formatTime,
+		"formatMonth": func(value string) (string, error) {
+			month, err := time.Parse("2006-01", value)
+			if err != nil {
+				return "", err
 			}
-			return value.Format("15:04")
-		},
-		"formatRestUntil": func(value time.Time) string {
-			if value.IsZero() {
-				return ""
-			}
-			return value.Format("02.01.2006 15:04")
+			return [...]string{
+				"Januar", "Februar", "März", "April", "Mai", "Juni",
+				"Juli", "August", "September", "Oktober", "November", "Dezember",
+			}[month.Month()-1], nil
 		},
 		"formatLongDate": func(value time.Time) string { return value.Format("02.01.2006") },
 	}).Parse(string(source))

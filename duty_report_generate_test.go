@@ -84,9 +84,12 @@ func TestRunDutyReportArtifactsSignatureAndRelativePaths(t *testing.T) {
 		snapshot.TimeZone != "Europe/Berlin" || snapshot.Lines[2].Start.Format("15:04") != "12:00" {
 		t.Fatalf("snapshot has incorrect calculated values: %+v", snapshot)
 	}
+	if rest := snapshot.Lines[2].DutyOffUntil; rest.Format("2006-01-02 15:04") != "2026-05-04 03:00" {
+		t.Fatalf("snapshot rest-until = %v, want next-day timestamp", rest)
+	}
 	html := string(readDutyArtifact(t, output, "2026-05", "html"))
-	for _, want := range []string{"Erika Musterfrau — 2026-05", "Issued 01.06.2026 (Europe/Berlin)",
-		"<td>03</td><td>12:00</td><td>15:00</td><td>3:00</td><td>1:05</td><td>04.05.2026 03:00</td>",
+	for _, want := range []string{"Erika Musterfrau — Mai 2026", "Issued 01.06.2026 (Europe/Berlin)",
+		"<td>03</td><td>12:00</td><td>15:00</td><td>3:00</td><td>1:05</td><td>03:00</td>",
 		"Month 3:00, carry 120:00, year 123:00, block 1:05"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("HTML missing %q", want)
@@ -107,6 +110,25 @@ func TestRunDutyReportArtifactsSignatureAndRelativePaths(t *testing.T) {
 	}
 	if strings.Count(stdout.String(), "Wrote ") != 3 {
 		t.Errorf("output = %q", stdout.String())
+	}
+}
+
+func TestDutyReportTemplateFormatsGermanMonths(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "month.html.tmpl")
+	if err := os.WriteFile(path, []byte(`{{formatMonth .Month}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct{ month, want string }{
+		{"2026-01", "Januar"}, {"2026-03", "März"},
+		{"2026-09", "September"}, {"2027-12", "Dezember"},
+	} {
+		var html bytes.Buffer
+		if err := renderDutyReportHTML(&html, DutyReport{Month: test.month}, path, nil); err != nil {
+			t.Fatal(err)
+		}
+		if html.String() != test.want {
+			t.Errorf("month %s rendered as %q, want %q", test.month, html.String(), test.want)
+		}
 	}
 }
 
