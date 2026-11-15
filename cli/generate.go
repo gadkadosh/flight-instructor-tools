@@ -78,10 +78,7 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 	}
 	var signaturePNG []byte
 	if config.SignatureFile != "" {
-		signaturePath := config.SignatureFile
-		if !filepath.IsAbs(signaturePath) {
-			signaturePath = filepath.Join(filepath.Dir(*configPath), signaturePath)
-		}
+		signaturePath := configRelativePath(*configPath, config.SignatureFile)
 		signaturePNG, err = os.ReadFile(signaturePath)
 		if err != nil {
 			return fmt.Errorf("read signature %q: %w", signaturePath, err)
@@ -96,32 +93,8 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 	htmlPath := filepath.Join(*outputDirectory, baseName+".html")
 	pdfPath := filepath.Join(*outputDirectory, baseName+".pdf")
 
-	if !force {
-		hasExistingOutputs := false
-		for _, path := range []string{jsonPath, htmlPath, pdfPath} {
-			_, err := os.Stat(path)
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-			if err != nil {
-				return fmt.Errorf("file stat %s error: %w", path, err)
-			}
-
-			hasExistingOutputs = true
-		}
-		if hasExistingOutputs {
-			fmt.Fprintf(stdout, "Invoice %s has existing output files. Overwrite? [y/N] ", *number)
-			scanner := bufio.NewScanner(stdin)
-			if !scanner.Scan() {
-				if err := scanner.Err(); err != nil {
-					return fmt.Errorf("read overwrite confirmation: %w", err)
-				}
-				return fmt.Errorf("aborting: no confirmation received")
-			}
-			if !strings.EqualFold(strings.TrimSpace(scanner.Text()), "y") {
-				return fmt.Errorf("aborting: overwrite not confirmed")
-			}
-		}
+	if err := confirmOverwrite([]string{jsonPath, htmlPath, pdfPath}, "Invoice "+*number, force, stdout, stdin); err != nil {
+		return err
 	}
 
 	if err := writeInvoiceSnapshot(jsonPath, document); err != nil {
@@ -135,5 +108,37 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 	}
 
 	fmt.Fprintf(stdout, "Wrote %s\nWrote %s\nWrote %s\n", jsonPath, htmlPath, pdfPath)
+	return nil
+}
+
+func confirmOverwrite(paths []string, label string, force bool, stdout io.Writer, stdin io.Reader) error {
+	if force {
+		return nil
+	}
+	hasExistingOutputs := false
+	for _, path := range paths {
+		_, err := os.Stat(path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("file stat %s error: %w", path, err)
+		}
+		hasExistingOutputs = true
+	}
+	if !hasExistingOutputs {
+		return nil
+	}
+	fmt.Fprintf(stdout, "%s has existing output files. Overwrite? [y/N] ", label)
+	scanner := bufio.NewScanner(stdin)
+	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("read overwrite confirmation: %w", err)
+		}
+		return fmt.Errorf("aborting: no confirmation received")
+	}
+	if !strings.EqualFold(strings.TrimSpace(scanner.Text()), "y") {
+		return fmt.Errorf("aborting: overwrite not confirmed")
+	}
 	return nil
 }

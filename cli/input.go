@@ -55,17 +55,19 @@ func (activity Activity) validate() error {
 }
 
 type Config struct {
-	Currency       string      `json:"currency"`
-	Issuer         Party       `json:"issuer"`
-	Customer       Party       `json:"customer"`
-	TaxNumber      string      `json:"taxNumber"`
-	BankDetails    BankDetails `json:"bankDetails"`
-	VATRatePercent int         `json:"vatRatePercent"`
-	VATStatement   string      `json:"vatStatement"`
-	PaymentText    string      `json:"paymentText"`
-	ClosingText    string      `json:"closingText"`
-	SignatureFile  string      `json:"signatureFile,omitempty"`
-	Rates          []Rate      `json:"rates"`
+	Currency               string      `json:"currency"`
+	Issuer                 Party       `json:"issuer"`
+	Customer               Party       `json:"customer"`
+	TaxNumber              string      `json:"taxNumber"`
+	BankDetails            BankDetails `json:"bankDetails"`
+	VATRatePercent         int         `json:"vatRatePercent"`
+	VATStatement           string      `json:"vatStatement"`
+	PaymentText            string      `json:"paymentText"`
+	ClosingText            string      `json:"closingText"`
+	SignatureFile          string      `json:"signatureFile,omitempty"`
+	DutyReportTemplateFile string      `json:"dutyReportTemplateFile,omitempty"`
+	TimeZone               string      `json:"timeZone,omitempty"`
+	Rates                  []Rate      `json:"rates"`
 }
 
 type Rate struct {
@@ -120,13 +122,20 @@ func readJSONFile(path string, destination any) error {
 }
 
 func validateSessionFile(input SessionFile) error {
-	if input.SchemaVersion != supportedSessionSchemaVersion {
-		return fmt.Errorf("schemaVersion: got %d, want %d", input.SchemaVersion, supportedSessionSchemaVersion)
+	if err := validateSessionRecords(input); err != nil {
+		return err
 	}
 	if len(input.Sessions) == 0 {
 		return fmt.Errorf("sessions: must contain at least one session")
 	}
+	return nil
+}
 
+// Validate the schema and records without requiring a nonempty selection.
+func validateSessionRecords(input SessionFile) error {
+	if input.SchemaVersion != supportedSessionSchemaVersion {
+		return fmt.Errorf("schemaVersion: got %d, want %d", input.SchemaVersion, supportedSessionSchemaVersion)
+	}
 	for sessionIndex, session := range input.Sessions {
 		path := fmt.Sprintf("sessions[%d]", sessionIndex)
 		if strings.TrimSpace(session.ID) == "" {
