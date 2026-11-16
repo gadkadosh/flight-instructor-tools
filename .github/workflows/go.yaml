@@ -40,7 +40,7 @@ jobs:
 
       - name: Test frontend
         run: |
-          pnpm --dir web exec playwright install --with-deps chromium
+          pnpm --dir web exec playwright install --with-deps --only-shell chromium
           pnpm --dir web test
 
       - name: Format Go
