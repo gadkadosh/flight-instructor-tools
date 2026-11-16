@@ -55,29 +55,29 @@ test('loads sessions in file order and expands flights by clicking any cell', as
   ]);
   expect(within(rows[1]).getByText('Circuit practice')).toBeTruthy();
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
-  expect(screen.queryByRole('list')).toBeNull();
+  expect(screen.queryByRole('table', { name: 'Flights for Alex Beispiel on 04.05.2026' })).toBeNull();
   expect(screen.queryByRole('columnheader', { name: 'Activities' })).toBeNull();
 
   fireEvent.click(cells[1]);
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
-  expect(screen.getAllByRole('table')).toHaveLength(1);
-  const flights = screen.getByRole('list', { name: 'Flights for Alex Beispiel on 04.05.2026' });
-  const items = within(flights).getAllByRole('listitem');
-  expect(items).toHaveLength(3);
-  expect(items[0].textContent).toContain('Block 0:35');
-  expect(items[2].textContent).toContain('Solo supervision');
+  expect(screen.getAllByRole('table')).toHaveLength(2);
+  const flights = screen.getByRole('table', { name: 'Flights for Alex Beispiel on 04.05.2026' });
+  expect(within(flights).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Flight', 'Type', 'Block']);
+  const flightRows = within(flights).getAllByRole('row').slice(1);
+  expect(flightRows.map((row) => [
+    within(row).getByRole('rowheader').textContent,
+    ...within(row).getAllByRole('cell').map((cell) => cell.textContent),
+  ])).toEqual([
+    ['1', 'Dual', '0:35'], ['2', 'Dual', '0:30'], ['3', 'Solo supervision', '0:05'],
+  ]);
   expect(within(flights).queryByText('Preparation')).toBeNull();
   expect(within(flights).queryByText('flight-1')).toBeNull();
-  expect(items.map((item) => item.textContent)).toEqual([
-    'Dual · 1Block 0:35', 'Dual · 2Block 0:30', 'Solo supervision · 3Block 0:05',
-  ]);
-  expect(screen.getAllByRole('list')).toHaveLength(1);
 
   toggle.focus();
   expect(document.activeElement).toBe(toggle);
   fireEvent.click(toggle);
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
-  expect(screen.queryByRole('list')).toBeNull();
+  expect(screen.queryByRole('table', { name: 'Flights for Alex Beispiel on 04.05.2026' })).toBeNull();
 });
 
 test('preparation-only sessions have no flight expansion', async () => {

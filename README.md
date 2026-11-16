@@ -75,9 +75,9 @@ The table preserves file order, with one row per session and activity totals for
 preparation, dual flying, and solo supervision. Click anywhere on a flight session
 row, or use the caret button at the start of the row with the keyboard, to expand
 its flights. Keyboard focus outlines the whole row. All rows start collapsed.
-Expanded details show each flight's type and block duration, without preparation
-entries or IDs. Preparation-only sessions
-do not expand. Student and description are both shown when present. There are no
+Expanded details use a compact table with Flight, Type, and Block columns,
+without preparation entries or IDs. Preparation-only sessions do not expand.
+Student and description are both shown when present. There are no
 editing, sorting, filtering, or row-selection controls.
 Reload the page to pick up file changes.
 

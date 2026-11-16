@@ -70,11 +70,11 @@ th, td {
   vertical-align: middle;
 }
 
-thead {
+.sessions-table > thead {
   background: #edf1f6;
 }
 
-thead th {
+.sessions-table > thead th {
   white-space: nowrap;
 }
 
@@ -167,32 +167,32 @@ thead th {
   background: #f8fafc;
 }
 
-.flights {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin: 0;
-  padding: 0.25rem 0;
-  list-style: none;
+.activity-details > td {
+  padding: 0.5rem 1rem 0.75rem 2.5rem;
 }
 
-.flights li {
-  display: flex;
-  align-items: baseline;
-  gap: 1.5rem;
-  padding: 0.65rem 0.9rem;
-  border-left: 2px solid #c5d1df;
-  background: #fff;
+.flight-table {
+  max-width: 24rem;
 }
 
-.flight-type {
-  font-weight: 500;
+.flight-table th, .flight-table td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 0;
 }
 
-.flight-duration {
+.flight-table thead th {
   color: #566478;
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.flight-number {
+  color: #566478;
+  font-weight: 400;
+}
+
+.flight-table tbody tr + tr {
+  border-top: 1px solid #e5e9ef;
 }
 
 .error {

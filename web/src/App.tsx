@@ -92,14 +92,24 @@ function SessionRow({ session, dateFormat, timeFormat }: {
       </tr>
       <tr id={detailsId} hidden={!expanded} className="activity-details">
         <td colSpan={8}>
-          <ul className="flights" aria-label={`Flights for ${session.student || session.description} on ${startDate}`}>
-            {flights.map((activity, index) => (
-              <li key={index}>
-                <span className="flight-type">{activityLabels[activity.type]} · {index + 1}</span>
-                <span className="flight-duration">Block {formatDuration(activity.minutes)}</span>
-              </li>
-            ))}
-          </ul>
+          <table className="flight-table" aria-label={`Flights for ${session.student || session.description} on ${startDate}`}>
+            <thead>
+              <tr>
+                <th scope="col">Flight</th>
+                <th scope="col">Type</th>
+                <th scope="col" className="numeric">Block</th>
+              </tr>
+            </thead>
+            <tbody>
+              {flights.map((activity, index) => (
+                <tr key={index}>
+                  <th scope="row" className="flight-number">{index + 1}</th>
+                  <td>{activityLabels[activity.type]}</td>
+                  <td className="numeric">{formatDuration(activity.minutes)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </td>
       </tr>
     </>
