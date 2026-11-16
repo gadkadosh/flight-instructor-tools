@@ -25,7 +25,8 @@ and photo-assisted input will be added incrementally.
 
 ## Getting Started
 
-Building from source requires Go 1.26.5 or newer, Node.js 22.12 or newer,
+Building from source requires Go 1.26.5 or newer, Node.js 24.11+ on the 24.x line
+(or another version allowed by `web/package.json`),
 [pnpm](https://pnpm.io/installation), and Make. The pnpm version is pinned in
 `web/package.json` and used by CI:
 
@@ -119,13 +120,24 @@ exiting stops the other. Restart this command after Go changes.
 
 To use private data in `local/` during development, run
 `go run . serve --port 8080 --no-open --input local/sessions.json --config local/config.json`
-and `pnpm --dir web exec vite --open` in separate terminals instead of `make dev`.
+and `pnpm --dir web exec vp dev --open` in separate terminals instead of `make dev`.
 Stop each process with Ctrl+C in its terminal.
 
-`pnpm --dir web run build` type-checks TypeScript and builds the production UI.
+The frontend uses [Vite+](https://viteplus.dev/) for builds, tests, linting, and
+formatting. It is installed locally by pnpm; a global `vp` installation is not
+required. Lint and format settings live in `web/vite.config.ts`.
+Vite+ and its Vite alias are pinned together in `web/pnpm-workspace.yaml`.
+
+```sh
+pnpm --dir web run check   # Check formatting, lint (including React Hooks), and TypeScript
+pnpm --dir web run format  # Apply formatting
+```
+
+`pnpm --dir web run build` runs these checks and builds the production UI.
 Run it before direct `go build`, `go run`, `go vet`, or `go test` commands on a fresh
 checkout, since Go embeds the generated `web/dist/` directory. Rebuild the binary
 after changing the frontend to update its embedded UI.
+CI runs the same checks, build, and frontend tests for every pull request.
 
 ### Example
 

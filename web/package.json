@@ -1,16 +1,14 @@
 {
   "name": "fitools-web",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
-  "packageManager": "pnpm@12.21.0",
-  "engines": {
-    "node": ">=22.12.0"
-  },
   "scripts": {
-    "dev": "pnpm run build && concurrently --kill-others \"go -C .. run . serve --port 8080 --no-open\" \"vite --open\"",
-    "build": "tsc --noEmit && vite build",
-    "test": "vitest run"
+    "dev": "pnpm run build && concurrently --kill-others \"go -C .. run . serve --port 8080 --no-open\" \"vp dev --open\"",
+    "build": "pnpm run check && vp build",
+    "check": "vp check --deny-warnings",
+    "format": "vp fmt",
+    "test": "vp test run"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -24,8 +22,11 @@
     "@vitejs/plugin-react": "^6.3.0",
     "concurrently": "^10.0.7",
     "jsdom": "^26.1.0",
-    "typescript": "^7.0.2",
-    "vite": "^8.3.8",
-    "vitest": "^5.1.0"
-  }
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": "^22.18.0 || ^24.11.0 || >=26.0.0"
+  },
+  "packageManager": "pnpm@12.21.0"
 }

@@ -64,7 +64,8 @@ table {
   width: 8.5rem;
 }
 
-th, td {
+th,
+td {
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid #e5e9ef;
   vertical-align: middle;
@@ -87,11 +88,13 @@ th, td {
   cursor: pointer;
 }
 
-.session-row:hover, .session-row:focus-within {
+.session-row:hover,
+.session-row:focus-within {
   background: #f3f6fa;
 }
 
-.time-zone, .time-note {
+.time-zone,
+.time-note {
   color: #566478;
   font-size: 0.8rem;
 }
@@ -145,7 +148,7 @@ th, td {
   color: #66788e;
 }
 
-.row-toggle[aria-expanded="true"] .chevron {
+.row-toggle[aria-expanded='true'] .chevron {
   transform: rotate(90deg);
 }
 
@@ -175,7 +178,8 @@ th, td {
   max-width: 24rem;
 }
 
-.flight-table th, .flight-table td {
+.flight-table th,
+.flight-table td {
   padding: 0.3rem 0.5rem;
   border-bottom: 0;
 }

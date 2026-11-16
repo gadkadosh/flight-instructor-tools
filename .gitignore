@@ -7,6 +7,7 @@ fitools
 # Frontend dependencies and build output.
 /web/node_modules/
 /web/dist/
+/web/.vitest/
 
 # Private local reference documents used only for visual comparison.
 /example.pdf
