@@ -17,11 +17,11 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 	flags := flag.NewFlagSet("generate", flag.ContinueOnError)
 	flags.SetOutput(stdout)
 	flags.Usage = func() {
-		fmt.Fprintln(stdout, "Usage: fitools generate --input FILE --config FILE --month YYYY-MM --number NUMBER [flags]")
+		fmt.Fprintln(stdout, "Usage: fitools generate --month YYYY-MM --number NUMBER [flags]")
 		flags.PrintDefaults()
 	}
-	inputPath := flags.String("input", "", "session JSON file")
-	configPath := flags.String("config", "", "invoice configuration JSON file")
+	inputPath := flags.String("input", defaultInputPath, "session JSON file")
+	configPath := flags.String("config", defaultConfigPath, "invoice configuration JSON file")
 	month := flags.String("month", "", "invoice month in YYYY-MM format")
 	number := flags.String("number", "", "invoice number")
 	issueDateValue := flags.String("issue-date", "", "invoice issue date in YYYY-MM-DD format")

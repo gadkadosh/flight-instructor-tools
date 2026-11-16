@@ -20,6 +20,18 @@ func TestRunValidate(t *testing.T) {
 		t.Fatal(err)
 	}
 	validPath := filepath.Join("testdata", "minimal-sessions.json")
+	fixture, err := os.ReadFile(validPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	validPath, err = filepath.Abs(validPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile("sessions.json", fixture, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	missingPath := filepath.Join(t.TempDir(), "missing.json")
 
 	tests := []struct {
@@ -49,13 +61,13 @@ func TestRunValidate(t *testing.T) {
 			wantError: "open",
 		},
 		{
-			name:      "no arguments",
-			wantError: "usage: fitools validate FILE",
+			name:       "default sessions in working directory",
+			wantOutput: "Valid sessions file: sessions.json\n",
 		},
 		{
 			name:      "extra arguments",
 			arguments: []string{validPath, validPath},
-			wantError: "expected exactly one sessions file",
+			wantError: "expected at most one sessions file",
 		},
 		{
 			name:      "input flag is not supported",
@@ -65,12 +77,12 @@ func TestRunValidate(t *testing.T) {
 		{
 			name:       "help",
 			arguments:  []string{"--help"},
-			wantOutput: "Usage: fitools validate FILE\n",
+			wantOutput: "Usage: fitools validate [FILE] (default: sessions.json)\n",
 		},
 		{
 			name:       "short help",
 			arguments:  []string{"-h"},
-			wantOutput: "Usage: fitools validate FILE\n",
+			wantOutput: "Usage: fitools validate [FILE] (default: sessions.json)\n",
 		},
 	}
 

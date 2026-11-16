@@ -69,11 +69,11 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 	flags := flag.NewFlagSet("duty-report", flag.ContinueOnError)
 	flags.SetOutput(stdout)
 	flags.Usage = func() {
-		fmt.Fprintln(stdout, "Usage: fitools duty-report --input FILE --config FILE --month YYYY-MM --carry-over-flight-duty H:MM [flags]")
+		fmt.Fprintln(stdout, "Usage: fitools duty-report --month YYYY-MM --carry-over-flight-duty H:MM [flags]")
 		flags.PrintDefaults()
 	}
-	inputPath := flags.String("input", "", "session JSON file")
-	configPath := flags.String("config", "", "configuration JSON file")
+	inputPath := flags.String("input", defaultInputPath, "session JSON file")
+	configPath := flags.String("config", defaultConfigPath, "configuration JSON file")
 	month := flags.String("month", "", "report month in YYYY-MM format")
 	carryOverValue := flags.String("carry-over-flight-duty", "", "year-to-date flight-duty hours:minutes before this month (required, including 0:00)")
 	issueDateValue := flags.String("issue-date", "", "issue date in YYYY-MM-DD format (default: today in configured timeZone)")

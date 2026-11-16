@@ -68,6 +68,30 @@ func readDutyArtifact(t *testing.T, directory, month, extension string) []byte {
 	return data
 }
 
+func TestRunDutyReportUsesWorkingDirectoryDefaults(t *testing.T) {
+	_, output, configPath := setupDutyReportTest(t)
+	fixture, err := os.ReadFile("testdata/minimal-sessions.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := filepath.Dir(configPath)
+	if err := os.WriteFile(filepath.Join(directory, "sessions.json"), fixture, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(directory)
+	args := []string{"duty-report", "--month", "2026-05", "--carry-over-flight-duty", "0:00", "--output-dir", output}
+	if err := run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now); err != nil {
+		t.Fatal(err)
+	}
+	var report DutyReport
+	if err := json.Unmarshal(readDutyArtifact(t, output, "2026-05", "json"), &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.TimeZone != "Europe/Berlin" || report.Totals.CurrentMonth != 180 || report.Totals.BlockMinutes != 65 {
+		t.Fatalf("report generated from default files has unexpected values: %+v", report)
+	}
+}
+
 func TestRunDutyReportArtifactsSignatureAndRelativePaths(t *testing.T) {
 	args, output, configPath := setupDutyReportTest(t)
 	var stdout bytes.Buffer

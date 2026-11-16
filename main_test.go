@@ -78,6 +78,35 @@ func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
 	}
 }
 
+func TestRunGenerateUsesWorkingDirectoryDefaults(t *testing.T) {
+	_, outputDirectory := setupGenerateTest(t)
+	directory := t.TempDir()
+	for _, file := range []struct{ source, destination string }{
+		{"testdata/minimal-sessions.json", "sessions.json"},
+		{"testdata/minimal-config.json", "config.json"},
+	} {
+		contents, err := os.ReadFile(file.source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(directory, file.destination), contents, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Chdir(directory)
+	args := []string{"generate", "--month", "2026-05", "--number", "2026-05", "--output-dir", outputDirectory}
+	if err := run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := os.ReadFile(filepath.Join(outputDirectory, "Rechnung-2026-05.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(snapshot, []byte(`"grossCents": 4500`)) {
+		t.Fatalf("invoice generated from default files has unexpected totals: %s", snapshot)
+	}
+}
+
 func TestRunGenerateSignature(t *testing.T) {
 	signaturePath := filepath.Join(t.TempDir(), "signature.png")
 	if err := os.WriteFile(signaturePath, []byte("signature"), 0o644); err != nil {
@@ -168,7 +197,7 @@ func TestRunGenerateHelp(t *testing.T) {
 				t.Fatalf("run generate help: %v", err)
 			}
 			for _, text := range []string{
-				"Usage: fitools generate --input FILE --config FILE --month YYYY-MM --number NUMBER [flags]",
+				"Usage: fitools generate --month YYYY-MM --number NUMBER [flags]",
 				"-input", "-config", "-month", "-number", "-issue-date", "-output-dir", "-force",
 			} {
 				if !strings.Contains(stdout.String(), text) {

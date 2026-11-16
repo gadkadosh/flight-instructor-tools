@@ -5,10 +5,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 )
 
-const defaultOutputDirectory = "output"
+const (
+	defaultInputPath       = "sessions.json"
+	defaultConfigPath      = "config.json"
+	defaultOutputDirectory = "output"
+)
 
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Stdout, os.Stdin, time.Now); err != nil {
@@ -21,6 +26,8 @@ func usage(w io.Writer) {
 	fmt.Fprint(w, `Usage: fitools [command] [flags]
 
 Without a command, start the local web UI and open it in your browser.
+Session and configuration paths default to sessions.json and config.json in the
+current directory. Use --input and --config to override them.
 
 Commands:
     serve       Start the local web UI
@@ -50,6 +57,9 @@ func run(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Rea
 	case "validate":
 		return runValidate(arguments[1:], stdout)
 	default:
+		if strings.HasPrefix(arguments[0], "-") {
+			return runServe(ctx, arguments, stdout)
+		}
 		usage(stdout)
 		return fmt.Errorf("unknown command: %q", arguments[0])
 	}

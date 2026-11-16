@@ -12,12 +12,13 @@ body {
 }
 
 main {
-  max-width: 64rem;
+  max-width: 90rem;
   margin: 4rem auto;
   padding: 0 1.5rem;
 }
 
 h1 {
+  margin: 0 0 1.5rem;
   font-size: clamp(1.75rem, 5vw, 2.5rem);
   letter-spacing: -0.04em;
 }
@@ -25,4 +26,189 @@ h1 {
 p {
   color: #566478;
   line-height: 1.6;
+}
+
+.app-name {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid #dbe1e8;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.sessions-table {
+  table-layout: fixed;
+  min-width: 66rem;
+}
+
+.expand-column {
+  width: 2.25rem;
+}
+
+.date-column {
+  width: 8rem;
+}
+
+.time-column {
+  width: 8.5rem;
+}
+
+th, td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #e5e9ef;
+  vertical-align: middle;
+}
+
+.sessions-table > thead {
+  background: #edf1f6;
+}
+
+.sessions-table > thead th {
+  white-space: nowrap;
+}
+
+.session-subject {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.session-row {
+  cursor: pointer;
+}
+
+.session-row:hover, .session-row:focus-within {
+  background: #f3f6fa;
+}
+
+.time-zone, .time-note {
+  color: #566478;
+  font-size: 0.8rem;
+}
+
+.time-note {
+  margin: 0.65rem 0.25rem 0;
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.time-zone {
+  margin-left: 0.1rem;
+}
+
+.description {
+  display: block;
+  margin-top: 0.3rem;
+  color: #566478;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.row-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.expand-cell {
+  padding-right: 0;
+}
+
+.chevron {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  color: #66788e;
+}
+
+.row-toggle[aria-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.session-row:has(.row-toggle:focus-visible) {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.row-toggle:focus-visible {
+  outline: none;
+}
+
+.activity-details {
+  background: #f8fafc;
+}
+
+.activity-details > td {
+  padding: 0.5rem 1rem 0.75rem 2.5rem;
+}
+
+.flight-table {
+  max-width: 24rem;
+}
+
+.flight-table th, .flight-table td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 0;
+}
+
+.flight-table thead th {
+  color: #566478;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.flight-number {
+  color: #566478;
+  font-weight: 400;
+}
+
+.flight-table tbody tr + tr {
+  border-top: 1px solid #e5e9ef;
+}
+
+.error {
+  padding: 1rem;
+  border: 1px solid #e5aaaa;
+  border-radius: 0.5rem;
+  background: #fff5f5;
+  color: #912626;
+  overflow-wrap: anywhere;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
