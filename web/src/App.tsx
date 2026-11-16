@@ -37,7 +37,11 @@ function formatDuration(minutes: number) {
   return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
-function SessionRow({ session, dateFormat, timeFormat }: {
+function SessionRow({
+  session,
+  dateFormat,
+  timeFormat,
+}: {
   session: Session;
   dateFormat: Intl.DateTimeFormat;
   timeFormat: Intl.DateTimeFormat;
@@ -56,9 +60,12 @@ function SessionRow({ session, dateFormat, timeFormat }: {
   }
   return (
     <>
-      <tr className={flights.length > 0 ? 'session-row' : undefined} onClick={() => {
-        if (flights.length > 0) setExpanded(!expanded);
-      }}>
+      <tr
+        className={flights.length > 0 ? 'session-row' : undefined}
+        onClick={() => {
+          if (flights.length > 0) setExpanded(!expanded);
+        }}
+      >
         <td className="expand-cell">
           {flights.length > 0 && (
             <button
@@ -68,18 +75,36 @@ function SessionRow({ session, dateFormat, timeFormat }: {
               aria-controls={detailsId}
               aria-label={`${expanded ? 'Hide' : 'Show'} flights for ${session.student || session.description} on ${startDate}`}
             >
-              <svg className="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+              <svg
+                className="chevron"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
                 <path d="m9 6 6 6-6 6" />
               </svg>
             </button>
           )}
         </td>
-        <td><time dateTime={session.dutyStart}>{startDate}</time></td>
+        <td>
+          <time dateTime={session.dutyStart}>{startDate}</time>
+        </td>
         <th scope="row" className="session-subject">
           {session.student || session.description}
-          {session.student && session.description && <span className="description">{session.description}</span>}
+          {session.student && session.description && (
+            <span className="description">{session.description}</span>
+          )}
         </th>
-        <td className="numeric"><time dateTime={session.dutyStart}>{timeFormat.format(start)} <span className="time-zone">{timeSuffix}</span></time></td>
+        <td className="numeric">
+          <time dateTime={session.dutyStart}>
+            {timeFormat.format(start)} <span className="time-zone">{timeSuffix}</span>
+          </time>
+        </td>
         <td className="numeric">
           <time dateTime={session.dutyEnd}>
             {timeFormat.format(end)} <span className="time-zone">{timeSuffix}</span>
@@ -92,18 +117,25 @@ function SessionRow({ session, dateFormat, timeFormat }: {
       </tr>
       <tr id={detailsId} hidden={!expanded} className="activity-details">
         <td colSpan={8}>
-          <table className="flight-table" aria-label={`Flights for ${session.student || session.description} on ${startDate}`}>
+          <table
+            className="flight-table"
+            aria-label={`Flights for ${session.student || session.description} on ${startDate}`}
+          >
             <thead>
               <tr>
                 <th scope="col">Flight</th>
                 <th scope="col">Type</th>
-                <th scope="col" className="numeric">Block</th>
+                <th scope="col" className="numeric">
+                  Block
+                </th>
               </tr>
             </thead>
             <tbody>
               {flights.map((activity, index) => (
                 <tr key={index}>
-                  <th scope="row" className="flight-number">{index + 1}</th>
+                  <th scope="row" className="flight-number">
+                    {index + 1}
+                  </th>
                   <td>{activityLabels[activity.type]}</td>
                   <td className="numeric">{formatDuration(activity.minutes)}</td>
                 </tr>
@@ -118,15 +150,23 @@ function SessionRow({ session, dateFormat, timeFormat }: {
 
 function SessionTable({ view }: { view: SessionView }) {
   const dateFormat = new Intl.DateTimeFormat('de-DE', {
-    timeZone: view.timeZone, day: '2-digit', month: '2-digit', year: 'numeric',
+    timeZone: view.timeZone,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   });
   const timeFormat = new Intl.DateTimeFormat('en-GB', {
-    timeZone: view.timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    timeZone: view.timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
   });
 
   return (
     <>
-      {view.sessions.length === 0 ? <p role="status">No sessions yet.</p> : (
+      {view.sessions.length === 0 ? (
+        <p role="status">No sessions yet.</p>
+      ) : (
         <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>
           <table className="sessions-table">
             <colgroup>
@@ -138,25 +178,44 @@ function SessionTable({ view }: { view: SessionView }) {
             <caption className="visually-hidden">Sessions in file order</caption>
             <thead>
               <tr>
-                <th scope="col" className="expand-cell"><span className="visually-hidden">Details</span></th>
+                <th scope="col" className="expand-cell">
+                  <span className="visually-hidden">Details</span>
+                </th>
                 <th scope="col">Date</th>
                 <th scope="col">Student / description</th>
-                <th scope="col" className="numeric">Duty start</th>
-                <th scope="col" className="numeric">Duty end</th>
-                <th scope="col" className="numeric">Preparation</th>
-                <th scope="col" className="numeric">Dual</th>
-                <th scope="col" className="numeric">Solo supervision</th>
+                <th scope="col" className="numeric">
+                  Duty start
+                </th>
+                <th scope="col" className="numeric">
+                  Duty end
+                </th>
+                <th scope="col" className="numeric">
+                  Preparation
+                </th>
+                <th scope="col" className="numeric">
+                  Dual
+                </th>
+                <th scope="col" className="numeric">
+                  Solo supervision
+                </th>
               </tr>
             </thead>
             <tbody>
               {view.sessions.map((session, index) => (
-                <SessionRow key={index} session={session} dateFormat={dateFormat} timeFormat={timeFormat} />
+                <SessionRow
+                  key={index}
+                  session={session}
+                  dateFormat={dateFormat}
+                  timeFormat={timeFormat}
+                />
               ))}
             </tbody>
           </table>
         </div>
       )}
-      <p className="time-note">Duty times: <span>{view.timeZone}</span> · Durations H:MM</p>
+      <p className="time-note">
+        Duty times: <span>{view.timeZone}</span> · Durations H:MM
+      </p>
     </>
   );
 }
@@ -178,7 +237,10 @@ export default function App() {
         }
       } catch (error) {
         if (!controller.signal.aborted) {
-          setState({ status: 'error', message: error instanceof Error ? error.message : 'Could not load sessions.' });
+          setState({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'Could not load sessions.',
+          });
         }
       }
     }
@@ -193,7 +255,11 @@ export default function App() {
         <h1>Sessions</h1>
       </header>
       {state.status === 'loading' && <p role="status">Loading sessions…</p>}
-      {state.status === 'error' && <p role="alert" className="error">{state.message}</p>}
+      {state.status === 'error' && (
+        <p role="alert" className="error">
+          {state.message}
+        </p>
+      )}
       {state.status === 'ready' && <SessionTable view={state.view} />}
     </main>
   );

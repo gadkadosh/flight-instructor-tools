@@ -33,7 +33,7 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: web/pnpm-lock.yaml
 
-      - name: Build frontend
+      - name: Check and build frontend
         run: |
           pnpm --dir web install --frozen-lockfile
           pnpm --dir web run build
@@ -41,7 +41,7 @@ jobs:
       - name: Test frontend
         run: pnpm --dir web test
 
-      - name: Format
+      - name: Format Go
         run: |
           files="$(gofmt -l .)"
           if [ -n "$files" ]; then
