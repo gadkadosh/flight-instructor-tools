@@ -5,17 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 )
 
 const defaultOutputDirectory = "output"
 
 func main() {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-	if err := run(ctx, os.Args[1:], os.Stdout, os.Stdin, time.Now); err != nil {
+	if err := run(context.Background(), os.Args[1:], os.Stdout, os.Stdin, time.Now); err != nil {
 		fmt.Fprintf(os.Stderr, "fitools: %v\n", err)
 		os.Exit(1)
 	}

@@ -10,8 +10,11 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
+	"os/signal"
 	"runtime"
+	"syscall"
 	"time"
 )
 
@@ -36,6 +39,8 @@ func runServe(ctx context.Context, arguments []string, stdout io.Writer) error {
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments: %v", flags.Args())
 	}
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	assets, err := fs.Sub(webAssets, "web/dist")
 	if err != nil {
 		return fmt.Errorf("load embedded UI: %w", err)
