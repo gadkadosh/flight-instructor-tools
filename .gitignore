@@ -18,5 +18,10 @@ fitools
 /local/
 /cli/local/
 /app/local/
+/app/node_modules/
+/app/.next/
+/app/*.tsbuildinfo
+/app/.env*
+!/app/.env.example
 
 .zed
