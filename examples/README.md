@@ -5,6 +5,35 @@ These files model a small but realistic flight-instruction billing period withou
 - `realistic-sessions.json` contains sessions around May 2026.
 - `realistic-config.json` contains fictional issuer, customer, bank, and tax data.
 
+## Running it
+
+From the repository root, [build the tool](../README.md#getting-started), then
+validate the example sessions:
+
+```sh
+./fitools validate examples/realistic-sessions.json
+```
+
+Generate the May invoice (requires [WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) on `PATH`):
+
+```sh
+./fitools generate \
+  --input examples/realistic-sessions.json \
+  --config examples/realistic-config.json \
+  --month 2026-05 \
+  --number 2026-05 \
+  --issue-date 2026-06-09
+```
+
+Writes `Rechnung-2026-05.json`, `.html`, and `.pdf` to `output/`.
+Existing files require confirmation before overwriting; use `--force` in scripts.
+Invoice output is tailored to EUR, German formatting, and 0% VAT. Review generated
+documents before use.
+
+Keep real invoice data outside the repository, for example under `local/`, which is ignored by Git.
+
+## Example coverage
+
 The data deliberately exercises:
 
 - sessions immediately outside the selected month;
@@ -61,19 +90,4 @@ At preparation and block rates of EUR 25.00 and EUR 30.00 per hour, respectively
 
 The expected net and gross total is **EUR 485.00**, with EUR 0.00 VAT.
 
-## Running it
-
-The example can be generated with:
-
-```sh
-go run . generate \
-  --input examples/realistic-sessions.json \
-  --config examples/realistic-config.json \
-  --month 2026-05 \
-  --number 2026-05 \
-  --issue-date 2026-06-09
-```
-
 Multiple sessions and multiple activities per session are supported. Grouping across session boundaries is not implemented yet, so the current output contains separate lines for otherwise matching activities from different sessions.
-
-Keep real invoice data outside the repository, for example under `local/`, which is ignored by Git.
