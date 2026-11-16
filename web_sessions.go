@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -25,7 +27,18 @@ func webHandler(assets fs.FS, source sessionSource) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/sessions", source.serveSessions)
 	mux.Handle("GET /", http.FileServerFS(assets))
-	return mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := r.Host
+		if hostname, _, err := net.SplitHostPort(host); err == nil {
+			host = hostname
+		}
+		// Reject foreign hostnames to prevent DNS rebinding into the local server.
+		if host != "127.0.0.1" && !strings.EqualFold(host, "localhost") {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
 }
 
 func (source sessionSource) read() (sessionView, error) {

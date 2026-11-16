@@ -63,7 +63,7 @@ func TestSessionsAPI(t *testing.T) {
 			}
 			handler := webHandler(fstest.MapFS{}, source)
 			response := httptest.NewRecorder()
-			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/sessions", nil))
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/sessions", nil))
 			if response.Header().Get("Cache-Control") != "no-store" || response.Header().Get("Content-Type") != "application/json" {
 				t.Fatalf("unexpected response headers: %v", response.Header())
 			}
@@ -92,7 +92,7 @@ func TestSessionsAPI(t *testing.T) {
 				t.Fatalf("empty sessions must be an array, got %+v", view.Sessions)
 			}
 			post := httptest.NewRecorder()
-			handler.ServeHTTP(post, httptest.NewRequest(http.MethodPost, "/api/sessions", nil))
+			handler.ServeHTTP(post, httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/sessions", nil))
 			if post.Code != http.StatusMethodNotAllowed {
 				t.Fatalf("POST status = %d, want 405", post.Code)
 			}
@@ -130,6 +130,60 @@ func startTestWebServer(t *testing.T, arguments []string) string {
 		t.Fatalf("unexpected server output: %q", scanner.Text())
 	}
 	return url
+}
+
+func TestServeHosts(t *testing.T) {
+	url := startTestWebServer(t, []string{
+		"serve", "--no-open", "--input", "testdata/minimal-sessions.json",
+		"--config", "examples/realistic-config.json",
+	})
+	client := &http.Client{Timeout: 5 * time.Second}
+	for _, test := range []struct {
+		host    string
+		allowed bool
+	}{
+		{"127.0.0.1", true},
+		{"127.0.0.1:8080", true},
+		{"localhost", true},
+		{"localhost:5173", true},
+		{"LOCALHOST:8080", true},
+		{"attacker.example", false},
+		{"attacker.example:8080", false},
+		{"localhost.attacker.example:8080", false},
+		{"127.0.0.1.attacker.example:8080", false},
+		{"192.168.1.1:8080", false},
+		{"127.0.0.2:8080", false},
+		{"[::1]:8080", false},
+	} {
+		t.Run(test.host, func(t *testing.T) {
+			for _, route := range []struct{ path, content string }{
+				{"/", "<title>Flight Instructor Tools</title>"},
+				{"/api/sessions", "Alex Beispiel"},
+			} {
+				request, err := http.NewRequest(http.MethodGet, url+route.path, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				request.Host = test.host
+				response, err := client.Do(request)
+				if err != nil {
+					t.Fatal(err)
+				}
+				body, err := io.ReadAll(response.Body)
+				response.Body.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if test.allowed {
+					if response.StatusCode != http.StatusOK || !strings.Contains(string(body), route.content) {
+						t.Errorf("%s: status = %d, body = %q; want 200 containing %q", route.path, response.StatusCode, body, route.content)
+					}
+				} else if response.StatusCode != http.StatusForbidden || string(body) != "Forbidden\n" {
+					t.Errorf("%s: status = %d, body = %q; want 403 with no application data", route.path, response.StatusCode, body)
+				}
+			}
+		})
+	}
 }
 
 func TestServeSessionPaths(t *testing.T) {

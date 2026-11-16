@@ -39,6 +39,8 @@ The frontend is built first and embedded in the Go executable. The resulting
 The server binds to `127.0.0.1` on an available port and prints its URL; press
 Ctrl+C in the terminal to stop it. Closing the browser tab does not stop the server.
 If opening the browser fails, open the printed URL manually.
+Requests must address `127.0.0.1` or `localhost`; other hostnames receive HTTP 403
+to protect local session data from DNS rebinding.
 
 For an explicit port or to keep the browser closed:
 
