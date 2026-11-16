@@ -76,12 +76,23 @@ table {
 
 .selection-menu {
   position: fixed;
-  z-index: 1;
+  inset: auto;
+  position-area: bottom span-right;
+  position-try:
+    most-height flip-block,
+    flip-inline,
+    flip-block flip-inline;
+  justify-self: start;
+  margin: 0.25rem;
+  max-height: stretch;
+  overflow-y: auto;
   min-width: 11rem;
   padding: 0.25rem;
   border: 1px solid #dbe1e8;
   border-radius: 0.375rem;
   background: #fff;
+  color: inherit;
+  font-weight: 400;
   box-shadow: 0 4px 12px #22314526;
 }
 

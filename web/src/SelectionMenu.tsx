@@ -1,5 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useId, useRef, useState } from 'react';
 
 const presets = {
   thisMonth: 'Select this month',
@@ -43,44 +42,27 @@ export default function SelectionMenu<T extends { dutyStart: string }>({
   selectedCount: number;
   onSelect: (sessions: T[]) => void;
 }) {
-  const [position, setPosition] = useState<{ top: number; left: number; last: boolean } | null>(
-    null,
-  );
+  const [isOpen, setIsOpen] = useState(false);
   const trigger = useRef<HTMLInputElement>(null);
   const menu = useRef<HTMLDivElement>(null);
+  const wasOpenOnPointerDown = useRef(false);
   const menuId = useId();
 
   function open(last = false) {
-    const bounds = trigger.current!.getBoundingClientRect();
-    setPosition({ top: bounds.bottom + 4, left: bounds.left, last });
+    menu.current!.showPopover({ source: trigger.current! });
+    const items = menu.current!.querySelectorAll<HTMLButtonElement>('button');
+    items[last ? items.length - 1 : 0]?.focus();
   }
 
   function close() {
-    setPosition(null);
+    menu.current!.hidePopover();
     trigger.current?.focus();
   }
 
-  useEffect(() => {
-    if (!position) return;
-    const items = menu.current!.querySelectorAll<HTMLButtonElement>('button');
-    items[position.last ? items.length - 1 : 0]?.focus();
-
-    function dismiss(event: PointerEvent) {
-      const target = event.target as Node;
-      if (!trigger.current?.contains(target) && !menu.current?.contains(target)) setPosition(null);
-    }
-    function dismissOnMove() {
-      setPosition(null);
-    }
-    document.addEventListener('pointerdown', dismiss);
-    window.addEventListener('scroll', dismissOnMove, true);
-    window.addEventListener('resize', dismissOnMove);
-    return () => {
-      document.removeEventListener('pointerdown', dismiss);
-      window.removeEventListener('scroll', dismissOnMove, true);
-      window.removeEventListener('resize', dismissOnMove);
-    };
-  }, [position]);
+  function toggle() {
+    if (menu.current!.matches(':popover-open')) close();
+    else open();
+  }
 
   return (
     <>
@@ -93,66 +75,69 @@ export default function SelectionMenu<T extends { dutyStart: string }>({
         checked={selectedCount === sessions.length}
         aria-label={`Select sessions (${selectedCount} of ${sessions.length} selected)`}
         aria-haspopup="menu"
-        aria-expanded={position !== null}
-        aria-controls={position ? menuId : undefined}
-        onChange={() => (position ? close() : open())}
+        aria-expanded={isOpen}
+        aria-controls={menuId}
+        onPointerDown={() => {
+          wasOpenOnPointerDown.current = menu.current!.matches(':popover-open');
+        }}
+        onChange={() => {
+          // Native light dismissal closes the popover before a checkbox click completes.
+          if (wasOpenOnPointerDown.current) close();
+          else toggle();
+          wasOpenOnPointerDown.current = false;
+        }}
         onKeyDown={(event) => {
           if (event.key === ' ' || event.key === 'Enter') {
             event.preventDefault();
-            if (position) close();
-            else open();
+            toggle();
           } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault();
             open(event.key === 'ArrowUp');
           }
         }}
       />
-      {position &&
-        createPortal(
-          <div
-            ref={menu}
-            id={menuId}
-            role="menu"
-            aria-label="Select sessions"
-            className="selection-menu"
-            style={{ top: position.top, left: position.left }}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape' || event.key === 'Tab') {
-                if (event.key === 'Escape') event.preventDefault();
-                close();
-                return;
-              }
-              const items = Array.from(menu.current!.querySelectorAll<HTMLButtonElement>('button'));
-              const index = items.indexOf(document.activeElement as HTMLButtonElement);
-              const next = {
-                ArrowDown: (index + 1) % items.length,
-                ArrowUp: (index - 1 + items.length) % items.length,
-                Home: 0,
-                End: items.length - 1,
-              }[event.key];
-              if (next !== undefined) {
-                event.preventDefault();
-                items[next]?.focus();
-              }
+      <div
+        ref={menu}
+        id={menuId}
+        role="menu"
+        aria-label="Select sessions"
+        className="selection-menu"
+        popover="auto"
+        onBeforeToggle={(event) => setIsOpen(event.newState === 'open')}
+        onKeyDown={(event) => {
+          if (event.key === 'Tab') {
+            close();
+            return;
+          }
+          const items = Array.from(menu.current!.querySelectorAll<HTMLButtonElement>('button'));
+          const index = items.indexOf(document.activeElement as HTMLButtonElement);
+          const next = {
+            ArrowDown: (index + 1) % items.length,
+            ArrowUp: (index - 1 + items.length) % items.length,
+            Home: 0,
+            End: items.length - 1,
+          }[event.key];
+          if (next !== undefined) {
+            event.preventDefault();
+            items[next]?.focus();
+          }
+        }}
+      >
+        {Object.entries(presets).map(([preset, label]) => (
+          <button
+            key={preset}
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() => {
+              onSelect(selectSessions(sessions, preset as Preset, timeZone));
+              close();
             }}
           >
-            {Object.entries(presets).map(([preset, label]) => (
-              <button
-                key={preset}
-                type="button"
-                role="menuitem"
-                tabIndex={-1}
-                onClick={() => {
-                  onSelect(selectSessions(sessions, preset as Preset, timeZone));
-                  close();
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>,
-          document.body,
-        )}
+            {label}
+          </button>
+        ))}
+      </div>
     </>
   );
 }

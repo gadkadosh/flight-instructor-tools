@@ -1,7 +1,9 @@
-// @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vite-plus/test';
+import { page, userEvent } from 'vite-plus/test/browser';
 import App from './App';
+import SelectionMenu from './SelectionMenu';
+import './style.css';
 
 const session = {
   id: 'session-1',
@@ -28,10 +30,11 @@ function respond(body: unknown, status = 200) {
   return fetch;
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  await page.viewport(1280, 720);
 });
 
 function selectPreset(name: string) {
@@ -155,7 +158,7 @@ test('selects sessions individually and in bulk without expanding flights', asyn
   fireEvent.click(selectionMenu);
   expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, true]);
   expect([alex.checked, sam.checked]).toEqual([true, false]);
-  fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Select this month' }), { key: 'Escape' });
+  await userEvent.keyboard('{Escape}');
   expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, true]);
 
   fireEvent.click(toggle);
@@ -257,7 +260,7 @@ test('selection menu supports keyboard navigation, dismissal and restoring focus
   const trigger = await screen.findByRole<HTMLInputElement>('checkbox', {
     name: /^Select sessions \(/,
   });
-  fireEvent.click(trigger);
+  await userEvent.click(trigger);
   expect([trigger.checked, trigger.indeterminate]).toEqual([false, false]);
   expect(trigger.getAttribute('aria-expanded')).toBe('true');
   expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
@@ -267,56 +270,109 @@ test('selection menu supports keyboard navigation, dismissal and restoring focus
     'Clear selection',
   ]);
   expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Select this month' }));
-  fireEvent.keyDown(document.activeElement!, { key: 'ArrowUp' });
+  await userEvent.keyboard('{ArrowUp}');
   expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Clear selection' }));
-  fireEvent.keyDown(document.activeElement!, { key: 'Home' });
-  fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+  await userEvent.keyboard('{Home}');
+  await userEvent.keyboard('{ArrowDown}');
   expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Select last month' }));
-  fireEvent.keyDown(document.activeElement!, { key: 'End' });
+  await userEvent.keyboard('{End}');
   expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Clear selection' }));
-  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  await userEvent.keyboard('{Escape}');
   expect(screen.queryByRole('menu')).toBeNull();
   expect(document.activeElement).toBe(trigger);
   expect(trigger.getAttribute('aria-expanded')).toBe('false');
 
-  fireEvent.keyDown(trigger, { key: ' ' });
+  await userEvent.keyboard(' ');
   expect(screen.getByRole('menu')).toBeTruthy();
   expect(trigger.checked).toBe(false);
   expect(
     screen.getByRole<HTMLInputElement>('checkbox', { name: /^Select session for / }).checked,
   ).toBe(false);
-  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  await userEvent.keyboard('{Escape}');
 
-  fireEvent.keyDown(trigger, { key: 'Enter' });
+  await userEvent.keyboard('{Enter}');
   expect(screen.getByRole('menu')).toBeTruthy();
   expect(trigger.checked).toBe(false);
-  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  await userEvent.keyboard('{Escape}');
 
-  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Select all' }));
+  await userEvent.keyboard('{ArrowDown}');
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Select all' }));
   expect(document.activeElement).toBe(trigger);
   expect([trigger.checked, trigger.indeterminate]).toEqual([true, false]);
   expect(
     screen.getByRole<HTMLInputElement>('checkbox', { name: /^Select session for / }).checked,
   ).toBe(true);
 
-  fireEvent.keyDown(trigger, { key: 'ArrowUp' });
+  await userEvent.keyboard('{ArrowUp}');
   expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Clear selection' }));
-  fireEvent.keyDown(document.activeElement!, { key: 'Tab' });
+  await userEvent.keyboard('{Tab}');
   expect(screen.queryByRole('menu')).toBeNull();
+  expect(document.activeElement).toBe(
+    screen.getByRole('checkbox', { name: /^Select session for / }),
+  );
 
-  fireEvent.click(trigger);
+  await userEvent.click(trigger);
   expect([trigger.checked, trigger.indeterminate]).toEqual([true, false]);
-  fireEvent.pointerDown(screen.getByRole('heading', { name: 'Sessions' }));
+  await userEvent.click(screen.getByRole('heading', { name: 'Sessions' }));
   expect(screen.queryByRole('menu')).toBeNull();
   expect(
     screen.getByRole<HTMLInputElement>('checkbox', { name: /^Select session for / }).checked,
   ).toBe(true);
 
-  fireEvent.click(trigger);
-  fireEvent.click(trigger);
+  await userEvent.click(trigger);
+  await userEvent.click(trigger);
   expect(screen.queryByRole('menu')).toBeNull();
   expect([trigger.checked, trigger.indeterminate]).toEqual([true, false]);
+});
+
+test.each([720, 320, 240])('selection menu stays onscreen at 568 × %i', async (height) => {
+  await page.viewport(568, height);
+  respond({ timeZone: 'UTC', sessions: [session] });
+  render(<App />);
+  const trigger = await screen.findByRole('checkbox', { name: /^Select sessions \(/ });
+  await userEvent.click(screen.getByRole('checkbox', { name: /^Select session for / }));
+  await userEvent.click(trigger);
+
+  const bounds = screen.getByRole('menu').getBoundingClientRect();
+  expect(bounds.top).toBeGreaterThanOrEqual(0);
+  expect(bounds.bottom).toBeLessThanOrEqual(height);
+  expect(bounds.left).toBeGreaterThanOrEqual(0);
+  expect(bounds.right).toBeLessThanOrEqual(568);
+  const anchor = trigger.getBoundingClientRect();
+  expect(bounds.left).toBeCloseTo(anchor.left + 4);
+  expect(bounds.top >= anchor.bottom || bounds.bottom <= anchor.top).toBe(true);
+  await userEvent.keyboard('{End}');
+  const clear = screen.getByRole('menuitem', { name: 'Clear selection' });
+  expect(document.activeElement).toBe(clear);
+  expect(clear.getBoundingClientRect().bottom).toBeLessThanOrEqual(height);
+  await userEvent.click(clear);
+  expect(screen.getByRole('status').textContent).toBe('0 of 1 session selected');
+  expect(document.activeElement).toBe(trigger);
+});
+
+test('a constrained menu scrolls internally to keep keyboard-focused options reachable', async () => {
+  await page.viewport(568, 100);
+  const onSelect = vi.fn();
+  render(
+    <div style={{ position: 'fixed', top: '50%', left: '1rem' }}>
+      <SelectionMenu sessions={[session]} timeZone="UTC" selectedCount={1} onSelect={onSelect} />
+    </div>,
+  );
+  await userEvent.click(screen.getByRole('checkbox'));
+  const menu = screen.getByRole('menu');
+  expect(menu.scrollHeight).toBeGreaterThan(menu.clientHeight);
+  expect(menu.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+  expect(menu.getBoundingClientRect().bottom).toBeLessThanOrEqual(100);
+
+  await userEvent.keyboard('{End}');
+  const clear = screen.getByRole('menuitem', { name: 'Clear selection' });
+  expect(document.activeElement).toBe(clear);
+  expect(menu.scrollTop).toBeGreaterThan(0);
+  expect(clear.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+  expect(clear.getBoundingClientRect().bottom).toBeLessThanOrEqual(100);
+  await userEvent.keyboard('{Enter}');
+  expect(onSelect).toHaveBeenCalledExactlyOnceWith([]);
+  expect(screen.queryByRole('menu')).toBeNull();
 });
 
 test('preparation-only sessions have no flight expansion', async () => {
