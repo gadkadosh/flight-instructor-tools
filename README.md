@@ -21,7 +21,7 @@ make build
 ./fitools --input examples/realistic-sessions.json --config examples/realistic-config.json
 ```
 
-This opens a read-only session viewer with the bundled example data in your
+This opens the session viewer with the bundled example data in your
 browser. Press Ctrl+C in the terminal to stop the server.
 
 Without path overrides, the tools use `sessions.json` and `config.json` in the
@@ -33,6 +33,13 @@ in the ignored `local/` directory.
 - [Invoice example and session validation](examples/README.md#running-it)
 - [Session format](examples/README.md#session-format) and [example configuration](examples/realistic-config.json)
 - [Duty reports](docs/duty-reports.md)
+
+Select sessions and click **Generate invoice** above the table to download a PDF
+using the configured billing details and rates. Enter an invoice number
+(`year-running number`, e.g. `2026-001`) and an issue date, which defaults to today
+in the configured timezone. Only selected sessions are included. No invoice
+artifacts are kept on the server; invoice numbers and billing status are not
+tracked.
 
 Run `./fitools <command> --help` for command options. PDF generation requires
 [WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) on `PATH`.

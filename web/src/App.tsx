@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import SelectionMenu from './SelectionMenu';
+import InvoiceControls from './InvoiceControls';
 
 type ActivityType = 'preparation' | 'dual' | 'soloSupervision';
 
@@ -183,10 +184,11 @@ function SessionTable({ view }: { view: SessionView }) {
         <p role="status">No sessions yet.</p>
       ) : (
         <>
-          <p className="selection-count" role="status">
-            {selectedSessionIds.size} of {view.sessions.length}{' '}
-            {view.sessions.length === 1 ? 'session' : 'sessions'} selected
-          </p>
+          <InvoiceControls
+            selectedSessionIds={[...selectedSessionIds]}
+            sessionCount={view.sessions.length}
+            timeZone={view.timeZone}
+          />
           <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>
             <table className="sessions-table">
               <colgroup>

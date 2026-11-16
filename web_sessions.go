@@ -26,7 +26,9 @@ type sessionView struct {
 func webHandler(assets fs.FS, source sessionSource) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/sessions", source.serveSessions)
+	mux.HandleFunc("POST /api/invoice", source.serveInvoice)
 	mux.Handle("GET /", http.FileServerFS(assets))
+	protected := http.NewCrossOriginProtection().Handler(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host := r.Host
 		if hostname, _, err := net.SplitHostPort(host); err == nil {
@@ -37,7 +39,7 @@ func webHandler(assets fs.FS, source sessionSource) http.Handler {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
-		mux.ServeHTTP(w, r)
+		protected.ServeHTTP(w, r)
 	})
 }
 
