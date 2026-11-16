@@ -97,10 +97,12 @@ The frontend uses a locally installed [Vite+](https://viteplus.dev/) toolchain:
 ```sh
 pnpm --dir web run check   # Formatting, linting, and TypeScript checks
 pnpm --dir web run format  # Apply formatting
+pnpm --dir web exec playwright install chromium  # Once, for frontend tests
 pnpm --dir web test
 go test ./...
 ```
 
+Frontend tests run in headless Chromium, including native popover and layout checks.
 Production builds run frontend checks automatically. Build the frontend before
 direct Go commands on a fresh checkout, since Go embeds `web/dist/`.
 

@@ -136,11 +136,16 @@ func validateSessionRecords(input SessionFile) error {
 	if input.SchemaVersion != supportedSessionSchemaVersion {
 		return fmt.Errorf("schemaVersion: got %d, want %d", input.SchemaVersion, supportedSessionSchemaVersion)
 	}
+	sessionIDs := make(map[string]int, len(input.Sessions))
 	for sessionIndex, session := range input.Sessions {
 		path := fmt.Sprintf("sessions[%d]", sessionIndex)
 		if strings.TrimSpace(session.ID) == "" {
 			return fmt.Errorf("%s.id: must not be empty", path)
 		}
+		if firstIndex, exists := sessionIDs[session.ID]; exists {
+			return fmt.Errorf("%s.id: duplicate %q (first used at sessions[%d].id)", path, session.ID, firstIndex)
+		}
+		sessionIDs[session.ID] = sessionIndex
 
 		if session.DutyStart.IsZero() {
 			return fmt.Errorf("%s.dutyStart: missing or zero", path)

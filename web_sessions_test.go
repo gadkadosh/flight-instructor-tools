@@ -25,6 +25,13 @@ func TestSessionsAPI(t *testing.T) {
 	if err := json.Unmarshal(fixture, &original); err != nil {
 		t.Fatal(err)
 	}
+	duplicates := original
+	duplicates.Sessions = append([]Session(nil), original.Sessions...)
+	duplicates.Sessions[1].ID = duplicates.Sessions[0].ID
+	duplicateFixture, err := json.Marshal(duplicates)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, test := range []struct {
 		name          string
 		sessions      string
@@ -46,6 +53,7 @@ func TestSessionsAPI(t *testing.T) {
 		{name: "malformed input", sessions: `{`, wantError: "read sessions"},
 		{name: "unsupported schema", sessions: `{"schemaVersion":1,"sessions":[]}`, wantError: "schemaVersion"},
 		{name: "invalid activity", sessions: strings.Replace(string(fixture), `"minutes": 30`, `"minutes": 0`, 1), wantError: "minutes: must be positive"},
+		{name: "duplicate session ID", sessions: string(duplicateFixture), wantError: `sessions[1].id: duplicate "` + original.Sessions[0].ID + `" (first used at sessions[0].id)`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			directory := t.TempDir()

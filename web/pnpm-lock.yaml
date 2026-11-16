@@ -209,18 +209,21 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.3.0
         version: 6.3.0(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))
+      '@vitest/browser-playwright':
+        specifier: 5.1.0
+        version: 5.1.0(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(playwright@1.65.1)(vitest@5.1.0)
       concurrently:
         specifier: ^10.0.7
         version: 10.0.7
-      jsdom:
-        specifier: ^26.1.0
-        version: 26.1.0(supports-color@10.2.2)
+      playwright:
+        specifier: ^1.65.1
+        version: 1.65.1
       vite:
         specifier: 'catalog:'
         version: '@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2)'
       vite-plus:
         specifier: 'catalog:'
-        version: 1.6.0(@types/node@26.6.6)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(typescript@7.0.2)
+        version: 1.6.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(playwright@1.65.1)(typescript@7.0.2)
 
 packages:
 
@@ -754,6 +757,12 @@ packages:
         optional: true
       oxc-transform-react:
         optional: true
+
+  '@vitest/browser-playwright@5.1.0':
+    resolution: {integrity: sha512-3PbVvX/KNeUEzUeTTXw5bQDyfJS+WqU/UJ8RNWIojHb0mE6d/IBjuLmt+i7OpJ00tjNWv0O6XBm5ler/tEf3eg==}
+    peerDependencies:
+      playwright: '*'
+      vitest: 5.1.0
 
   '@vitest/browser-preview@5.1.0':
     resolution: {integrity: sha512-z9SbodBSMoJtYy5VTCaSP5SSZfNYRlfIlR0P/uH1PAuhUJbstSyOYvxXCYmqG+EemIiZzd3uGUtREX5zbXLR8A==}
@@ -1293,6 +1302,16 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
+  playwright-core@1.65.1:
+    resolution: {integrity: sha512-hqPpz7blSMPxWVdoeE1yiBSzXsKiVOd2k+kjCvmUywD2GPO2Dd9HfcWnq9NN0GHbNZDFgZ9JfBFr+X5/BLo0qw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.65.1:
+    resolution: {integrity: sha512-vJ1FuoOrNwOKHUIVEvSt3jT1L+wjjDpwhwIstKtfvTh8XIG4FG4bIFuvNdMxi81LGfAhUgUZleVFaOLY4RIUUw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   pngjs@7.0.0:
     resolution: {integrity: sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow==}
     engines: {node: '>=14.19.0'}
@@ -1556,6 +1575,7 @@ snapshots:
       '@csstools/css-parser-algorithms': 3.0.5(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-tokenizer': 3.0.4
       lru-cache: 10.4.3
+    optional: true
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -1569,12 +1589,14 @@ snapshots:
 
   '@blazediff/core@1.10.0': {}
 
-  '@csstools/color-helpers@5.1.0': {}
+  '@csstools/color-helpers@5.1.0':
+    optional: true
 
   '@csstools/css-calc@2.1.4(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)':
     dependencies:
       '@csstools/css-parser-algorithms': 3.0.5(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-tokenizer': 3.0.4
+    optional: true
 
   '@csstools/css-color-parser@3.1.0(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)':
     dependencies:
@@ -1582,12 +1604,15 @@ snapshots:
       '@csstools/css-calc': 2.1.4(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-parser-algorithms': 3.0.5(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-tokenizer': 3.0.4
+    optional: true
 
   '@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4)':
     dependencies:
       '@csstools/css-tokenizer': 3.0.4
+    optional: true
 
-  '@csstools/css-tokenizer@3.0.4': {}
+  '@csstools/css-tokenizer@3.0.4':
+    optional: true
 
   '@jridgewell/resolve-uri@3.1.3': {}
 
@@ -1853,12 +1878,25 @@ snapshots:
       '@rolldown/pluginutils': 1.1.1
       vite: '@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2)'
 
+  '@vitest/browser-playwright@5.1.0(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(playwright@1.65.1)(vitest@5.1.0)':
+    dependencies:
+      '@vitest/browser': 5.1.0(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(vitest@5.1.0)
+      '@vitest/mocker': 5.1.0(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))
+      playwright: 1.65.1
+      tinyrainbow: 3.2.0
+      vitest: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(jsdom@26.1.0(supports-color@10.2.2))
+    transitivePeerDependencies:
+      - bufferutil
+      - msw
+      - utf-8-validate
+      - vite
+
   '@vitest/browser-preview@5.1.0(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(vitest@5.1.0)':
     dependencies:
       '@testing-library/dom': 10.4.2
       '@testing-library/user-event': 14.6.10(@testing-library/dom@10.4.2)
       '@vitest/browser': 5.1.0(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(vitest@5.1.0)
-      vitest: 5.1.0(@types/node@26.6.6)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(jsdom@26.1.0(supports-color@10.2.2))
+      vitest: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(jsdom@26.1.0(supports-color@10.2.2))
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -1875,7 +1913,7 @@ snapshots:
       pngjs: 7.0.0
       sirv: 3.0.2
       tinyrainbow: 3.2.0
-      vitest: 5.1.0(@types/node@26.6.6)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(jsdom@26.1.0(supports-color@10.2.2))
+      vitest: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(jsdom@26.1.0(supports-color@10.2.2))
       ws: 8.23.0
     transitivePeerDependencies:
       - bufferutil
@@ -1913,7 +1951,7 @@ snapshots:
       pathe: 2.0.3
       sirv: 3.0.2
       tinyrainbow: 3.2.0
-      vitest: 5.1.0(@types/node@26.6.6)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(jsdom@26.1.0(supports-color@10.2.2))
+      vitest: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(jsdom@26.1.0(supports-color@10.2.2))
 
   '@vitest/utils@5.1.0':
     dependencies:
@@ -2003,7 +2041,8 @@ snapshots:
 
   '@yuku-toolchain/types@0.19.0': {}
 
-  agent-base@7.1.4: {}
+  agent-base@7.1.4:
+    optional: true
 
   ansi-regex@5.0.1: {}
 
@@ -2044,6 +2083,7 @@ snapshots:
     dependencies:
       '@asamuzakjp/css-color': 3.2.0
       rrweb-cssom: 0.8.0
+    optional: true
 
   csstype@3.2.3: {}
 
@@ -2051,14 +2091,17 @@ snapshots:
     dependencies:
       whatwg-mimetype: 4.0.0
       whatwg-url: 14.2.0
+    optional: true
 
   debug@4.4.3(supports-color@10.2.2):
     dependencies:
       ms: 2.1.3
     optionalDependencies:
       supports-color: 10.2.2
+    optional: true
 
-  decimal.js@10.6.0: {}
+  decimal.js@10.6.0:
+    optional: true
 
   dequal@2.0.3: {}
 
@@ -2068,7 +2111,8 @@ snapshots:
 
   emoji-regex@10.6.0: {}
 
-  entities@6.0.1: {}
+  entities@6.0.1:
+    optional: true
 
   es-module-lexer@2.3.2: {}
 
@@ -2098,6 +2142,7 @@ snapshots:
   html-encoding-sniffer@4.0.0:
     dependencies:
       whatwg-encoding: 3.1.1
+    optional: true
 
   http-proxy-agent@7.0.2(supports-color@10.2.2):
     dependencies:
@@ -2105,6 +2150,7 @@ snapshots:
       debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   https-proxy-agent@7.0.6(supports-color@10.2.2):
     dependencies:
@@ -2112,12 +2158,15 @@ snapshots:
       debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   iconv-lite@0.6.3:
     dependencies:
       safer-buffer: 2.1.2
+    optional: true
 
-  is-potential-custom-element-name@1.0.1: {}
+  is-potential-custom-element-name@1.0.1:
+    optional: true
 
   js-tokens@4.0.0: {}
 
@@ -2147,6 +2196,7 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
+    optional: true
 
   lightningcss-android-arm64@1.33.0:
     optional: true
@@ -2197,7 +2247,8 @@ snapshots:
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
 
-  lru-cache@10.4.3: {}
+  lru-cache@10.4.3:
+    optional: true
 
   lz-string@1.5.0: {}
 
@@ -2207,15 +2258,17 @@ snapshots:
 
   mrmime@2.0.1: {}
 
-  ms@2.1.3: {}
+  ms@2.1.3:
+    optional: true
 
   nanoid@3.3.20: {}
 
-  nwsapi@2.2.28: {}
+  nwsapi@2.2.28:
+    optional: true
 
   obug@3.0.0: {}
 
-  oxfmt@0.78.0(vite-plus@1.6.0(@types/node@26.6.6)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(typescript@7.0.2)):
+  oxfmt@0.78.0(vite-plus@1.6.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(playwright@1.65.1)(typescript@7.0.2)):
     dependencies:
       tinypool: 2.2.0
     optionalDependencies:
@@ -2238,7 +2291,7 @@ snapshots:
       '@oxfmt/binding-win32-arm64-msvc': 0.78.0
       '@oxfmt/binding-win32-ia32-msvc': 0.78.0
       '@oxfmt/binding-win32-x64-msvc': 0.78.0
-      vite-plus: 1.6.0(@types/node@26.6.6)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(typescript@7.0.2)
+      vite-plus: 1.6.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(playwright@1.65.1)(typescript@7.0.2)
 
   oxlint-tsgolint@7.0.2006:
     optionalDependencies:
@@ -2249,7 +2302,7 @@ snapshots:
       '@oxlint-tsgolint/win32-arm64': 7.0.2006
       '@oxlint-tsgolint/win32-x64': 7.0.2006
 
-  oxlint@1.93.0(oxlint-tsgolint@7.0.2006)(vite-plus@1.6.0(@types/node@26.6.6)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(typescript@7.0.2)):
+  oxlint@1.93.0(oxlint-tsgolint@7.0.2006)(vite-plus@1.6.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(playwright@1.65.1)(typescript@7.0.2)):
     optionalDependencies:
       '@oxlint/binding-android-arm-eabi': 1.93.0
       '@oxlint/binding-android-arm64': 1.93.0
@@ -2271,17 +2324,24 @@ snapshots:
       '@oxlint/binding-win32-ia32-msvc': 1.93.0
       '@oxlint/binding-win32-x64-msvc': 1.93.0
       oxlint-tsgolint: 7.0.2006
-      vite-plus: 1.6.0(@types/node@26.6.6)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(typescript@7.0.2)
+      vite-plus: 1.6.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(playwright@1.65.1)(typescript@7.0.2)
 
   parse5@7.3.0:
     dependencies:
       entities: 6.0.1
+    optional: true
 
   pathe@2.0.3: {}
 
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
+
+  playwright-core@1.65.1: {}
+
+  playwright@1.65.1:
+    dependencies:
+      playwright-core: 1.65.1
 
   pngjs@7.0.0: {}
 
@@ -2297,7 +2357,8 @@ snapshots:
       ansi-styles: 5.2.0
       react-is: 17.0.2
 
-  punycode@2.3.1: {}
+  punycode@2.3.1:
+    optional: true
 
   react-dom@19.3.1(react@19.3.1):
     dependencies:
@@ -2308,17 +2369,20 @@ snapshots:
 
   react@19.3.1: {}
 
-  rrweb-cssom@0.8.0: {}
+  rrweb-cssom@0.8.0:
+    optional: true
 
   rxjs@7.8.2:
     dependencies:
       tslib: 2.9.1
 
-  safer-buffer@2.1.2: {}
+  safer-buffer@2.1.2:
+    optional: true
 
   saxes@6.0.0:
     dependencies:
       xmlchars: 2.2.0
+    optional: true
 
   scheduler@0.28.0: {}
 
@@ -2346,7 +2410,8 @@ snapshots:
 
   supports-color@10.2.2: {}
 
-  symbol-tree@3.2.4: {}
+  symbol-tree@3.2.4:
+    optional: true
 
   tinybench@6.2.3: {}
 
@@ -2361,21 +2426,25 @@ snapshots:
 
   tinyrainbow@3.2.0: {}
 
-  tldts-core@6.1.86: {}
+  tldts-core@6.1.86:
+    optional: true
 
   tldts@6.1.86:
     dependencies:
       tldts-core: 6.1.86
+    optional: true
 
   totalist@3.0.1: {}
 
   tough-cookie@5.1.2:
     dependencies:
       tldts: 6.1.86
+    optional: true
 
   tr46@5.1.1:
     dependencies:
       punycode: 2.3.1
+    optional: true
 
   tree-kill@1.2.2: {}
 
@@ -2407,7 +2476,7 @@ snapshots:
 
   undici-types@8.9.0: {}
 
-  vite-plus@1.6.0(@types/node@26.6.6)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(typescript@7.0.2):
+  vite-plus@1.6.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(playwright@1.65.1)(typescript@7.0.2):
     dependencies:
       '@oxc-project/runtime': 0.158.0
       '@oxc-project/types': 0.158.0
@@ -2419,12 +2488,13 @@ snapshots:
       '@vitest/snapshot': 5.1.0
       '@vitest/spy': 5.1.0
       '@vitest/utils': 5.1.0
-      oxfmt: 0.78.0(vite-plus@1.6.0(@types/node@26.6.6)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(typescript@7.0.2))
-      oxlint: 1.93.0(oxlint-tsgolint@7.0.2006)(vite-plus@1.6.0(@types/node@26.6.6)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(typescript@7.0.2))
+      oxfmt: 0.78.0(vite-plus@1.6.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(playwright@1.65.1)(typescript@7.0.2))
+      oxlint: 1.93.0(oxlint-tsgolint@7.0.2006)(vite-plus@1.6.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/ui@5.1.0)(jsdom@26.1.0(supports-color@10.2.2))(playwright@1.65.1)(typescript@7.0.2))
       oxlint-tsgolint: 7.0.2006
       vite: '@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2)'
-      vitest: 5.1.0(@types/node@26.6.6)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(jsdom@26.1.0(supports-color@10.2.2))
+      vitest: 5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(jsdom@26.1.0(supports-color@10.2.2))
     optionalDependencies:
+      '@vitest/browser-playwright': 5.1.0(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(playwright@1.65.1)(vitest@5.1.0)
       '@voidzero-dev/vite-plus-darwin-arm64': 1.6.0
       '@voidzero-dev/vite-plus-darwin-x64': 1.6.0
       '@voidzero-dev/vite-plus-linux-arm64-gnu': 1.6.0
@@ -2433,6 +2503,7 @@ snapshots:
       '@voidzero-dev/vite-plus-linux-x64-musl': 1.6.0
       '@voidzero-dev/vite-plus-win32-arm64-msvc': 1.6.0
       '@voidzero-dev/vite-plus-win32-x64-msvc': 1.6.0
+      playwright: 1.65.1
     transitivePeerDependencies:
       - '@arethetypeswrong/core'
       - '@astrojs/compiler-rs'
@@ -2468,7 +2539,7 @@ snapshots:
       - vue-tsc
       - yaml
 
-  vitest@5.1.0(@types/node@26.6.6)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(jsdom@26.1.0(supports-color@10.2.2)):
+  vitest@5.1.0(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/browser-preview@5.1.0)(@vitest/ui@5.1.0)(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(jsdom@26.1.0(supports-color@10.2.2)):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/mocker': 5.1.0(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))
@@ -2486,6 +2557,7 @@ snapshots:
       why-is-node-running: 3.2.1
     optionalDependencies:
       '@types/node': 26.6.6
+      '@vitest/browser-playwright': 5.1.0(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(playwright@1.65.1)(vitest@5.1.0)
       '@vitest/browser-preview': 5.1.0(@voidzero-dev/vite-plus-core@1.6.0(@types/node@26.6.6)(typescript@7.0.2))(vitest@5.1.0)
       '@vitest/ui': 5.1.0(vitest@5.1.0)
       jsdom: 26.1.0(supports-color@10.2.2)
@@ -2495,19 +2567,24 @@ snapshots:
   w3c-xmlserializer@5.0.0:
     dependencies:
       xml-name-validator: 5.0.0
+    optional: true
 
-  webidl-conversions@7.0.0: {}
+  webidl-conversions@7.0.0:
+    optional: true
 
   whatwg-encoding@3.1.1:
     dependencies:
       iconv-lite: 0.6.3
+    optional: true
 
-  whatwg-mimetype@4.0.0: {}
+  whatwg-mimetype@4.0.0:
+    optional: true
 
   whatwg-url@14.2.0:
     dependencies:
       tr46: 5.1.1
       webidl-conversions: 7.0.0
+    optional: true
 
   why-is-node-running@3.2.1: {}
 
@@ -2519,9 +2596,11 @@ snapshots:
 
   ws@8.23.0: {}
 
-  xml-name-validator@5.0.0: {}
+  xml-name-validator@5.0.0:
+    optional: true
 
-  xmlchars@2.2.0: {}
+  xmlchars@2.2.0:
+    optional: true
 
   y18n@5.0.8: {}
 
