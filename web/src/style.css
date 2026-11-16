@@ -49,11 +49,33 @@ table {
 
 .sessions-table {
   table-layout: fixed;
-  min-width: 66rem;
+  min-width: 68rem;
+}
+
+.select-column {
+  width: 2.5rem;
+}
+
+.select-cell {
+  text-align: center;
+}
+
+.select-cell input {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  margin: 0 auto;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.selection-count {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
 }
 
 .expand-column {
-  width: 2.25rem;
+  width: 1.5rem;
 }
 
 .date-column {
@@ -91,6 +113,10 @@ td {
 .session-row:hover,
 .session-row:focus-within {
   background: #f3f6fa;
+}
+
+.sessions-table > tbody > tr[data-selected='true'] {
+  background: #eaf2ff;
 }
 
 .time-zone,
@@ -138,6 +164,7 @@ td {
 }
 
 .expand-cell {
+  padding-left: 0;
   padding-right: 0;
 }
 
@@ -171,7 +198,7 @@ td {
 }
 
 .activity-details > td {
-  padding: 0.5rem 1rem 0.75rem 2.5rem;
+  padding: 0.5rem 1rem 0.75rem 4.25rem;
 }
 
 .flight-table {

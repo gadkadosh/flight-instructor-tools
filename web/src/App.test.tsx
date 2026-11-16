@@ -33,7 +33,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('loads sessions in file order and expands flights by clicking any cell', async () => {
+test('loads sessions in file order and expands flights by clicking a data cell', async () => {
   const fetch = respond({
     timeZone: 'Europe/Berlin',
     sessions: [
@@ -65,8 +65,8 @@ test('loads sessions in file order and expands flights by clicking any cell', as
   expect(rows[1].textContent).toContain('Alex Beispiel');
   expect(rows[2].textContent).toContain('Sightseeing');
   const cells = within(rows[1]).getAllByRole('cell');
-  expect(cells[0].contains(toggle)).toBe(true);
-  expect(cells.slice(1).map((cell) => cell.textContent)).toEqual([
+  expect(cells[1].contains(toggle)).toBe(true);
+  expect(cells.slice(2).map((cell) => cell.textContent)).toEqual([
     '04.05.2026',
     '00:30 LT',
     '01:55 LT',
@@ -81,8 +81,9 @@ test('loads sessions in file order and expands flights by clicking any cell', as
   ).toBeNull();
   expect(screen.queryByRole('columnheader', { name: 'Activities' })).toBeNull();
 
-  fireEvent.click(cells[1]);
+  fireEvent.click(cells[2]);
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  expect(within(rows[1]).getByRole<HTMLInputElement>('checkbox').checked).toBe(false);
   expect(screen.getAllByRole('table')).toHaveLength(2);
   const flights = screen.getByRole('table', { name: 'Flights for Alex Beispiel on 04.05.2026' });
   expect(
@@ -115,12 +116,72 @@ test('loads sessions in file order and expands flights by clicking any cell', as
   ).toBeNull();
 });
 
+test('selects sessions individually and in bulk without expanding flights', async () => {
+  respond({
+    timeZone: 'UTC',
+    sessions: [session, { ...session, id: 'session-2', student: 'Sam Beispiel' }],
+  });
+  render(<App />);
+  const selectAll = await screen.findByRole<HTMLInputElement>('checkbox', {
+    name: 'Select all sessions',
+  });
+  const alex = screen.getByRole<HTMLInputElement>('checkbox', {
+    name: 'Select session for Alex Beispiel on 03.05.2026',
+  });
+  const sam = screen.getByRole<HTMLInputElement>('checkbox', {
+    name: 'Select session for Sam Beispiel on 03.05.2026',
+  });
+  const toggle = screen.getByRole('button', {
+    name: 'Show flights for Alex Beispiel on 03.05.2026',
+  });
+  expect([selectAll.checked, alex.checked, sam.checked]).toEqual([false, false, false]);
+  expect(selectAll.indeterminate).toBe(false);
+  expect(screen.getByRole('status').textContent).toBe('0 of 2 sessions selected');
+
+  fireEvent.click(alex);
+  expect([selectAll.checked, alex.checked, sam.checked]).toEqual([false, true, false]);
+  expect(selectAll.indeterminate).toBe(true);
+  expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
+  expect(alex.closest('tr')?.getAttribute('data-selected')).toBe('true');
+  expect(toggle.getAttribute('aria-expanded')).toBe('false');
+
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  expect(alex.checked).toBe(true);
+  const flights = screen.getByRole('table', { name: 'Flights for Alex Beispiel on 03.05.2026' });
+  expect(flights.closest('td')?.colSpan).toBe(9);
+
+  fireEvent.click(selectAll);
+  expect([selectAll.checked, alex.checked, sam.checked]).toEqual([true, true, true]);
+  expect(selectAll.indeterminate).toBe(false);
+  expect(screen.getByRole('status').textContent).toBe('2 of 2 sessions selected');
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+
+  fireEvent.click(alex);
+  expect([selectAll.checked, alex.checked, sam.checked]).toEqual([false, false, true]);
+  expect(selectAll.indeterminate).toBe(true);
+  expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
+  expect(alex.closest('tr')?.getAttribute('data-selected')).toBe('false');
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+
+  fireEvent.click(selectAll);
+  fireEvent.click(selectAll);
+  expect([selectAll.checked, alex.checked, sam.checked]).toEqual([false, false, false]);
+  expect(selectAll.indeterminate).toBe(false);
+  expect(screen.getByRole('status').textContent).toBe('0 of 2 sessions selected');
+});
+
 test('preparation-only sessions have no flight expansion', async () => {
   respond({ timeZone: 'UTC', sessions: [{ ...session, activities: [session.activities[0]] }] });
   render(<App />);
   await screen.findByText('Alex Beispiel');
   expect(screen.getByText('0:15')).toBeTruthy();
   expect(screen.queryByRole('button')).toBeNull();
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
+  expect(screen.getByRole('status').textContent).toBe('1 of 1 session selected');
+  expect(
+    screen.getByRole<HTMLInputElement>('checkbox', { name: 'Select all sessions' }).checked,
+  ).toBe(true);
 });
 
 test('shows the end date for sessions crossing midnight in the display timezone', async () => {
@@ -138,6 +199,7 @@ test('shows an empty state for a valid empty sessions file', async () => {
   render(<App />);
   expect(await screen.findByText('No sessions yet.')).toBeTruthy();
   expect(screen.queryByRole('table')).toBeNull();
+  expect(screen.queryByRole('checkbox')).toBeNull();
 });
 
 test('shows file errors returned by the server', async () => {

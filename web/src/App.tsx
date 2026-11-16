@@ -41,10 +41,14 @@ function SessionRow({
   session,
   dateFormat,
   timeFormat,
+  selected,
+  onSelect,
 }: {
   session: Session;
   dateFormat: Intl.DateTimeFormat;
   timeFormat: Intl.DateTimeFormat;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
@@ -62,10 +66,19 @@ function SessionRow({
     <>
       <tr
         className={flights.length > 0 ? 'session-row' : undefined}
+        data-selected={selected}
         onClick={() => {
           if (flights.length > 0) setExpanded(!expanded);
         }}
       >
+        <td className="select-cell" onClick={(event) => event.stopPropagation()}>
+          <input
+            type="checkbox"
+            aria-label={`Select session for ${session.student || session.description} on ${startDate}`}
+            checked={selected}
+            onChange={onSelect}
+          />
+        </td>
         <td className="expand-cell">
           {flights.length > 0 && (
             <button
@@ -116,7 +129,7 @@ function SessionRow({
         <td className="numeric">{formatDuration(totals.soloSupervision)}</td>
       </tr>
       <tr id={detailsId} hidden={!expanded} className="activity-details">
-        <td colSpan={8}>
+        <td colSpan={9}>
           <table
             className="flight-table"
             aria-label={`Flights for ${session.student || session.description} on ${startDate}`}
@@ -149,6 +162,8 @@ function SessionRow({
 }
 
 function SessionTable({ view }: { view: SessionView }) {
+  const [selectedSessions, setSelectedSessions] = useState<Set<Session>>(() => new Set());
+  const allSelected = selectedSessions.size === view.sessions.length;
   const dateFormat = new Intl.DateTimeFormat('de-DE', {
     timeZone: view.timeZone,
     day: '2-digit',
@@ -167,51 +182,80 @@ function SessionTable({ view }: { view: SessionView }) {
       {view.sessions.length === 0 ? (
         <p role="status">No sessions yet.</p>
       ) : (
-        <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>
-          <table className="sessions-table">
-            <colgroup>
-              <col className="expand-column" />
-              <col className="date-column" />
-              <col />
-              <col className="time-column" span={5} />
-            </colgroup>
-            <caption className="visually-hidden">Sessions in file order</caption>
-            <thead>
-              <tr>
-                <th scope="col" className="expand-cell">
-                  <span className="visually-hidden">Details</span>
-                </th>
-                <th scope="col">Date</th>
-                <th scope="col">Student / description</th>
-                <th scope="col" className="numeric">
-                  Duty start
-                </th>
-                <th scope="col" className="numeric">
-                  Duty end
-                </th>
-                <th scope="col" className="numeric">
-                  Preparation
-                </th>
-                <th scope="col" className="numeric">
-                  Dual
-                </th>
-                <th scope="col" className="numeric">
-                  Solo supervision
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {view.sessions.map((session, index) => (
-                <SessionRow
-                  key={index}
-                  session={session}
-                  dateFormat={dateFormat}
-                  timeFormat={timeFormat}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <p className="selection-count" role="status">
+            {selectedSessions.size} of {view.sessions.length}{' '}
+            {view.sessions.length === 1 ? 'session' : 'sessions'} selected
+          </p>
+          <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>
+            <table className="sessions-table">
+              <colgroup>
+                <col className="select-column" />
+                <col className="expand-column" />
+                <col className="date-column" />
+                <col />
+                <col className="time-column" span={5} />
+              </colgroup>
+              <caption className="visually-hidden">Sessions in file order</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="select-cell">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all sessions"
+                      checked={allSelected}
+                      ref={(input) => {
+                        if (input) input.indeterminate = selectedSessions.size > 0 && !allSelected;
+                      }}
+                      onChange={() => {
+                        setSelectedSessions(allSelected ? new Set() : new Set(view.sessions));
+                      }}
+                    />
+                  </th>
+                  <th scope="col" className="expand-cell">
+                    <span className="visually-hidden">Details</span>
+                  </th>
+                  <th scope="col">Date</th>
+                  <th scope="col">Student / description</th>
+                  <th scope="col" className="numeric">
+                    Duty start
+                  </th>
+                  <th scope="col" className="numeric">
+                    Duty end
+                  </th>
+                  <th scope="col" className="numeric">
+                    Preparation
+                  </th>
+                  <th scope="col" className="numeric">
+                    Dual
+                  </th>
+                  <th scope="col" className="numeric">
+                    Solo supervision
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {view.sessions.map((session, index) => (
+                  <SessionRow
+                    key={index}
+                    session={session}
+                    dateFormat={dateFormat}
+                    timeFormat={timeFormat}
+                    selected={selectedSessions.has(session)}
+                    onSelect={() => {
+                      setSelectedSessions((previous) => {
+                        const next = new Set(previous);
+                        if (next.has(session)) next.delete(session);
+                        else next.add(session);
+                        return next;
+                      });
+                    }}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
       <p className="time-note">
         Duty times: <span>{view.timeZone}</span> · Durations H:MM
