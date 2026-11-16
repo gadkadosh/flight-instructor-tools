@@ -14,95 +14,47 @@ JSON snapshots, HTML, and PDF output.
 
 Requires Go 1.26.5+, Node.js 24.11+ on the 24.x line (see
 [`web/package.json`](web/package.json) for other supported versions),
-[pnpm](https://pnpm.io/installation), and Make. PDF generation also requires
-[WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) on `PATH`.
+[pnpm](https://pnpm.io/installation), and Make.
 
 ```sh
 make build
-./fitools
+./fitools --input examples/realistic-sessions.json --config examples/realistic-config.json
 ```
 
-This opens a read-only session viewer in your browser. The frontend is embedded
-in the binary, so running it does not require Node.js. Press Ctrl+C in the
-terminal to stop the server.
+This opens a read-only session viewer with the bundled example data in your
+browser. Press Ctrl+C in the terminal to stop the server.
 
-Session and configuration paths default to `sessions.json` and `config.json` in
-the current working directory. To use private files in the ignored `local/` directory:
+Without path overrides, the tools use `sessions.json` and `config.json` in the
+current working directory. Keep private data, templates, and signature images
+in the ignored `local/` directory.
 
-```sh
-./fitools --input local/sessions.json --config local/config.json
-```
+## Usage
 
-See the [session format](examples/README.md#session-format) and
-[example configuration](examples/realistic-config.json) for input details.
-The viewer uses the configured `timeZone`, falling back to UTC when omitted.
-Keep private data, templates, and signature images in `local/`.
+- [Invoice example and session validation](examples/README.md#running-it)
+- [Session format](examples/README.md#session-format) and [example configuration](examples/realistic-config.json)
+- [Duty reports](docs/duty-reports.md)
 
-## Invoices and duty reports
-
-Generate an invoice from the anonymized example data:
-
-```sh
-./fitools generate \
-    --input examples/realistic-sessions.json \
-    --config examples/realistic-config.json \
-    --month 2026-05 \
-    --number 2026-05 \
-    --issue-date 2026-06-09
-```
-
-Writes `Rechnung-2026-05.json`, `.html`, and `.pdf` to `output/`.
-Existing files require confirmation before overwriting; use `--force` in scripts.
-Billing rates apply by effective date. An optional `signatureFile` adds a PNG
-signature, with relative paths resolved from the config file's directory.
-
-Validate session data without generating documents:
-
-```sh
-./fitools validate examples/realistic-sessions.json
-```
-
-Generate a duty report:
-
-```sh
-./fitools duty-report \
-    --input local/sessions.json \
-    --config local/config.json \
-    --month 2026-05 \
-    --carry-over-flight-duty 120:00
-```
-
-Duty reports require a private HTML template, an explicit reporting timezone,
-and year-to-date flight-duty time before the requested month. See the
-[duty-report reference](docs/duty-reports.md) for configuration, calculations,
-and template fields. Run `./fitools <command> --help` for all command options.
-
-The tools are tailored to EUR invoices, German formatting, and 0% VAT. Review
-all generated documents before use.
+Run `./fitools <command> --help` for command options. PDF generation requires
+[WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) on `PATH`.
 
 ## Development
 
-Run `make build` once to install dependencies and build the frontend, then:
+After `make build`, start development mode:
 
 ```sh
 make dev
 ```
 
-The UI runs at `http://127.0.0.1:5173` with React hot reload and proxies API
-requests to Go on port 8080. Data paths are relative to the repository root;
-restart after Go changes.
+The UI runs at `http://127.0.0.1:5173` with React hot reload. Go uses port 8080
+and reads data from the repository root; restart after Go changes.
 
-The frontend uses a locally installed [Vite+](https://viteplus.dev/) toolchain:
+Run checks and tests:
 
 ```sh
 pnpm --dir web run check   # Formatting, linting, and TypeScript checks
-pnpm --dir web run format  # Apply formatting
 pnpm --dir web test
 go test ./...
 ```
-
-Production builds run frontend checks automatically. Build the frontend before
-direct Go commands on a fresh checkout, since Go embeds `web/dist/`.
 
 ## License
 
