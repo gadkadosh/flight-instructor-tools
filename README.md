@@ -52,6 +52,7 @@ Run checks and tests:
 
 ```sh
 pnpm --dir web run check   # Formatting, linting, and TypeScript checks
+pnpm --dir web exec playwright install chromium  # Once, for frontend tests
 pnpm --dir web test
 go test ./...
 ```

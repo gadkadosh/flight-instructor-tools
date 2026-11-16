@@ -39,7 +39,9 @@ jobs:
           pnpm --dir web run build
 
       - name: Test frontend
-        run: pnpm --dir web test
+        run: |
+          pnpm --dir web exec playwright install --with-deps --only-shell chromium
+          pnpm --dir web test
 
       - name: Format Go
         run: |
