@@ -38,6 +38,9 @@ jobs:
           pnpm --dir web install --frozen-lockfile
           pnpm --dir web run build
 
+      - name: Test frontend
+        run: pnpm --dir web test
+
       - name: Format
         run: |
           files="$(gofmt -l .)"

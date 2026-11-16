@@ -11,7 +11,7 @@ func runValidate(arguments []string, stdout io.Writer) error {
 	flags := flag.NewFlagSet("validate", flag.ContinueOnError)
 	flags.SetOutput(stdout)
 	flags.Usage = func() {
-		fmt.Fprintln(stdout, "Usage: fitools validate FILE")
+		fmt.Fprintln(stdout, "Usage: fitools validate [FILE] (default: sessions.json)")
 	}
 	if err := flags.Parse(arguments); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -19,11 +19,14 @@ func runValidate(arguments []string, stdout io.Writer) error {
 		}
 		return fmt.Errorf("parse validate arguments: %w", err)
 	}
-	if flags.NArg() != 1 {
-		return fmt.Errorf("expected exactly one sessions file; usage: fitools validate FILE")
+	if flags.NArg() > 1 {
+		return fmt.Errorf("expected at most one sessions file; usage: fitools validate [FILE]")
 	}
 
-	path := flags.Arg(0)
+	path := defaultInputPath
+	if flags.NArg() == 1 {
+		path = flags.Arg(0)
+	}
 	if _, err := readSessionFile(path); err != nil {
 		return err
 	}

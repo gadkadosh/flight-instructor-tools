@@ -77,7 +77,7 @@ func TestRunWithoutArgumentsServesEmbeddedUIAndOpensBrowser(t *testing.T) {
 		t.Fatalf("page does not reference built JavaScript and CSS: %s", html)
 	}
 	js := get(string(script[1]), "javascript")
-	if !bytes.Contains(js, []byte("Your flight instructor workspace.")) {
+	if !bytes.Contains(js, []byte("/api/sessions")) {
 		t.Fatal("JavaScript bundle does not contain the React application")
 	}
 	get(string(style[1]), "text/css")

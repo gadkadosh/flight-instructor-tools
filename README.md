@@ -6,9 +6,9 @@ I built this to replace manual calculations and document preparation with a repr
 for JSON snapshots, HTML invoices, and PDF documents.
 
 Running `fitools` without arguments starts a local web server and opens the UI in
-your browser. The React/TypeScript frontend in `web/` is currently a placeholder;
-session browsing, editing, document generation, and photo-assisted input will be
-added incrementally, backed by the existing Go model and operations.
+your browser. The React/TypeScript frontend in `web/` displays a read-only session
+table backed by the existing Go model and validation. Editing, document generation,
+and photo-assisted input will be added incrementally.
 
 ## Features
 
@@ -46,6 +46,55 @@ For an explicit port or to keep the browser closed:
 ./fitools serve --port 8080 --no-open
 ```
 
+### Session viewer and data paths
+
+The viewer, invoice generation, and duty reports default to `sessions.json` and
+`config.json` in the **current working directory**. Validation also defaults to
+`sessions.json`. Paths are not resolved relative to the executable or searched for
+in parent directories.
+
+With private data in this repository's ignored `local/` directory, either launch
+from that directory:
+
+```sh
+cd local
+../fitools
+```
+
+Or supply paths from the repository root:
+
+```sh
+./fitools --input local/sessions.json --config local/config.json
+```
+
+The same `--input` and `--config` overrides work with `serve`, `generate`, and
+`duty-report`. Validation accepts an optional positional path:
+`fitools validate [FILE]`.
+
+The table preserves file order, with one row per session and activity totals for
+preparation, dual flying, and solo supervision. Click anywhere on a flight session
+row, or use the caret button at the start of the row with the keyboard, to expand
+its flights. Keyboard focus outlines the whole row. All rows start collapsed.
+Expanded details show each flight's type and block duration, without preparation
+entries or IDs. Preparation-only sessions
+do not expand. Student and description are both shown when present. There are no
+editing, sorting, filtering, or row-selection controls.
+Reload the page to pick up file changes.
+
+Dates and duty times use the configured `timeZone`, including daylight-saving
+changes, with clock times shown as `HH:MM LT` for local time or `HH:MM Z` for UTC.
+A session that crosses midnight also shows its end date. Activity durations use
+`H:MM` and are not timezone-dependent. Flight clock timestamps are not recorded.
+The active timezone is displayed below the table.
+
+The viewer reads `config.json` automatically and uses UTC if that default file is
+missing or `timeZone` is empty. An explicitly supplied `--config` file must exist.
+Malformed configuration, invalid timezone names, and `Local` produce an error.
+Only session viewing permits this UTC fallback; duty reports still require an
+explicit timezone. Viewing does not require billing fields, a private template,
+signatures, or WeasyPrint. Valid empty version-2 session files show an empty state;
+unreadable or invalid files show an error with the relevant path or field.
+
 Existing CLI commands remain available. PDF generation additionally requires
 [WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) on `PATH`;
 the UI and session validation do not require it.
@@ -61,9 +110,15 @@ make dev
 This builds the frontend once so Go can embed it, then serves the UI through Vite
 at `http://127.0.0.1:5173` (or the next available port) with React hot reload and
 opens the browser. The Go server runs at `http://127.0.0.1:8080`; Vite proxies
-`/api` there for future endpoints.
+`/api` there for the sessions endpoint. The Go process reads data from the
+repository root.
 Port 8080 must be available. Ctrl+C stops both processes, and either process
 exiting stops the other. Restart this command after Go changes.
+
+To use private data in `local/` during development, run
+`go run . serve --port 8080 --no-open --input local/sessions.json --config local/config.json`
+and `pnpm --dir web exec vite --open` in separate terminals instead of `make dev`.
+Stop each process with Ctrl+C in its terminal.
 
 `pnpm --dir web run build` type-checks TypeScript and builds the production UI.
 Run it before direct `go build`, `go run`, `go vet`, or `go test` commands on a fresh
@@ -94,14 +149,15 @@ Check a sessions file without generating invoice artifacts (WeasyPrint is not ne
 go run . validate examples/realistic-sessions.json
 ```
 
-Returns a nonzero exit status if the file cannot be read or fails validation.
+Omit the path to validate `sessions.json` in the current directory. Returns a
+nonzero exit status if the file cannot be read or fails validation.
 
 ### Generate usage
 
 | Flag                      | Purpose                           | Default            |
 | ------------------------- | --------------------------------- | ------------------ |
-| `--input FILE`            | Sessions file (JSON)              | Required           |
-| `--config FILE`           | Billing configuration file (JSON) | Required           |
+| `--input FILE`            | Sessions file (JSON)              | `sessions.json`    |
+| `--config FILE`           | Billing configuration file (JSON) | `config.json`      |
 | `--month YYYY-MM`         | Billing month                     | Required           |
 | `--number NUMBER`         | Invoice number                    | Required           |
 | `--issue-date YYYY-MM-DD` | Invoice date of issue             | Today (local time) |
@@ -166,6 +222,7 @@ Template parsing, rendering, and signature loading happen before output is writt
 ```sh
 pnpm --dir web install --frozen-lockfile
 pnpm --dir web run build
+pnpm --dir web test
 go test .
 ```
 

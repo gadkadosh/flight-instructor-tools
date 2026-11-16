@@ -30,6 +30,8 @@ func runServe(ctx context.Context, arguments []string, stdout io.Writer) error {
 	}
 	port := flags.Int("port", 0, "localhost port (0 chooses an available port)")
 	noOpen := flags.Bool("no-open", false, "do not open the browser")
+	inputPath := flags.String("input", defaultInputPath, "session JSON file")
+	configPath := flags.String("config", defaultConfigPath, "configuration JSON file (optional by default; used for timeZone)")
 	if err := flags.Parse(arguments); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -39,6 +41,15 @@ func runServe(ctx context.Context, arguments []string, stdout io.Writer) error {
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments: %v", flags.Args())
 	}
+	if *inputPath == "" || *configPath == "" {
+		return fmt.Errorf("--input and --config must not be empty")
+	}
+	source := sessionSource{inputPath: *inputPath, configPath: *configPath}
+	flags.Visit(func(option *flag.Flag) {
+		if option.Name == "config" {
+			source.requireConfig = true
+		}
+	})
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	assets, err := fs.Sub(webAssets, "web/dist")
@@ -50,7 +61,7 @@ func runServe(ctx context.Context, arguments []string, stdout io.Writer) error {
 		return fmt.Errorf("listen for web UI: %w", err)
 	}
 	server := &http.Server{
-		Handler:           http.FileServerFS(assets),
+		Handler:           webHandler(assets, source),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	serveError := make(chan error, 1)
