@@ -147,7 +147,7 @@ test('selects sessions individually and in bulk without expanding flights', asyn
   expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, false]);
   expect(screen.getByRole('status').textContent).toBe('0 of 2 sessions selected');
 
-  fireEvent.click(alex);
+  await userEvent.click(alex);
   expect([alex.checked, sam.checked]).toEqual([true, false]);
   expect(selectionMenu.getAttribute('aria-label')).toBe('Select sessions (1 of 2 selected)');
   expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, true]);
@@ -155,9 +155,15 @@ test('selects sessions individually and in bulk without expanding flights', asyn
   expect(alex.closest('tr')?.getAttribute('data-selected')).toBe('true');
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
 
-  fireEvent.click(selectionMenu);
+  await userEvent.click(selectionMenu);
+  expect(screen.getByRole('menu')).toBeTruthy();
+  expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, true]);
+  await userEvent.click(selectionMenu);
+  expect(screen.queryByRole('menu')).toBeNull();
   expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, true]);
   expect([alex.checked, sam.checked]).toEqual([true, false]);
+  expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
+  await userEvent.click(selectionMenu);
   await userEvent.keyboard('{Escape}');
   expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, true]);
 

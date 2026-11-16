@@ -47,6 +47,7 @@ export default function SelectionMenu<T extends { dutyStart: string }>({
   const menu = useRef<HTMLDivElement>(null);
   const wasOpenOnPointerDown = useRef(false);
   const menuId = useId();
+  const isPartiallySelected = selectedCount > 0 && selectedCount < sessions.length;
 
   function open(last = false) {
     menu.current!.showPopover({ source: trigger.current! });
@@ -69,7 +70,7 @@ export default function SelectionMenu<T extends { dutyStart: string }>({
       <input
         ref={(input) => {
           trigger.current = input;
-          if (input) input.indeterminate = selectedCount > 0 && selectedCount < sessions.length;
+          if (input) input.indeterminate = isPartiallySelected;
         }}
         type="checkbox"
         checked={selectedCount === sessions.length}
@@ -80,7 +81,8 @@ export default function SelectionMenu<T extends { dutyStart: string }>({
         onPointerDown={() => {
           wasOpenOnPointerDown.current = menu.current!.matches(':popover-open');
         }}
-        onChange={() => {
+        onChange={(event) => {
+          event.currentTarget.indeterminate = isPartiallySelected;
           // Native light dismissal closes the popover before a checkbox click completes.
           if (wasOpenOnPointerDown.current) close();
           else toggle();
