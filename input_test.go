@@ -1,12 +1,39 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 )
+
+func TestReadSessionFileRejectsDuplicateSessionIDs(t *testing.T) {
+	input, err := readSessionFile(filepath.Join("testdata", "minimal-sessions.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := input.Sessions[0]
+	middle := first
+	middle.ID = "another-session"
+	duplicate := first
+	duplicate.Student = "Another student"
+	input.Sessions = []Session{first, middle, duplicate}
+	contents, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "sessions.json")
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = readSessionFile(path)
+	want := `sessions[2].id: duplicate "` + first.ID + `" (first used at sessions[0].id)`
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("error = %v, want containing %q", err, want)
+	}
+}
 
 func TestReadSessionFileRejectsInvalidInput(t *testing.T) {
 	const valid = `{"schemaVersion":2,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","activities":[{"id":"activity-1","type":"dual","minutes":60}]}]}`

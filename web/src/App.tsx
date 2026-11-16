@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react';
+import SelectionMenu from './SelectionMenu';
 
 type ActivityType = 'preparation' | 'dual' | 'soloSupervision';
 
@@ -162,8 +163,7 @@ function SessionRow({
 }
 
 function SessionTable({ view }: { view: SessionView }) {
-  const [selectedSessions, setSelectedSessions] = useState<Set<Session>>(() => new Set());
-  const allSelected = selectedSessions.size === view.sessions.length;
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
   const dateFormat = new Intl.DateTimeFormat('de-DE', {
     timeZone: view.timeZone,
     day: '2-digit',
@@ -184,7 +184,7 @@ function SessionTable({ view }: { view: SessionView }) {
       ) : (
         <>
           <p className="selection-count" role="status">
-            {selectedSessions.size} of {view.sessions.length}{' '}
+            {selectedSessionIds.size} of {view.sessions.length}{' '}
             {view.sessions.length === 1 ? 'session' : 'sessions'} selected
           </p>
           <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>
@@ -200,15 +200,12 @@ function SessionTable({ view }: { view: SessionView }) {
               <thead>
                 <tr>
                   <th scope="col" className="select-cell">
-                    <input
-                      type="checkbox"
-                      aria-label="Select all sessions"
-                      checked={allSelected}
-                      ref={(input) => {
-                        if (input) input.indeterminate = selectedSessions.size > 0 && !allSelected;
-                      }}
-                      onChange={() => {
-                        setSelectedSessions(allSelected ? new Set() : new Set(view.sessions));
+                    <SelectionMenu
+                      sessions={view.sessions}
+                      timeZone={view.timeZone}
+                      selectedCount={selectedSessionIds.size}
+                      onSelect={(sessions) => {
+                        setSelectedSessionIds(new Set(sessions.map((session) => session.id)));
                       }}
                     />
                   </th>
@@ -235,18 +232,18 @@ function SessionTable({ view }: { view: SessionView }) {
                 </tr>
               </thead>
               <tbody>
-                {view.sessions.map((session, index) => (
+                {view.sessions.map((session) => (
                   <SessionRow
-                    key={index}
+                    key={session.id}
                     session={session}
                     dateFormat={dateFormat}
                     timeFormat={timeFormat}
-                    selected={selectedSessions.has(session)}
+                    selected={selectedSessionIds.has(session.id)}
                     onSelect={() => {
-                      setSelectedSessions((previous) => {
+                      setSelectedSessionIds((previous) => {
                         const next = new Set(previous);
-                        if (next.has(session)) next.delete(session);
-                        else next.add(session);
+                        if (next.has(session.id)) next.delete(session.id);
+                        else next.add(session.id);
                         return next;
                       });
                     }}

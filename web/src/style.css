@@ -74,6 +74,59 @@ table {
   font-size: 0.875rem;
 }
 
+.selection-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #566478;
+  cursor: pointer;
+}
+
+.selection-trigger svg {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.selection-trigger .selection-caret {
+  width: 0.75rem;
+}
+
+.selection-menu {
+  position: fixed;
+  z-index: 1;
+  min-width: 11rem;
+  padding: 0.25rem;
+  border: 1px solid #dbe1e8;
+  border-radius: 0.375rem;
+  background: #fff;
+  box-shadow: 0 4px 12px #22314526;
+}
+
+.selection-menu button {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.selection-menu button:hover,
+.selection-menu button:focus-visible {
+  background: #edf1f6;
+  outline: none;
+}
+
 .expand-column {
   width: 1.5rem;
 }
