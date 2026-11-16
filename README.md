@@ -5,11 +5,10 @@ A Go CLI that automates monthly invoicing and duty reports for my work as a flig
 I built this to replace manual calculations and document preparation with a reproducible workflow. Session records and billing configuration serve as a single source of truth
 for JSON snapshots, HTML invoices, and PDF documents.
 
-The planned web UI will extend this tool with a React/TypeScript frontend in `web/`,
-backed by the existing Go session model, validation, and document generation.
-It will start with a table of `sessions.json`, then add editing, document generation,
-and photo-assisted input incrementally. The CLI is currently the only interface;
-the web UI has not been implemented.
+Running `fitools` without arguments starts a local web server and opens the UI in
+your browser. The React/TypeScript frontend in `web/` is currently a placeholder;
+session browsing, editing, document generation, and photo-assisted input will be
+added incrementally, backed by the existing Go model and operations.
 
 ## Features
 
@@ -26,7 +25,50 @@ the web UI has not been implemented.
 
 ## Getting Started
 
-Requires Go 1.26.5 or newer and [WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) available on `PATH`.
+Building from source requires Go 1.26.5 or newer, Node.js 22.12 or newer,
+[pnpm](https://pnpm.io/installation), and Make. The pnpm version is pinned in
+`web/package.json` and used by CI:
+
+```sh
+make build
+./fitools
+```
+
+The frontend is built first and embedded in the Go executable. The resulting
+`fitools` binary can run from any directory without Node.js or frontend files.
+The server binds to `127.0.0.1` on an available port and prints its URL; press
+Ctrl+C in the terminal to stop it. Closing the browser tab does not stop the server.
+If opening the browser fails, open the printed URL manually.
+
+For an explicit port or to keep the browser closed:
+
+```sh
+./fitools serve --port 8080 --no-open
+```
+
+Existing CLI commands remain available. PDF generation additionally requires
+[WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) on `PATH`;
+the UI and session validation do not require it.
+
+### Development
+
+After `pnpm --dir web install --frozen-lockfile`, start Go and Vite together:
+
+```sh
+make dev
+```
+
+This builds the frontend once so Go can embed it, then serves the UI through Vite
+at `http://127.0.0.1:5173` (or the next available port) with React hot reload and
+opens the browser. The Go server runs at `http://127.0.0.1:8080`; Vite proxies
+`/api` there for future endpoints.
+Port 8080 must be available. Ctrl+C stops both processes, and either process
+exiting stops the other. Restart this command after Go changes.
+
+`pnpm --dir web run build` type-checks TypeScript and builds the production UI.
+Run it before direct `go build`, `go run`, `go vet`, or `go test` commands on a fresh
+checkout, since Go embeds the generated `web/dist/` directory. Rebuild the binary
+after changing the frontend to update its embedded UI.
 
 ### Example
 
@@ -122,6 +164,8 @@ Template parsing, rendering, and signature loading happen before output is writt
 ### Tests
 
 ```sh
+pnpm --dir web install --frozen-lockfile
+pnpm --dir web run build
 go test .
 ```
 

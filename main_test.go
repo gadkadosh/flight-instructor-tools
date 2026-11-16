@@ -289,14 +289,3 @@ func TestResolveExplicitIssueDateDoesNotReadClock(t *testing.T) {
 		t.Errorf("issue date = %q, want %q", got, want)
 	}
 }
-
-func TestRunRequiresCommand(t *testing.T) {
-	var stdout bytes.Buffer
-	err := run(context.Background(), nil, &stdout, strings.NewReader(""), time.Now)
-	if err == nil || !strings.Contains(err.Error(), "must provide a command") {
-		t.Fatalf("error = %v, want missing command error", err)
-	}
-	if !strings.Contains(stdout.String(), "Usage: fitools <command>") {
-		t.Fatalf("output %q does not contain command usage", stdout.String())
-	}
-}

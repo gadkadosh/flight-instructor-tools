@@ -4,6 +4,10 @@
 # fitools binary
 fitools
 
+# Frontend dependencies and build output.
+/web/node_modules/
+/web/dist/
+
 # Private local reference documents used only for visual comparison.
 /example.pdf
 /example.pages

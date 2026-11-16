@@ -18,9 +18,12 @@ func main() {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprint(w, `Usage: fitools <command> [flags]
+	fmt.Fprint(w, `Usage: fitools [command] [flags]
+
+Without a command, start the local web UI and open it in your browser.
 
 Commands:
+    serve       Start the local web UI
     generate    Generate invoice artifacts
     duty-report Generate monthly duty-report artifacts
     validate    Validate a sessions file (JSON)
@@ -31,14 +34,15 @@ Run fitools <command> --help for command options.
 
 func run(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Reader, now func() time.Time) error {
 	if len(arguments) == 0 {
-		usage(stdout)
-		return fmt.Errorf("must provide a command")
+		return runServe(ctx, nil, stdout)
 	}
 
 	switch arguments[0] {
 	case "-h", "--help":
 		usage(stdout)
 		return nil
+	case "serve":
+		return runServe(ctx, arguments[1:], stdout)
 	case "generate":
 		return runGenerate(ctx, arguments[1:], stdout, stdin, now)
 	case "duty-report":
