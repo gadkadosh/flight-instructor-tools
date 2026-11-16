@@ -46,7 +46,7 @@ export default function SelectionMenu<T extends { dutyStart: string }>({
   const [position, setPosition] = useState<{ top: number; left: number; last: boolean } | null>(
     null,
   );
-  const trigger = useRef<HTMLButtonElement>(null);
+  const trigger = useRef<HTMLInputElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const menuId = useId();
 
@@ -84,44 +84,29 @@ export default function SelectionMenu<T extends { dutyStart: string }>({
 
   return (
     <>
-      <button
-        ref={trigger}
-        type="button"
-        className="selection-trigger"
+      <input
+        ref={(input) => {
+          trigger.current = input;
+          if (input) input.indeterminate = selectedCount > 0 && selectedCount < sessions.length;
+        }}
+        type="checkbox"
+        checked={selectedCount === sessions.length}
         aria-label={`Select sessions (${selectedCount} of ${sessions.length} selected)`}
         aria-haspopup="menu"
         aria-expanded={position !== null}
         aria-controls={position ? menuId : undefined}
-        onClick={() => (position ? close() : open())}
+        onChange={() => (position ? close() : open())}
         onKeyDown={(event) => {
-          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          if (event.key === ' ' || event.key === 'Enter') {
+            event.preventDefault();
+            if (position) close();
+            else open();
+          } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault();
             open(event.key === 'ArrowUp');
           }
         }}
-      >
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
-          <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
-          {selectedCount > 0 && (
-            <path
-              d={selectedCount === sessions.length ? 'm4 8 3 3 5-6' : 'M4 8h8'}
-              strokeWidth="2"
-            />
-          )}
-        </svg>
-        <svg
-          className="selection-caret"
-          viewBox="0 0 12 12"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M6 2v8m-4-4 4 4 4-4" />
-        </svg>
-      </button>
+      />
       {position &&
         createPortal(
           <div

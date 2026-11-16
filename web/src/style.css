@@ -74,28 +74,6 @@ table {
   font-size: 0.875rem;
 }
 
-.selection-trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  width: 2rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #566478;
-  cursor: pointer;
-}
-
-.selection-trigger svg {
-  flex-shrink: 0;
-  width: 1rem;
-  height: 1rem;
-}
-
-.selection-trigger .selection-caret {
-  width: 0.75rem;
-}
-
 .selection-menu {
   position: fixed;
   z-index: 1;
