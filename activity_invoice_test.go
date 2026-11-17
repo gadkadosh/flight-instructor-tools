@@ -37,20 +37,58 @@ func TestCalculateSessionLinesGroupsActivitiesBeforeRounding(t *testing.T) {
 	}
 }
 
-func TestCalculateSessionLinesBillsSoloSupervisionWithoutStudent(t *testing.T) {
+func TestCalculateSessionLinesBillsSpecialFlights(t *testing.T) {
 	date := mustTimestamp(t, "2026-05-03T10:00:00Z")
-	session := Session{
-		Description: "Solo supervision",
-		Activities:  []Activity{{ID: "solo-1", Type: ActivitySoloSupervision, Minutes: 61}},
+	for _, test := range []struct {
+		activityType ActivityType
+		student      string
+		preparation  string
+		block        string
+	}{
+		{ActivityRundflug, "", "Flugvorbereitung", "Rundflug"},
+		{ActivitySchnupperflug, "", "Flugvorbereitung", "Schnupperflug"},
+		{ActivityRundflug, " Alex ", "Alex - Flugvorbereitung", "Alex - Rundflug"},
+		{ActivitySchnupperflug, "Alex", "Alex - Flugvorbereitung", "Alex - Schnupperflug"},
+	} {
+		t.Run(test.block, func(t *testing.T) {
+			session := Session{
+				Student: test.student,
+				Activities: []Activity{
+					{ID: "prep", Type: ActivityPreparation, Minutes: 2},
+					{ID: "flight-1", Type: test.activityType, Minutes: 1},
+					{ID: "flight-2", Type: test.activityType, Minutes: 60},
+				},
+			}
+			lines, err := calculateSessionLines(session, date, Rate{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3100}, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := []Line{
+				{Date: date, Description: test.preparation, Minutes: 2, HourlyRateCents: 2500, TotalCents: 83},
+				{Date: date, Description: test.block, Minutes: 61, HourlyRateCents: 3100, TotalCents: 3152},
+			}
+			if !slices.Equal(lines, want) {
+				t.Fatalf("lines = %+v, want %+v", lines, want)
+			}
+		})
 	}
-	lines, err := calculateSessionLines(session, date, Rate{BlockCentsPerHour: 3100}, 0)
-	if err != nil {
-		t.Fatalf("calculate lines: %v", err)
-	}
-	want := []Line{{Date: date, Description: "Solo supervision", Minutes: 61, HourlyRateCents: 3100, TotalCents: 3152}}
-	if !slices.Equal(lines, want) {
-		t.Errorf("lines = %+v, want %+v", lines, want)
-	}
+
+	t.Run("mixed flights retain a single rounded block charge", func(t *testing.T) {
+		session := Session{Student: "Alex", Activities: []Activity{
+			{ID: "dual", Type: ActivityDual, Minutes: 1},
+			{ID: "solo", Type: ActivitySoloSupervision, Minutes: 1},
+			{ID: "rundflug", Type: ActivityRundflug, Minutes: 1},
+			{ID: "schnupperflug", Type: ActivitySchnupperflug, Minutes: 1},
+		}}
+		want := []Line{{Date: date, Description: "Alex - Blockzeit / Rundflug / Schnupperflug", Minutes: 4, HourlyRateCents: 3100, TotalCents: 207}}
+		for range 2 {
+			lines, err := calculateSessionLines(session, date, Rate{BlockCentsPerHour: 3100}, 0)
+			if err != nil || !slices.Equal(lines, want) {
+				t.Fatalf("lines = %+v, error = %v, want %+v", lines, err, want)
+			}
+			slices.Reverse(session.Activities)
+		}
+	})
 }
 
 func TestCalculateSessionLinesRejectsInvalidActivities(t *testing.T) {

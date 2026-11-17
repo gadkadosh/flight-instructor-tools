@@ -355,7 +355,7 @@ func TestDutyReportRendererFailurePreservesExistingArtifacts(t *testing.T) {
 func TestDutyReportEmptySessionFileAndOptionalSignature(t *testing.T) {
 	args, output, configPath := setupDutyReportTest(t)
 	inputPath := filepath.Join(t.TempDir(), "empty.json")
-	if err := os.WriteFile(inputPath, []byte(`{"schemaVersion":2,"sessions":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(inputPath, []byte(`{"schemaVersion":3,"sessions":[]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	config, err := readConfig(configPath)

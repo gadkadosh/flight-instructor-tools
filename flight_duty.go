@@ -84,7 +84,7 @@ func buildDutyReport(sessions []Session, config Config, month string, issueDate 
 			line.End = end
 		}
 		for _, activity := range session.Activities {
-			if activity.Type == ActivityDual {
+			if activityKinds[activity.Type].ownBlock {
 				line.BlockMinutes += activity.Minutes
 			}
 		}
