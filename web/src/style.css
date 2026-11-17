@@ -337,7 +337,7 @@ td {
 }
 
 .sessions-table > tbody > tr[data-selected] {
-  height: 2.75rem;
+  height: 2.625rem;
 }
 
 .sessions-table > tbody > tr[data-selected='true'] {
