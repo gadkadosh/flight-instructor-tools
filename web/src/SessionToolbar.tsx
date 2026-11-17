@@ -1,19 +1,21 @@
-import { useId, useRef, useState, type ReactNode } from 'react';
+import { useId, useRef, useState } from 'react';
 import InvoiceForm from './InvoiceForm';
 import DutyReportForm from './DutyReportForm';
+import SelectionMenu from './SelectionMenu';
+import type { Session } from './sessions';
 
 type DocumentKind = 'invoice' | 'dutyReport';
 
 export default function SessionToolbar({
   selectedSessionIds,
-  sessionCount,
+  sessions,
   timeZone,
-  children,
+  onSelectSessions,
 }: {
   selectedSessionIds: string[];
-  sessionCount: number;
+  sessions: Session[];
   timeZone: string;
-  children?: ReactNode;
+  onSelectSessions: (sessions: Session[]) => void;
 }) {
   const [expanded, setExpanded] = useState<DocumentKind | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -34,10 +36,12 @@ export default function SessionToolbar({
   return (
     <div className="session-toolbar">
       <div className="session-selection">
-        {children}
+        {sessions.length > 0 && (
+          <SelectionMenu sessions={sessions} timeZone={timeZone} onSelect={onSelectSessions} />
+        )}
         <p className="selection-count" role="status">
-          {selectedSessionIds.length} of {sessionCount}{' '}
-          {sessionCount === 1 ? 'session' : 'sessions'} selected
+          {selectedSessionIds.length} of {sessions.length}{' '}
+          {sessions.length === 1 ? 'session' : 'sessions'} selected
         </p>
       </div>
       <div className="document-buttons">

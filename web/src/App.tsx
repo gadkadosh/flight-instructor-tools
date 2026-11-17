@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import SelectionMenu from './SelectionMenu';
 import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
 import { activityKinds, formatDuration, type Session, type SessionView } from './sessions';
@@ -158,19 +157,12 @@ function SessionTable({
     <>
       <SessionToolbar
         selectedSessionIds={[...selectedSessionIds]}
-        sessionCount={view.sessions.length}
+        sessions={view.sessions}
         timeZone={view.timeZone}
-      >
-        {view.sessions.length > 0 && (
-          <SelectionMenu
-            sessions={view.sessions}
-            timeZone={view.timeZone}
-            onSelect={(sessions) => {
-              setSelectedSessionIds(new Set(sessions.map((session) => session.id)));
-            }}
-          />
-        )}
-      </SessionToolbar>
+        onSelectSessions={(sessions) => {
+          setSelectedSessionIds(new Set(sessions.map((session) => session.id)));
+        }}
+      />
       {view.sessions.length === 0 && <p role="status">No sessions yet.</p>}
       {(view.sessions.length > 0 || adding) && (
         <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>
