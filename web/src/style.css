@@ -77,14 +77,15 @@ table {
 .session-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+  align-items: center;
   gap: 0.5rem 1rem;
   margin-bottom: 0.5rem;
 }
 
-.invoice-controls {
-  display: grid;
-  justify-items: end;
+.document-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.5rem;
   min-width: 0;
 }
@@ -131,14 +132,16 @@ table {
 }
 
 .action-button:disabled,
-.invoice-form input:disabled {
+.document-form input:disabled {
   border-color: #dbe1e8;
   background: #edf1f6;
   color: #66788e;
   cursor: default;
 }
 
-.invoice-form {
+.document-form {
+  grid-column: 1 / -1;
+  justify-self: end;
   box-sizing: border-box;
   width: fit-content;
   max-width: 100%;
@@ -149,7 +152,7 @@ table {
   background: #fff;
 }
 
-.invoice-form fieldset {
+.document-form fieldset {
   display: grid;
   grid-template-columns: 10rem 9.5rem auto;
   align-items: end;
@@ -160,14 +163,18 @@ table {
   padding: 0;
 }
 
-.invoice-form label {
+.document-form[data-kind='dutyReport'] fieldset {
+  grid-template-columns: 10rem 15rem 9.5rem auto;
+}
+
+.document-form label {
   display: grid;
   gap: 0.25rem;
   color: #66788e;
   font-size: 0.75rem;
 }
 
-.invoice-form input {
+.document-form input {
   box-sizing: border-box;
   width: 100%;
   height: 2.25rem;
@@ -181,17 +188,17 @@ table {
   font-size: 0.875rem;
 }
 
-.invoice-form-actions {
+.document-form-actions {
   display: flex;
   gap: 0.5rem;
 }
 
-.invoice-form p {
+.document-form p {
   margin-bottom: 0;
   font-size: 0.875rem;
 }
 
-@media (max-width: 44rem) {
+@media (max-width: 55rem) {
   .session-toolbar {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -200,15 +207,16 @@ table {
     grid-row: 2;
   }
 
-  .invoice-form {
+  .document-form {
     width: min(100%, 24rem);
   }
 
-  .invoice-form fieldset {
+  .document-form fieldset,
+  .document-form[data-kind='dutyReport'] fieldset {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .invoice-form-actions {
+  .document-form-actions {
     justify-content: flex-end;
   }
 }
