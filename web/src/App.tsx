@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import SelectionMenu from './SelectionMenu';
-import InvoiceControls from './InvoiceControls';
+import DocumentControls from './DocumentControls';
 
 type ActivityType = 'preparation' | 'dual' | 'soloSupervision';
 
@@ -180,81 +180,79 @@ function SessionTable({ view }: { view: SessionView }) {
 
   return (
     <>
+      <DocumentControls
+        selectedSessionIds={[...selectedSessionIds]}
+        sessionCount={view.sessions.length}
+        timeZone={view.timeZone}
+      />
       {view.sessions.length === 0 ? (
         <p role="status">No sessions yet.</p>
       ) : (
-        <>
-          <InvoiceControls
-            selectedSessionIds={[...selectedSessionIds]}
-            sessionCount={view.sessions.length}
-            timeZone={view.timeZone}
-          />
-          <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>
-            <table className="sessions-table">
-              <colgroup>
-                <col className="select-column" />
-                <col className="expand-column" />
-                <col className="date-column" />
-                <col />
-                <col className="time-column" span={5} />
-              </colgroup>
-              <caption className="visually-hidden">Sessions in file order</caption>
-              <thead>
-                <tr>
-                  <th scope="col" className="select-cell">
-                    <SelectionMenu
-                      sessions={view.sessions}
-                      timeZone={view.timeZone}
-                      selectedCount={selectedSessionIds.size}
-                      onSelect={(sessions) => {
-                        setSelectedSessionIds(new Set(sessions.map((session) => session.id)));
-                      }}
-                    />
-                  </th>
-                  <th scope="col" className="expand-cell">
-                    <span className="visually-hidden">Details</span>
-                  </th>
-                  <th scope="col">Date</th>
-                  <th scope="col">Student / description</th>
-                  <th scope="col" className="numeric">
-                    Duty start
-                  </th>
-                  <th scope="col" className="numeric">
-                    Duty end
-                  </th>
-                  <th scope="col" className="numeric">
-                    Preparation
-                  </th>
-                  <th scope="col" className="numeric">
-                    Dual
-                  </th>
-                  <th scope="col" className="numeric">
-                    Solo supervision
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {view.sessions.map((session) => (
-                  <SessionRow
-                    key={session.id}
-                    session={session}
-                    dateFormat={dateFormat}
-                    timeFormat={timeFormat}
-                    selected={selectedSessionIds.has(session.id)}
-                    onSelect={() => {
-                      setSelectedSessionIds((previous) => {
-                        const next = new Set(previous);
-                        if (next.has(session.id)) next.delete(session.id);
-                        else next.add(session.id);
-                        return next;
-                      });
+        <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>
+          <table className="sessions-table">
+            <colgroup>
+              <col className="select-column" />
+              <col className="expand-column" />
+              <col className="date-column" />
+              <col />
+              <col className="time-column" span={5} />
+            </colgroup>
+            <caption className="visually-hidden">Sessions in file order</caption>
+            <thead>
+              <tr>
+                <th scope="col" className="select-cell">
+                  <SelectionMenu
+                    sessions={view.sessions}
+                    timeZone={view.timeZone}
+                    selectedCount={selectedSessionIds.size}
+                    onSelect={(sessions) => {
+                      setSelectedSessionIds(new Set(sessions.map((session) => session.id)));
                     }}
                   />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+                </th>
+                <th scope="col" className="expand-cell">
+                  <span className="visually-hidden">Details</span>
+                </th>
+                <th scope="col">Date</th>
+                <th scope="col">Student / description</th>
+                <th scope="col" className="numeric">
+                  Duty start
+                </th>
+                <th scope="col" className="numeric">
+                  Duty end
+                </th>
+                <th scope="col" className="numeric">
+                  Preparation
+                </th>
+                <th scope="col" className="numeric">
+                  Dual
+                </th>
+                <th scope="col" className="numeric">
+                  Solo supervision
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.sessions.map((session) => (
+                <SessionRow
+                  key={session.id}
+                  session={session}
+                  dateFormat={dateFormat}
+                  timeFormat={timeFormat}
+                  selected={selectedSessionIds.has(session.id)}
+                  onSelect={() => {
+                    setSelectedSessionIds((previous) => {
+                      const next = new Set(previous);
+                      if (next.has(session.id)) next.delete(session.id);
+                      else next.add(session.id);
+                      return next;
+                    });
+                  }}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       <p className="time-note">
         Duty times: <span>{view.timeZone}</span> · Durations H:MM

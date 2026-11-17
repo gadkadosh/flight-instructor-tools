@@ -26,6 +26,7 @@ func webHandler(assets fs.FS, source sessionSource) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/sessions", source.serveSessions)
 	mux.HandleFunc("POST /api/invoice", source.serveInvoice)
+	mux.HandleFunc("POST /api/duty-report", source.serveDutyReport)
 	mux.Handle("GET /", http.FileServerFS(assets))
 	protected := http.NewCrossOriginProtection().Handler(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

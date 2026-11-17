@@ -557,3 +557,132 @@ test('invoice errors preserve form details and allow retrying', async () => {
   expect((await screen.findByRole('alert')).textContent).toBe('Connection lost');
   expect(fetch).toHaveBeenCalledTimes(3);
 });
+
+test.each([
+  ['2026-12-31T23:30:00Z', '2026-12', '', '2027-01-01'],
+  ['2026-01-31T23:30:00Z', '2026-01', '0:00', '2026-02-01'],
+])(
+  'duty report defaults use the reporting timezone at %s, even with no sessions',
+  async (now, month, carry, issueDate) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(now));
+    respond({ timeZone: 'Europe/Berlin', sessions: [] });
+    render(<App />);
+    const trigger = await screen.findByRole<HTMLButtonElement>('button', {
+      name: 'Generate duty report',
+    });
+    expect(trigger.disabled).toBe(false);
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice' }).disabled,
+    ).toBe(true);
+    fireEvent.click(trigger);
+    const monthInput = screen.getByLabelText<HTMLInputElement>('Month');
+    const carryInput = screen.getByLabelText<HTMLInputElement>(
+      'Flight-duty total before this month',
+    );
+    expect(document.activeElement).toBe(monthInput);
+    expect(monthInput.type).toBe('month');
+    expect(monthInput.value).toBe(month);
+    expect(carryInput.value).toBe(carry);
+    expect(carryInput.checkValidity()).toBe(carry !== '');
+    expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe(issueDate);
+    fireEvent.change(carryInput, { target: { value: '123:60' } });
+    expect(carryInput.checkValidity()).toBe(false);
+    fireEvent.change(carryInput, { target: { value: '123:45' } });
+    expect(carryInput.checkValidity()).toBe(true);
+    fireEvent.change(monthInput, { target: { value: '2027-01' } });
+    expect(carryInput.value).toBe('0:00');
+    fireEvent.change(monthInput, { target: { value: '2027-02' } });
+    expect(carryInput.value).toBe('');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('form')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  },
+);
+
+test('switching document forms preserves their independent details and shows only one form', async () => {
+  respond({ timeZone: 'UTC', sessions: [session] });
+  render(<App />);
+  const reportTrigger = await screen.findByRole('button', { name: 'Generate duty report' });
+  selectPreset('Select all');
+  const invoiceTrigger = screen.getByRole('button', { name: 'Generate invoice' });
+  fireEvent.click(invoiceTrigger);
+  fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-123' } });
+  fireEvent.change(screen.getByLabelText('Issue date'), { target: { value: '2026-10-05' } });
+  fireEvent.click(reportTrigger);
+  expect(screen.queryByRole('form', { name: 'Generate invoice' })).toBeNull();
+  expect(invoiceTrigger.getAttribute('aria-expanded')).toBe('false');
+  expect(reportTrigger.getAttribute('aria-expanded')).toBe('true');
+  fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-09' } });
+  fireEvent.change(screen.getByLabelText('Flight-duty total before this month'), {
+    target: { value: '432:10' },
+  });
+  fireEvent.change(screen.getByLabelText('Issue date'), { target: { value: '2026-10-01' } });
+  fireEvent.click(invoiceTrigger);
+  expect(screen.getAllByRole('form')).toHaveLength(1);
+  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-123');
+  expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-10-05');
+  fireEvent.click(reportTrigger);
+  expect(screen.getByLabelText<HTMLInputElement>('Month').value).toBe('2026-09');
+  expect(screen.getByLabelText<HTMLInputElement>('Flight-duty total before this month').value).toBe(
+    '432:10',
+  );
+  expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-10-01');
+  fireEvent.click(reportTrigger);
+  expect(screen.queryByRole('form')).toBeNull();
+});
+
+test('duty report download ignores table selection and preserves details after an error', async () => {
+  const fetch = respond({ timeZone: 'Europe/Berlin', sessions: [session] });
+  vi.stubGlobal('URL', {
+    createObjectURL: vi.fn().mockReturnValue('blob:report'),
+    revokeObjectURL: vi.fn(),
+  });
+  const downloads: string[] = [];
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    downloads.push(this.download);
+  });
+  render(<App />);
+  const trigger = await screen.findByRole<HTMLButtonElement>('button', {
+    name: 'Generate duty report',
+  });
+  selectPreset('Select all');
+  fireEvent.click(trigger);
+  fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-05' } });
+  fireEvent.change(screen.getByLabelText('Flight-duty total before this month'), {
+    target: { value: '120:00' },
+  });
+  fireEvent.change(screen.getByLabelText('Issue date'), { target: { value: '2026-06-09' } });
+  fetch.mockResolvedValueOnce(
+    new Response(JSON.stringify({ error: 'Install WeasyPrint' }), { status: 500 }),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+  expect(trigger.disabled).toBe(true);
+  expect(screen.getByLabelText<HTMLInputElement>('Month').matches(':disabled')).toBe(true);
+  expect((await screen.findByRole('alert')).textContent).toBe('Install WeasyPrint');
+  selectPreset('Clear selection');
+  expect(trigger.disabled).toBe(false);
+  expect(screen.getByLabelText<HTMLInputElement>('Month').value).toBe('2026-05');
+  expect(screen.getByLabelText<HTMLInputElement>('Flight-duty total before this month').value).toBe(
+    '120:00',
+  );
+  fetch.mockResolvedValueOnce(
+    new Response('%PDF-1.7\nduty report', { headers: { 'Content-Type': 'application/pdf' } }),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+  await waitFor(() => expect(downloads).toEqual(['Dienstzeitnachweis-2026-05.pdf']));
+  expect(fetch).toHaveBeenLastCalledWith('/api/duty-report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      month: '2026-05',
+      carryOverFlightDuty: '120:00',
+      issueDate: '2026-06-09',
+    }),
+  });
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-06-09');
+  expect(screen.getByRole('status').textContent).toBe('0 of 1 session selected');
+});

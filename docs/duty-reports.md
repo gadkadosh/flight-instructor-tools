@@ -1,6 +1,10 @@
 # Duty reports
 
-Duty reports are a separate command; they do not require an invoice number or alter billing:
+Duty reports are available through **Generate duty report** in the session viewer
+and through a separate CLI command. Both include every session in the requested
+month; the viewer's session selection only affects invoices. Reports do not require
+an invoice number or alter billing. The viewer downloads a PDF without retaining
+artifacts; the CLI also writes HTML and JSON:
 
 ```sh
 ./fitools duty-report \

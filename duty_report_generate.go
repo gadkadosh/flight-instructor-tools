@@ -65,6 +65,29 @@ func configRelativePath(configPath, path string) string {
 	return filepath.Join(filepath.Dir(configPath), path)
 }
 
+func renderConfiguredDutyReport(report DutyReport, config Config, configPath string) ([]byte, error) {
+	if config.DutyReportTemplateFile == "" {
+		return nil, fmt.Errorf("dutyReportTemplateFile: required for duty reports")
+	}
+	var signaturePNG []byte
+	if config.SignatureFile != "" {
+		path := configRelativePath(configPath, config.SignatureFile)
+		var err error
+		signaturePNG, err = os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read signature %q: %w", path, err)
+		}
+		if _, err := png.Decode(bytes.NewReader(signaturePNG)); err != nil {
+			return nil, fmt.Errorf("load signature %q as PNG: %w", path, err)
+		}
+	}
+	var html bytes.Buffer
+	if err := renderDutyReportHTML(&html, report, configRelativePath(configPath, config.DutyReportTemplateFile), signaturePNG); err != nil {
+		return nil, err
+	}
+	return html.Bytes(), nil
+}
+
 func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Reader, now func() time.Time) error {
 	flags := flag.NewFlagSet("duty-report", flag.ContinueOnError)
 	flags.SetOutput(stdout)
@@ -134,20 +157,9 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 	if err != nil {
 		return err
 	}
-	var signaturePNG []byte
-	if config.SignatureFile != "" {
-		path := configRelativePath(*configPath, config.SignatureFile)
-		signaturePNG, err = os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("read signature %q: %w", path, err)
-		}
-		if _, err := png.Decode(bytes.NewReader(signaturePNG)); err != nil {
-			return fmt.Errorf("load signature %q as PNG: %w", path, err)
-		}
-	}
 	// Resolve all configuration and render in memory before touching outputs.
-	var html bytes.Buffer
-	if err := renderDutyReportHTML(&html, report, configRelativePath(*configPath, config.DutyReportTemplateFile), signaturePNG); err != nil {
+	html, err := renderConfiguredDutyReport(report, config, *configPath)
+	if err != nil {
 		return err
 	}
 	snapshot, err := json.MarshalIndent(report, "", "  ")
@@ -186,7 +198,7 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 	for _, artifact := range []struct {
 		path string
 		data []byte
-	}{{stagedJSON, snapshot}, {stagedHTML, html.Bytes()}} {
+	}{{stagedJSON, snapshot}, {stagedHTML, html}} {
 		if err := os.WriteFile(artifact.path, artifact.data, 0o644); err != nil {
 			return fmt.Errorf("write duty report artifact: %w", err)
 		}
