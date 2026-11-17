@@ -280,7 +280,7 @@ table {
 }
 
 .date-column {
-  width: 8rem;
+  width: 9rem;
 }
 
 .time-column {
@@ -436,8 +436,7 @@ td {
   overflow-wrap: anywhere;
 }
 
-.entry-row,
-.entry-details {
+.entry-row {
   background: #f0f6ff;
 }
 
@@ -446,25 +445,26 @@ td {
   padding: 0.5rem 0.25rem;
 }
 
-.entry-row input:not(:disabled) {
+:is(.entry-row, .flight-entry-table) :is(input, select):not(:disabled) {
   border-color: transparent;
   border-bottom-color: #b9c4d2;
   border-radius: 0;
   background: transparent;
 }
 
-.entry-row input:enabled:hover {
+:is(.entry-row, .flight-entry-table) :is(input, select):enabled:hover {
   border-bottom-color: #66788e;
   background: #ffffff80;
 }
 
-.entry-row input:enabled:focus-visible {
+:is(.entry-row, .flight-entry-table) :is(input, select):enabled:focus-visible {
   border-color: #b9c4d2;
   border-radius: 0.375rem;
   background: #fff;
 }
 
-.entry-row input[inputmode='numeric'] {
+.entry-row input[inputmode='numeric'],
+.flight-entry-table input {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -474,19 +474,11 @@ td {
   padding-right: 0.75rem;
 }
 
-.entry-details > td {
-  padding: 0 1rem 1rem 4.25rem;
-}
-
 .entry-details fieldset {
   min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
-}
-
-.entry-details legend {
-  font-weight: 600;
 }
 
 .entry-hint {
@@ -495,41 +487,17 @@ td {
   font-size: 0.8rem;
 }
 
-.flight-inputs {
-  display: grid;
-  gap: 0.5rem;
+.flight-entry-table {
+  max-width: 32rem;
   margin-bottom: 0.5rem;
 }
 
-.flight-input {
-  display: grid;
-  grid-template-columns: 4rem 11rem 10rem auto;
-  align-items: center;
-  justify-content: start;
-  gap: 0.5rem;
-}
-
-.entry-options,
 .entry-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 1rem;
-}
-
-.entry-options > label:first-child {
-  display: grid;
-  gap: 0.3rem;
-  width: 24rem;
-  color: #566478;
-  font-size: 0.8rem;
-}
-
-.next-day {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
 }
 
 .visually-hidden {

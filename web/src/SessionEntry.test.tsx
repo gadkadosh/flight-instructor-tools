@@ -130,7 +130,7 @@ test('removing flights updates totals and keeps keyboard focus in the editor', a
   expect(screen.getByLabelText('Dual total').textContent).toBe('0:00');
 });
 
-test('validates entries, supports description-only overnight duty, and preserves data after errors', async () => {
+test('validates entries, infers overnight duty, and preserves data after errors', async () => {
   const { fetch, entries } = sessionAPI();
   await openEntry();
   await fillBasics();
@@ -144,24 +144,46 @@ test('validates entries, supports description-only overnight duty, and preserves
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect(screen.getByRole('alert').textContent).toContain('flight duration');
   await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '45');
-  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
-  expect(screen.getByRole('alert').textContent).toContain('Ends next day');
-  await userEvent.click(screen.getByLabelText('Ends next day'));
-  await userEvent.fill(screen.getByLabelText('Student'), '');
-  await userEvent.fill(screen.getByLabelText('Description (optional)'), 'Sightseeing');
+  expect(screen.getByText(/Next day:/).textContent).toContain('04.05.2026');
   fetch.mockResolvedValueOnce(Response.json({ error: 'Disk is full' }, { status: 500 }));
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect((await screen.findByRole('alert')).textContent).toBe('Disk is full');
   expect((screen.getByLabelText('Flight 1 duration') as HTMLInputElement).value).toBe('45');
   const failedRequest = fetch.mock.calls.at(-1)![1]!.body;
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
-  await screen.findByRole('rowheader', { name: 'Sightseeing' });
+  await screen.findByRole('rowheader', { name: 'New Student' });
   expect(fetch.mock.calls.at(-1)![1]!.body).toBe(failedRequest);
   expect(entries[0]).toMatchObject({
     dutyEnd: '2026-05-04T01:00',
-    student: '',
-    description: 'Sightseeing',
+    student: 'New Student',
+    description: '',
   });
+});
+
+test.each([
+  ['2026-05-31', '2026-06-01'],
+  ['2026-12-31', '2027-01-01'],
+])('overnight duty starting %s advances the calendar date to %s', async (date, nextDate) => {
+  const { entries } = sessionAPI();
+  await openEntry();
+  await fillBasics();
+  await userEvent.fill(screen.getByLabelText('Session date'), date);
+  await userEvent.fill(screen.getByLabelText('Duty start'), '2300');
+  await userEvent.fill(screen.getByLabelText('Duty end'), '2300');
+  await userEvent.fill(screen.getByLabelText('Preparation duration'), '30');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  expect(screen.getByRole('alert').textContent).toContain('must differ');
+  expect(entries).toHaveLength(0);
+  await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
+  expect(
+    screen
+      .getByText(/Next day:/)
+      .querySelector('time')
+      ?.getAttribute('datetime'),
+  ).toBe(nextDate);
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  await screen.findByRole('rowheader', { name: 'New Student' });
+  expect(entries[0]).toMatchObject({ dutyStart: `${date}T23:00`, dutyEnd: `${nextDate}T01:00` });
 });
 
 test('suggests distinct existing students, defaults the date to the configured timezone, and cancels without saving', async () => {

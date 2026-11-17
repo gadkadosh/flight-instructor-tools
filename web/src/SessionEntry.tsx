@@ -31,11 +31,23 @@ export default function SessionEntry({
   const savingRef = useRef(false);
   const focusStudent = useRef(false);
   const [id, setId] = useState(() => crypto.randomUUID());
+  const [date, setDate] = useState(() => dateInZone(view.timeZone));
+  const [startInput, setStartInput] = useState('');
+  const [endInput, setEndInput] = useState('');
   const [preparation, setPreparation] = useState('');
   const [flights, setFlights] = useState<FlightDraft[]>(() => [newFlight()]);
   const [focusFlight, setFocusFlight] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const start = parseClock(startInput);
+  const end = parseClock(endInput);
+  const overnight = Boolean(date && start && end && end < start);
+  let endDate = date;
+  if (overnight) {
+    const nextDay = new Date(`${date}T00:00:00Z`);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    endDate = nextDay.toISOString().slice(0, 10);
+  }
   const students = [
     ...new Set(
       view.sessions
@@ -86,12 +98,11 @@ export default function SessionEntry({
       setError(message);
       (form.elements.namedItem(name) as HTMLElement | null)?.focus();
     }
-    const start = parseClock(text('start'));
-    const end = parseClock(text('end'));
     if (!start) return invalid('Enter a duty start such as 0900 or 09:00.', 'start');
     if (!end) return invalid('Enter a duty end such as 1730 or 17:30.', 'end');
-    if (!text('student') && !text('description')) {
-      return invalid('Enter a student or a description.', 'student');
+    if (start === end) return invalid('Duty end must differ from duty start.', 'end');
+    if (!text('student')) {
+      return invalid('Enter a student.', 'student');
     }
     const prep = parseDuration(preparation);
     if (prep === undefined) return invalid('Enter preparation in minutes or H:MM.', 'preparation');
@@ -108,17 +119,6 @@ export default function SessionEntry({
     if (activities.length === 0) {
       return invalid('Enter preparation time or at least one flight.', 'preparation');
     }
-    let endDate = text('date');
-    if (data.has('nextDay')) {
-      const nextDay = new Date(`${endDate}T00:00:00Z`);
-      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-      endDate = nextDay.toISOString().slice(0, 10);
-    } else if (end <= start) {
-      return invalid(
-        'Duty end must be after duty start. For overnight duty, select “Ends next day”.',
-        'end',
-      );
-    }
     savingRef.current = true;
     setSaving(true);
     try {
@@ -130,7 +130,7 @@ export default function SessionEntry({
           dutyStart: `${text('date')}T${start}`,
           dutyEnd: `${endDate}T${end}`,
           student: text('student'),
-          description: text('description'),
+          description: '',
           activities,
         }),
       });
@@ -138,9 +138,9 @@ export default function SessionEntry({
       if (!response.ok) throw new Error(body.error || 'Could not save session.');
       onSaved(body);
       if (another) {
-        const date = text('date');
         form.reset();
-        dateRef.current!.value = date;
+        setStartInput('');
+        setEndInput('');
         setId(crypto.randomUUID());
         setPreparation('');
         setFlights([newFlight()]);
@@ -157,11 +157,6 @@ export default function SessionEntry({
     }
   }
 
-  function clockBlur(input: HTMLInputElement) {
-    const normalized = parseClock(input.value);
-    if (normalized) input.value = normalized;
-  }
-
   return (
     <>
       <tr className="entry-row" onKeyDown={shortcut}>
@@ -175,7 +170,8 @@ export default function SessionEntry({
             name="date"
             type="date"
             aria-label="Session date"
-            defaultValue={dateInZone(view.timeZone)}
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
             required
             disabled={saving}
           />
@@ -205,7 +201,9 @@ export default function SessionEntry({
             placeholder="0900"
             inputMode="numeric"
             required
-            onBlur={(event) => clockBlur(event.currentTarget)}
+            value={startInput}
+            onChange={(event) => setStartInput(event.target.value)}
+            onBlur={() => setStartInput(start ?? startInput)}
             disabled={saving}
           />
         </td>
@@ -217,9 +215,24 @@ export default function SessionEntry({
             placeholder="1730"
             inputMode="numeric"
             required
-            onBlur={(event) => clockBlur(event.currentTarget)}
+            value={endInput}
+            onChange={(event) => setEndInput(event.target.value)}
+            onBlur={() => setEndInput(end ?? endInput)}
             disabled={saving}
           />
+          {overnight && (
+            <span className="description">
+              Next day:{' '}
+              <time dateTime={endDate}>
+                {new Intl.DateTimeFormat('de-DE', {
+                  timeZone: 'UTC',
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                }).format(new Date(`${endDate}T00:00:00Z`))}
+              </time>
+            </span>
+          )}
         </td>
         <td>
           <input
@@ -240,7 +253,7 @@ export default function SessionEntry({
           <span aria-label="Solo supervision total">{formatDuration(totals.soloSupervision)}</span>
         </td>
       </tr>
-      <tr className="entry-details" onKeyDown={shortcut}>
+      <tr className="activity-details entry-details" onKeyDown={shortcut}>
         <td colSpan={9}>
           <form
             id={formId}
@@ -253,62 +266,81 @@ export default function SessionEntry({
             }}
           >
             <fieldset disabled={saving}>
-              <legend>Flights</legend>
-              <p className="entry-hint">
-                Times: 0900 or 09:00 · Durations: minutes or H:MM · Blank flights are skipped.
-              </p>
-              <div className="flight-inputs">
-                {flights.map((flight, index) => (
-                  <div className="flight-input" key={flight.id}>
-                    <span>Flight {index + 1}</span>
-                    <select
-                      aria-label={`Flight ${index + 1} type`}
-                      value={flight.type}
-                      onChange={(event) => {
-                        const type = event.target.value as FlightDraft['type'];
-                        setFlights((previous) =>
-                          previous.map((item) =>
-                            item.id === flight.id ? { ...item, type } : item,
-                          ),
-                        );
-                      }}
-                    >
-                      <option value="dual">{activityLabels.dual}</option>
-                      <option value="soloSupervision">{activityLabels.soloSupervision}</option>
-                    </select>
-                    <input
-                      id={flight.id}
-                      name={flight.id}
-                      aria-label={`Flight ${index + 1} duration`}
-                      placeholder="Minutes or H:MM"
-                      inputMode="numeric"
-                      value={flight.duration}
-                      onChange={(event) => {
-                        const duration = event.target.value;
-                        setFlights((previous) =>
-                          previous.map((item) =>
-                            item.id === flight.id ? { ...item, duration } : item,
-                          ),
-                        );
-                      }}
-                    />
-                    <button
-                      className="action-button secondary"
-                      type="button"
-                      aria-label={`Remove flight ${index + 1}`}
-                      onClick={() => {
-                        const remaining = flights.filter((item) => item.id !== flight.id);
-                        setFlights(remaining);
-                        if (remaining.length > 0)
-                          setFocusFlight(remaining[Math.min(index, remaining.length - 1)]!.id);
-                        else document.getElementById(`${formId}-add-flight`)?.focus();
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
+              <legend className="visually-hidden">Flights</legend>
+              <table className="flight-table flight-entry-table" aria-label="New session flights">
+                <thead>
+                  <tr>
+                    <th scope="col">Flight</th>
+                    <th scope="col">Type</th>
+                    <th scope="col" className="numeric">
+                      Block
+                    </th>
+                    <th scope="col">
+                      <span className="visually-hidden">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {flights.map((flight, index) => (
+                    <tr key={flight.id}>
+                      <th scope="row" className="flight-number">
+                        {index + 1}
+                      </th>
+                      <td>
+                        <select
+                          aria-label={`Flight ${index + 1} type`}
+                          value={flight.type}
+                          onChange={(event) => {
+                            const type = event.target.value as FlightDraft['type'];
+                            setFlights((previous) =>
+                              previous.map((item) =>
+                                item.id === flight.id ? { ...item, type } : item,
+                              ),
+                            );
+                          }}
+                        >
+                          <option value="dual">{activityLabels.dual}</option>
+                          <option value="soloSupervision">{activityLabels.soloSupervision}</option>
+                        </select>
+                      </td>
+                      <td className="numeric">
+                        <input
+                          id={flight.id}
+                          name={flight.id}
+                          aria-label={`Flight ${index + 1} duration`}
+                          placeholder="Minutes / H:MM"
+                          inputMode="numeric"
+                          value={flight.duration}
+                          onChange={(event) => {
+                            const duration = event.target.value;
+                            setFlights((previous) =>
+                              previous.map((item) =>
+                                item.id === flight.id ? { ...item, duration } : item,
+                              ),
+                            );
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          className="action-button secondary"
+                          type="button"
+                          aria-label={`Remove flight ${index + 1}`}
+                          onClick={() => {
+                            const remaining = flights.filter((item) => item.id !== flight.id);
+                            setFlights(remaining);
+                            if (remaining.length > 0)
+                              setFocusFlight(remaining[Math.min(index, remaining.length - 1)]!.id);
+                            else document.getElementById(`${formId}-add-flight`)?.focus();
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
               <button
                 className="action-button secondary"
                 type="button"
@@ -317,16 +349,6 @@ export default function SessionEntry({
               >
                 Add flight
               </button>
-              <div className="entry-options">
-                <label>
-                  Description (optional)
-                  <input name="description" placeholder="e.g. Circuit practice" />
-                </label>
-                <label className="next-day">
-                  <input name="nextDay" type="checkbox" />
-                  Ends next day
-                </label>
-              </div>
               {error && (
                 <p role="alert" className="error">
                   {error}
