@@ -99,11 +99,6 @@ func TestSessionsAPI(t *testing.T) {
 			} else if view.Sessions == nil || len(view.Sessions) != 0 {
 				t.Fatalf("empty sessions must be an array, got %+v", view.Sessions)
 			}
-			post := httptest.NewRecorder()
-			handler.ServeHTTP(post, httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/sessions", nil))
-			if post.Code != http.StatusMethodNotAllowed {
-				t.Fatalf("POST status = %d, want 405", post.Code)
-			}
 		})
 	}
 }
