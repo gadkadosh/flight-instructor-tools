@@ -1,43 +1,19 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import SelectionMenu from './SelectionMenu';
 import DocumentControls from './DocumentControls';
-
-type ActivityType = 'preparation' | 'dual' | 'soloSupervision';
-
-interface Activity {
-  id: string;
-  type: ActivityType;
-  minutes: number;
-}
-
-interface Session {
-  id: string;
-  dutyStart: string;
-  dutyEnd: string;
-  student?: string;
-  description?: string;
-  activities: Activity[];
-}
-
-interface SessionView {
-  sessions: Session[];
-  timeZone: string;
-}
+import SessionEntry from './SessionEntry';
+import {
+  activityLabels,
+  formatDuration,
+  type ActivityType,
+  type Session,
+  type SessionView,
+} from './sessions';
 
 type LoadState =
   | { status: 'loading' }
   | { status: 'ready'; view: SessionView }
   | { status: 'error'; message: string };
-
-const activityLabels: Record<ActivityType, string> = {
-  preparation: 'Preparation',
-  dual: 'Dual',
-  soloSupervision: 'Solo supervision',
-};
-
-function formatDuration(minutes: number) {
-  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
-}
 
 function SessionRow({
   session,
@@ -163,7 +139,10 @@ function SessionRow({
   );
 }
 
-function SessionTable({ view }: { view: SessionView }) {
+function SessionTable({ view: initialView }: { view: SessionView }) {
+  const [view, setView] = useState(initialView);
+  const [adding, setAdding] = useState(false);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
   const dateFormat = new Intl.DateTimeFormat('de-DE', {
     timeZone: view.timeZone,
@@ -184,10 +163,19 @@ function SessionTable({ view }: { view: SessionView }) {
         selectedSessionIds={[...selectedSessionIds]}
         sessionCount={view.sessions.length}
         timeZone={view.timeZone}
-      />
-      {view.sessions.length === 0 ? (
-        <p role="status">No sessions yet.</p>
-      ) : (
+      >
+        <button
+          type="button"
+          className="action-button"
+          ref={addButtonRef}
+          aria-expanded={adding}
+          onClick={() => setAdding(true)}
+        >
+          Add session
+        </button>
+      </DocumentControls>
+      {view.sessions.length === 0 && <p role="status">No sessions yet.</p>}
+      {(view.sessions.length > 0 || adding) && (
         <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>
           <table className="sessions-table">
             <colgroup>
@@ -201,14 +189,16 @@ function SessionTable({ view }: { view: SessionView }) {
             <thead>
               <tr>
                 <th scope="col" className="select-cell">
-                  <SelectionMenu
-                    sessions={view.sessions}
-                    timeZone={view.timeZone}
-                    selectedCount={selectedSessionIds.size}
-                    onSelect={(sessions) => {
-                      setSelectedSessionIds(new Set(sessions.map((session) => session.id)));
-                    }}
-                  />
+                  {view.sessions.length > 0 && (
+                    <SelectionMenu
+                      sessions={view.sessions}
+                      timeZone={view.timeZone}
+                      selectedCount={selectedSessionIds.size}
+                      onSelect={(sessions) => {
+                        setSelectedSessionIds(new Set(sessions.map((session) => session.id)));
+                      }}
+                    />
+                  )}
                 </th>
                 <th scope="col" className="expand-cell">
                   <span className="visually-hidden">Details</span>
@@ -233,6 +223,16 @@ function SessionTable({ view }: { view: SessionView }) {
               </tr>
             </thead>
             <tbody>
+              {adding && (
+                <SessionEntry
+                  view={view}
+                  onSaved={setView}
+                  onClose={() => {
+                    setAdding(false);
+                    addButtonRef.current?.focus();
+                  }}
+                />
+              )}
               {view.sessions.map((session) => (
                 <SessionRow
                   key={session.id}

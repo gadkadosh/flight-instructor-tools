@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 )
 
 type sessionSource struct {
@@ -25,6 +26,12 @@ type sessionView struct {
 func webHandler(assets fs.FS, source sessionSource) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/sessions", source.serveSessions)
+	var saveMu sync.Mutex
+	mux.HandleFunc("POST /api/sessions", func(w http.ResponseWriter, r *http.Request) {
+		saveMu.Lock()
+		defer saveMu.Unlock()
+		source.createSession(w, r)
+	})
 	mux.HandleFunc("POST /api/invoice", source.serveInvoice)
 	mux.HandleFunc("POST /api/duty-report", source.serveDutyReport)
 	mux.Handle("GET /", http.FileServerFS(assets))

@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 import InvoiceForm from './InvoiceForm';
 import DutyReportForm from './DutyReportForm';
 
@@ -8,10 +8,12 @@ export default function DocumentControls({
   selectedSessionIds,
   sessionCount,
   timeZone,
+  children,
 }: {
   selectedSessionIds: string[];
   sessionCount: number;
   timeZone: string;
+  children?: ReactNode;
 }) {
   const [expanded, setExpanded] = useState<DocumentKind | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -36,6 +38,7 @@ export default function DocumentControls({
         selected
       </p>
       <div className="document-buttons">
+        {children}
         <button
           ref={invoiceTrigger}
           type="button"

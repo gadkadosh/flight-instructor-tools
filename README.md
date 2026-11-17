@@ -1,6 +1,6 @@
 # Flight Instructor Tools
 
-A local session viewer and Go CLI for my work as a flight instructor. Session
+A local session manager and Go CLI for my work as a flight instructor. Session
 records and billing configuration drive monthly invoices and duty reports, with
 JSON snapshots, HTML, and PDF output.
 
@@ -21,8 +21,10 @@ make build
 ./fitools --input examples/sessions.json --config examples/config.json
 ```
 
-This opens the session viewer with the bundled example data in your
-browser. Press Ctrl+C in the terminal to stop the server.
+This opens the session UI with the example data in your browser. Adding a session
+writes to the file selected by `--input`, including the example file when using
+the command above. Press Ctrl+C in the terminal to stop the server.
+
 
 Without path overrides, the tools use `sessions.json` and `config.json` in the
 current working directory. Keep private data, templates, and signature images
@@ -30,6 +32,7 @@ in the ignored `local/` directory.
 
 ## Usage
 
+- [Adding sessions](docs/session-entry.md)
 - [Invoice example and session validation](examples/README.md#running-it)
 - [Session format](examples/README.md#session-format) and [example configuration](examples/config.json)
 - [Duty reports](docs/duty-reports.md)
