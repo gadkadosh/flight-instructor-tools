@@ -398,10 +398,10 @@ test.each([720, 320, 240])('selection menu stays onscreen at 568 × %i', async (
 
 test('a constrained menu scrolls internally to keep keyboard-focused options reachable', async () => {
   await page.viewport(568, 100);
-  const onSelect = vi.fn();
+  const onSelectionChange = vi.fn();
   render(
     <div style={{ position: 'fixed', top: '50%', left: '1rem' }}>
-      <SelectionMenu sessions={[session]} timeZone="UTC" onSelect={onSelect} />
+      <SelectionMenu sessions={[session]} timeZone="UTC" onSelectionChange={onSelectionChange} />
     </div>,
   );
   await userEvent.click(screen.getByRole('button', { name: 'Select sessions' }));
@@ -417,7 +417,7 @@ test('a constrained menu scrolls internally to keep keyboard-focused options rea
   expect(clear.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
   expect(clear.getBoundingClientRect().bottom).toBeLessThanOrEqual(100);
   await userEvent.keyboard('{Enter}');
-  expect(onSelect).toHaveBeenCalledExactlyOnceWith([]);
+  expect(onSelectionChange).toHaveBeenCalledExactlyOnceWith(new Set());
   expect(screen.queryByRole('menu')).toBeNull();
 });
 

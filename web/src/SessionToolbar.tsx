@@ -10,12 +10,12 @@ export default function SessionToolbar({
   selectedSessionIds,
   sessions,
   timeZone,
-  onSelectSessions,
+  onSelectionChange,
 }: {
-  selectedSessionIds: string[];
+  selectedSessionIds: ReadonlySet<string>;
   sessions: Session[];
   timeZone: string;
-  onSelectSessions: (sessions: Session[]) => void;
+  onSelectionChange: (sessionIds: Set<string>) => void;
 }) {
   const [expanded, setExpanded] = useState<DocumentKind | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -37,10 +37,14 @@ export default function SessionToolbar({
     <div className="session-toolbar">
       <div className="session-selection">
         {sessions.length > 0 && (
-          <SelectionMenu sessions={sessions} timeZone={timeZone} onSelect={onSelectSessions} />
+          <SelectionMenu
+            sessions={sessions}
+            timeZone={timeZone}
+            onSelectionChange={onSelectionChange}
+          />
         )}
         <p className="selection-count" role="status">
-          {selectedSessionIds.length} of {sessions.length}{' '}
+          {selectedSessionIds.size} of {sessions.length}{' '}
           {sessions.length === 1 ? 'session' : 'sessions'} selected
         </p>
       </div>
@@ -49,7 +53,7 @@ export default function SessionToolbar({
           ref={invoiceTrigger}
           type="button"
           className="action-button secondary"
-          disabled={selectedSessionIds.length === 0 || generating}
+          disabled={selectedSessionIds.size === 0 || generating}
           aria-expanded={expanded === 'invoice'}
           aria-controls={`${formId}-invoice`}
           onClick={() => toggle('invoice')}

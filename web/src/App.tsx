@@ -156,12 +156,10 @@ function SessionTable({
   return (
     <>
       <SessionToolbar
-        selectedSessionIds={[...selectedSessionIds]}
+        selectedSessionIds={selectedSessionIds}
         sessions={view.sessions}
         timeZone={view.timeZone}
-        onSelectSessions={(sessions) => {
-          setSelectedSessionIds(new Set(sessions.map((session) => session.id)));
-        }}
+        onSelectionChange={setSelectedSessionIds}
       />
       {view.sessions.length === 0 && <p role="status">No sessions yet.</p>}
       {(view.sessions.length > 0 || adding) && (

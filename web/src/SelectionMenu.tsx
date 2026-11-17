@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from 'react';
+import type { Session } from './sessions';
 
 const presets = {
   thisMonth: 'Select this month',
@@ -31,14 +32,14 @@ function selectSessions<T extends { dutyStart: string }>(
   return sessions.filter((session) => monthIndex(new Date(session.dutyStart)) === month);
 }
 
-export default function SelectionMenu<T extends { dutyStart: string }>({
+export default function SelectionMenu({
   sessions,
   timeZone,
-  onSelect,
+  onSelectionChange,
 }: {
-  sessions: T[];
+  sessions: Pick<Session, 'id' | 'dutyStart'>[];
   timeZone: string;
-  onSelect: (sessions: T[]) => void;
+  onSelectionChange: (sessionIds: Set<string>) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -132,7 +133,11 @@ export default function SelectionMenu<T extends { dutyStart: string }>({
             role="menuitem"
             tabIndex={-1}
             onClick={() => {
-              onSelect(selectSessions(sessions, preset as Preset, timeZone));
+              onSelectionChange(
+                new Set(
+                  selectSessions(sessions, preset as Preset, timeZone).map((session) => session.id),
+                ),
+              );
               close();
             }}
           >
