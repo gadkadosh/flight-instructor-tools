@@ -10,7 +10,6 @@ const session = {
   dutyStart: '2026-05-03T22:30:00Z',
   dutyEnd: '2026-05-03T23:55:00Z',
   student: 'Alex Beispiel',
-  description: 'Circuit practice',
   activities: [
     { id: 'briefing', type: 'preparation', minutes: 15 },
     { id: 'flight-1', type: 'dual', minutes: 35 },
@@ -52,7 +51,7 @@ test('loads sessions in file order and expands flights by clicking a data cell',
         ...session,
         id: 'session-2',
         student: undefined,
-        description: 'Sightseeing',
+        activities: [{ id: 'sightseeing', type: 'rundflug', minutes: 45 }],
         dutyStart: '2026-04-01T10:00:00Z',
         dutyEnd: '2026-04-01T11:00:00Z',
       },
@@ -73,7 +72,7 @@ test('loads sessions in file order and expands flights by clicking a data cell',
   );
   expect(rows).toHaveLength(3);
   expect(rows[1].textContent).toContain('Alex Beispiel');
-  expect(rows[2].textContent).toContain('Sightseeing');
+  expect(rows[2].textContent).toContain('Rundflug');
   const cells = within(rows[1]).getAllByRole('cell');
   expect(cells[1].contains(toggle)).toBe(true);
   expect(cells.slice(2).map((cell) => cell.textContent)).toEqual([
@@ -84,7 +83,6 @@ test('loads sessions in file order and expands flights by clicking a data cell',
     '1:05',
     '0:05',
   ]);
-  expect(within(rows[1]).getByText('Circuit practice')).toBeTruthy();
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
   expect(
     screen.queryByRole('table', { name: 'Flights for Alex Beispiel on 04.05.2026' }),
@@ -124,6 +122,63 @@ test('loads sessions in file order and expands flights by clicking a data cell',
   expect(
     screen.queryByRole('table', { name: 'Flights for Alex Beispiel on 04.05.2026' }),
   ).toBeNull();
+});
+
+test('special flights count as own block time and retain their types in flight rows', async () => {
+  respond({
+    timeZone: 'UTC',
+    sessions: [
+      {
+        ...session,
+        activities: [
+          ...session.activities,
+          { id: 'rundflug', type: 'rundflug', minutes: 20 },
+          { id: 'schnupperflug', type: 'schnupperflug', minutes: 10 },
+        ],
+      },
+      {
+        ...session,
+        id: 'unnamed',
+        student: undefined,
+        activities: [
+          { id: 'rundflug-1', type: 'rundflug', minutes: 15 },
+          { id: 'rundflug-2', type: 'rundflug', minutes: 20 },
+          { id: 'schnupperflug-1', type: 'schnupperflug', minutes: 10 },
+        ],
+      },
+    ],
+  });
+  render(<App />);
+  const alex = await screen.findByRole('rowheader', { name: 'Alex Beispiel' });
+  expect(screen.getByRole('columnheader', { name: 'Block time' })).toBeTruthy();
+  expect(screen.getByRole('columnheader', { name: 'Solo supervision' })).toBeTruthy();
+  const totals = (header: HTMLElement) =>
+    within(header.closest('tr')!)
+      .getAllByRole('cell')
+      .slice(-3)
+      .map((cell) => cell.textContent);
+  expect(totals(alex)).toEqual(['0:15', '1:35', '0:05']);
+  const unnamed = screen.getByRole('rowheader', { name: 'Rundflug / Schnupperflug' });
+  expect(totals(unnamed)).toEqual(['0:00', '0:45', '0:00']);
+  fireEvent.click(screen.getByRole('button', { name: /Show flights for Rundflug/ }));
+  const flights = screen.getByRole('table', {
+    name: 'Flights for Rundflug / Schnupperflug on 03.05.2026',
+  });
+  expect(
+    within(flights)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => row.textContent),
+  ).toEqual(['1Rundflug0:15', '2Rundflug0:20', '3Schnupperflug0:10']);
+  fireEvent.click(
+    screen.getByRole('checkbox', {
+      name: 'Select session for Rundflug / Schnupperflug on 03.05.2026',
+    }),
+  );
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice' }).disabled).toBe(
+    false,
+  );
+  expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
 });
 
 test('selects sessions individually and in bulk without expanding flights', async () => {
@@ -227,7 +282,7 @@ test.each([
       .getAllByRole<HTMLInputElement>('checkbox', { name: /^Select session for / })
       .filter((checkbox) => checkbox.checked)
       .map((checkbox) => within(checkbox.closest('tr')!).getByRole('rowheader').textContent);
-    expect(selected).toEqual(expected.map((student) => `${student}Circuit practice`));
+    expect(selected).toEqual(expected);
     expect(screen.getByRole('status').textContent).toBe(
       `${expected.length} of 8 sessions selected`,
     );

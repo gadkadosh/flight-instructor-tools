@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -96,37 +97,31 @@ func rateForDate(rates []Rate, date time.Time) (Rate, error) {
 }
 
 func calculateSessionLines(session Session, date time.Time, rate Rate, vatRatePercent int) ([]Line, error) {
-	subject := strings.TrimSpace(session.Student)
-	if subject == "" {
-		subject = strings.TrimSpace(session.Description)
-	}
-
 	preparationMinutes, blockMinutes := 0, 0
+	var blockLabels []string
 	for _, activity := range session.Activities {
 		if err := activity.validate(); err != nil {
 			return nil, fmt.Errorf("activity %q: %w", activity.ID, err)
 		}
-		switch activity.Type {
-		case ActivityPreparation:
+		if activity.Type == ActivityPreparation {
 			preparationMinutes += activity.Minutes
-		case ActivityDual, ActivitySoloSupervision:
+		} else {
 			blockMinutes += activity.Minutes
+			label := activityKinds[activity.Type].invoiceLabel
+			if !slices.Contains(blockLabels, label) {
+				blockLabels = append(blockLabels, label)
+			}
 		}
 	}
 
+	slices.Sort(blockLabels)
 	lines := make([]Line, 0, 2)
 	if preparationMinutes > 0 {
-		description := subject
-		if strings.TrimSpace(session.Student) != "" {
-			description += " - Flugvorbereitung"
-		}
+		description := invoiceDescription(session.Student, activityKinds[ActivityPreparation].invoiceLabel)
 		lines = append(lines, newInvoiceLine(date, description, preparationMinutes, rate.PreparationCentsPerHour, vatRatePercent))
 	}
 	if blockMinutes > 0 {
-		description := subject
-		if strings.TrimSpace(session.Student) != "" {
-			description += " - Blockzeit"
-		}
+		description := invoiceDescription(session.Student, strings.Join(blockLabels, " / "))
 		lines = append(lines, newInvoiceLine(date, description, blockMinutes, rate.BlockCentsPerHour, vatRatePercent))
 	}
 
@@ -134,6 +129,13 @@ func calculateSessionLines(session Session, date time.Time, rate Rate, vatRatePe
 		return nil, fmt.Errorf("has no billable duration")
 	}
 	return lines, nil
+}
+
+func invoiceDescription(student, label string) string {
+	if student = strings.TrimSpace(student); student != "" {
+		return student + " - " + label
+	}
+	return label
 }
 
 func newInvoiceLine(date time.Time, description string, minutes, hourlyRateCents, vatRatePercent int) Line {
