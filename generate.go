@@ -67,7 +67,11 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 		return err
 	}
 
-	sessions, err := selectSessions(input.Sessions, *month)
+	location, err := config.location()
+	if err != nil {
+		return err
+	}
+	sessions, err := selectSessions(input.Sessions, *month, location)
 	if err != nil {
 		return err
 	}

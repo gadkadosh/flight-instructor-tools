@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 )
 
 type sessionSource struct {
@@ -26,7 +25,9 @@ type sessionView struct {
 func webHandler(assets fs.FS, source sessionSource) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/sessions", source.serveSessions)
+	mux.HandleFunc("POST /api/invoice", source.serveInvoice)
 	mux.Handle("GET /", http.FileServerFS(assets))
+	protected := http.NewCrossOriginProtection().Handler(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host := r.Host
 		if hostname, _, err := net.SplitHostPort(host); err == nil {
@@ -37,7 +38,7 @@ func webHandler(assets fs.FS, source sessionSource) http.Handler {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
-		mux.ServeHTTP(w, r)
+		protected.ServeHTTP(w, r)
 	})
 }
 
@@ -55,20 +56,14 @@ func (source sessionSource) read() (sessionView, error) {
 			return sessionView{}, fmt.Errorf("read config (use --config to choose another file): %w", err)
 		}
 	}
-	timeZone := config.TimeZone
-	if timeZone == "" {
-		timeZone = "UTC"
-	}
-	if timeZone == "Local" {
-		return sessionView{}, fmt.Errorf("timeZone: use an explicit IANA timezone such as Europe/Berlin; Local is not supported")
-	}
-	if _, err := time.LoadLocation(timeZone); err != nil {
-		return sessionView{}, fmt.Errorf("timeZone %q: %w", timeZone, err)
+	location, err := config.location()
+	if err != nil {
+		return sessionView{}, err
 	}
 	if input.Sessions == nil {
 		input.Sessions = []Session{}
 	}
-	return sessionView{Sessions: input.Sessions, TimeZone: timeZone}, nil
+	return sessionView{Sessions: input.Sessions, TimeZone: location.String()}, nil
 }
 
 func (source sessionSource) serveSessions(w http.ResponseWriter, r *http.Request) {

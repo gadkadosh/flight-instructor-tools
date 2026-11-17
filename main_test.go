@@ -107,6 +107,65 @@ func TestRunGenerateUsesWorkingDirectoryDefaults(t *testing.T) {
 	}
 }
 
+func TestRunGenerateUsesConfiguredMonth(t *testing.T) {
+	input, err := readSessionFile("testdata/minimal-sessions.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	may := input.Sessions[0]
+	may.Student = "May Student"
+	may.Activities = []Activity{{ID: "flight", Type: ActivityDual, Minutes: 60}}
+	boundary := may
+	boundary.ID, boundary.Student = "boundary", "Boundary Student"
+	boundary.DutyStart = mustTimestamp(t, "2026-05-31T22:30:00Z")
+	boundary.DutyEnd = boundary.DutyStart.Add(time.Hour)
+	input.Sessions = []Session{may, boundary}
+	config, err := readConfig("testdata/minimal-config.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.TimeZone = "Europe/Berlin"
+	directory := t.TempDir()
+	inputPath, configPath := filepath.Join(directory, "sessions.json"), filepath.Join(directory, "config.json")
+	for _, file := range []struct {
+		path  string
+		value any
+	}{{inputPath, input}, {configPath, config}} {
+		contents, err := json.Marshal(file.value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file.path, contents, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, test := range []struct {
+		month, student, date string
+	}{
+		{"2026-05", "May Student", "2026-05-03"},
+		{"2026-06", "Boundary Student", "2026-06-01"},
+	} {
+		t.Run(test.month, func(t *testing.T) {
+			args, outputDirectory := setupGenerateTest(t)
+			args = append(args, "--input", inputPath, "--config", configPath, "--month", test.month, "--issue-date", "2026-07-01")
+			if err := run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now); err != nil {
+				t.Fatal(err)
+			}
+			var snapshot invoiceSnapshot
+			if err := readJSONFile(filepath.Join(outputDirectory, "Rechnung-2026-05.json"), &snapshot); err != nil {
+				t.Fatal(err)
+			}
+			if len(snapshot.Lines) != 1 {
+				t.Fatalf("lines = %+v, want only %s", snapshot.Lines, test.student)
+			}
+			line := snapshot.Lines[0]
+			if line.Description != test.student+" - Blockzeit" || line.Date != test.date || snapshot.Totals.GrossCents != 3000 {
+				t.Fatalf("line = %+v, gross = %d; want %s on %s for 3000", line, snapshot.Totals.GrossCents, test.student, test.date)
+			}
+		})
+	}
+}
+
 func TestRunGenerateSignature(t *testing.T) {
 	signaturePath := filepath.Join(t.TempDir(), "signature.png")
 	if err := os.WriteFile(signaturePath, []byte("signature"), 0o644); err != nil {

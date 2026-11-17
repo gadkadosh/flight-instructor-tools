@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vite-plus/test';
 import { page, userEvent } from 'vite-plus/test/browser';
 import App from './App';
@@ -32,6 +32,7 @@ function respond(body: unknown, status = 200) {
 
 afterEach(async () => {
   cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
   await page.viewport(1280, 720);
@@ -421,4 +422,138 @@ test('shows network errors', async () => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Connection lost')));
   render(<App />);
   expect((await screen.findByRole('alert')).textContent).toBe('Connection lost');
+});
+
+test('invoice controls require a selection and retain entered details when cancelled', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-12-31T23:30:00Z'));
+  respond({ timeZone: 'Europe/Berlin', sessions: [session] });
+  render(<App />);
+  const trigger = await screen.findByRole<HTMLButtonElement>('button', {
+    name: 'Generate invoice',
+  });
+  expect(trigger.disabled).toBe(true);
+  expect(screen.queryByRole('form')).toBeNull();
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
+  expect(trigger.disabled).toBe(false);
+  fireEvent.click(trigger);
+  const number = screen.getByLabelText<HTMLInputElement>('Invoice number');
+  expect(document.activeElement).toBe(number);
+  expect(number.value).toBe('');
+  expect(number.placeholder).toBe('2027-01');
+  expect(number.checkValidity()).toBe(false);
+  expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2027-01-01');
+  fireEvent.change(number, { target: { value: '2027-12' } });
+  expect(number.checkValidity()).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('form')).toBeNull();
+  expect(document.activeElement).toBe(trigger);
+  fireEvent.click(trigger);
+  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2027-12');
+  selectPreset('Clear selection');
+  expect(trigger.disabled).toBe(true);
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Download PDF' }).disabled).toBe(
+    true,
+  );
+});
+
+test('downloads the generated PDF for exactly the selected sessions without clearing selection', async () => {
+  const fetch = respond({
+    timeZone: 'UTC',
+    sessions: [session, { ...session, id: 'session-2', student: 'Sam Beispiel' }],
+  });
+  const pdf = '%PDF-1.7\ninvoice';
+  let finish!: (response: Response) => void;
+  const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:invoice');
+  const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  const downloads: { href: string; name: string; connected: boolean }[] = [];
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    downloads.push({ href: this.href, name: this.download, connected: this.isConnected });
+  });
+  render(<App />);
+  const sam = await screen.findByRole<HTMLInputElement>('checkbox', {
+    name: /Select session for Sam/,
+  });
+  fetch.mockImplementationOnce(
+    () =>
+      new Promise<Response>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const alex = screen.getByRole('checkbox', { name: /Select session for Alex/ });
+  fireEvent.click(alex);
+  fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }));
+  fireEvent.click(alex);
+  fireEvent.click(sam);
+  fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-12' } });
+  fireEvent.change(screen.getByLabelText('Issue date'), { target: { value: '2026-06-09' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+  expect(fetch).toHaveBeenLastCalledWith('/api/invoice', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionIds: ['session-2'],
+      number: '2026-12',
+      issueDate: '2026-06-09',
+    }),
+  });
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Generating…' }).disabled).toBe(
+    true,
+  );
+  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').matches(':disabled')).toBe(true);
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice' }).disabled).toBe(
+    true,
+  );
+  expect(downloads).toEqual([]);
+  finish(new Response(pdf, { headers: { 'Content-Type': 'application/pdf' } }));
+  await waitFor(() => expect(downloads).toHaveLength(1));
+  expect(downloads).toEqual([
+    { href: 'blob:invoice', name: 'Rechnung-2026-12.pdf', connected: true },
+  ]);
+  const blob = createObjectURL.mock.calls[0][0] as Blob;
+  const contents = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsText(blob);
+  });
+  expect(contents).toBe(pdf);
+  expect(screen.getByRole('form', { name: 'Generate invoice' })).toBeTruthy();
+  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-12');
+  expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-06-09');
+  expect(screen.queryByText('PDF download started.')).toBeNull();
+  expect(sam.checked).toBe(true);
+  expect(
+    screen.getByRole<HTMLInputElement>('checkbox', { name: /Select session for Alex/ }).checked,
+  ).toBe(false);
+  expect(document.querySelector('a[download]')).toBeNull();
+  await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:invoice'), {
+    timeout: 2000,
+  });
+});
+
+test('invoice errors preserve form details and allow retrying', async () => {
+  const fetch = respond({ timeZone: 'UTC', sessions: [session] });
+  render(<App />);
+  await screen.findByRole('button', { name: 'Generate invoice' });
+  selectPreset('Select all');
+  fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }));
+  fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-12' } });
+  fetch.mockResolvedValueOnce(
+    new Response(JSON.stringify({ error: 'Install WeasyPrint' }), { status: 500 }),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+  expect((await screen.findByRole('alert')).textContent).toBe('Install WeasyPrint');
+  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-12');
+  expect(
+    screen.getByRole<HTMLInputElement>('checkbox', { name: /Select session for Alex/ }).checked,
+  ).toBe(true);
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Download PDF' }).disabled).toBe(
+    false,
+  );
+  fetch.mockRejectedValueOnce(new Error('Connection lost'));
+  fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+  expect((await screen.findByRole('alert')).textContent).toBe('Connection lost');
+  expect(fetch).toHaveBeenCalledTimes(3);
 });
