@@ -33,15 +33,18 @@ export default function SessionToolbar({
 
   return (
     <div className="session-toolbar">
-      <p className="selection-count" role="status">
-        {selectedSessionIds.length} of {sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}{' '}
-        selected
-      </p>
+      <div className="session-selection">
+        {children}
+        <p className="selection-count" role="status">
+          {selectedSessionIds.length} of {sessionCount}{' '}
+          {sessionCount === 1 ? 'session' : 'sessions'} selected
+        </p>
+      </div>
       <div className="document-buttons">
         <button
           ref={invoiceTrigger}
           type="button"
-          className={`action-button${expanded === 'invoice' ? ' secondary' : ''}`}
+          className="action-button secondary"
           disabled={selectedSessionIds.length === 0 || generating}
           aria-expanded={expanded === 'invoice'}
           aria-controls={`${formId}-invoice`}
@@ -52,7 +55,7 @@ export default function SessionToolbar({
         <button
           ref={reportTrigger}
           type="button"
-          className={`action-button${expanded === 'dutyReport' ? ' secondary' : ''}`}
+          className="action-button secondary"
           disabled={generating}
           aria-expanded={expanded === 'dutyReport'}
           aria-controls={`${formId}-duty-report`}
@@ -60,7 +63,6 @@ export default function SessionToolbar({
         >
           Generate duty report
         </button>
-        {children}
       </div>
       <InvoiceForm
         id={`${formId}-invoice`}

@@ -38,7 +38,7 @@ afterEach(async () => {
 });
 
 function selectPreset(name: string) {
-  fireEvent.click(screen.getByRole('checkbox', { name: /^Select sessions \(/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Select sessions' }));
   fireEvent.click(screen.getByRole('menuitem', { name }));
 }
 
@@ -187,8 +187,8 @@ test('selects sessions individually and in bulk without expanding flights', asyn
     sessions: [session, { ...session, id: 'session-2', student: 'Sam Beispiel' }],
   });
   render(<App />);
-  const selectionMenu = await screen.findByRole<HTMLInputElement>('checkbox', {
-    name: 'Select sessions (0 of 2 selected)',
+  const selectionMenu = await screen.findByRole<HTMLButtonElement>('button', {
+    name: 'Select sessions',
   });
   const alex = screen.getByRole<HTMLInputElement>('checkbox', {
     name: 'Select session for Alex Beispiel on 03.05.2026',
@@ -200,28 +200,22 @@ test('selects sessions individually and in bulk without expanding flights', asyn
     name: 'Show flights for Alex Beispiel on 03.05.2026',
   });
   expect([alex.checked, sam.checked]).toEqual([false, false]);
-  expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, false]);
   expect(screen.getByRole('status').textContent).toBe('0 of 2 sessions selected');
 
   await userEvent.click(alex);
   expect([alex.checked, sam.checked]).toEqual([true, false]);
-  expect(selectionMenu.getAttribute('aria-label')).toBe('Select sessions (1 of 2 selected)');
-  expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, true]);
   expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
   expect(alex.closest('tr')?.getAttribute('data-selected')).toBe('true');
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
 
   await userEvent.click(selectionMenu);
   expect(screen.getByRole('menu')).toBeTruthy();
-  expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, true]);
   await userEvent.click(selectionMenu);
   expect(screen.queryByRole('menu')).toBeNull();
-  expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, true]);
   expect([alex.checked, sam.checked]).toEqual([true, false]);
   expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
   await userEvent.click(selectionMenu);
   await userEvent.keyboard('{Escape}');
-  expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, true]);
 
   fireEvent.click(toggle);
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
@@ -231,7 +225,6 @@ test('selects sessions individually and in bulk without expanding flights', asyn
 
   selectPreset('Select all');
   expect([alex.checked, sam.checked]).toEqual([true, true]);
-  expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([true, false]);
   expect(screen.getByRole('status').textContent).toBe('2 of 2 sessions selected');
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
 
@@ -243,7 +236,6 @@ test('selects sessions individually and in bulk without expanding flights', asyn
 
   selectPreset('Clear selection');
   expect([alex.checked, sam.checked]).toEqual([false, false]);
-  expect([selectionMenu.checked, selectionMenu.indeterminate]).toEqual([false, false]);
   expect(screen.getByRole('status').textContent).toBe('0 of 2 sessions selected');
 });
 
@@ -274,7 +266,7 @@ test.each([
     })),
   });
   render(<App />);
-  await screen.findByRole('checkbox', { name: /^Select sessions \(/ });
+  await screen.findByRole('button', { name: 'Select sessions' });
   selectPreset('Select all');
   for (let attempt = 0; attempt < 2; attempt++) {
     selectPreset(preset);
@@ -301,7 +293,7 @@ test('last month includes December of the previous year and clears a selection w
     ],
   });
   render(<App />);
-  await screen.findByRole('checkbox', { name: /^Select sessions \(/ });
+  await screen.findByRole('button', { name: 'Select sessions' });
   selectPreset('Select last month');
   expect(screen.getByRole<HTMLInputElement>('checkbox', { name: /Alex Beispiel/ }).checked).toBe(
     true,
@@ -319,11 +311,10 @@ test('last month includes December of the previous year and clears a selection w
 test('selection menu supports keyboard navigation, dismissal and restoring focus', async () => {
   respond({ timeZone: 'UTC', sessions: [session] });
   render(<App />);
-  const trigger = await screen.findByRole<HTMLInputElement>('checkbox', {
-    name: /^Select sessions \(/,
+  const trigger = await screen.findByRole<HTMLButtonElement>('button', {
+    name: 'Select sessions',
   });
   await userEvent.click(trigger);
-  expect([trigger.checked, trigger.indeterminate]).toEqual([false, false]);
   expect(trigger.getAttribute('aria-expanded')).toBe('true');
   expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
     'Select this month',
@@ -346,7 +337,6 @@ test('selection menu supports keyboard navigation, dismissal and restoring focus
 
   await userEvent.keyboard(' ');
   expect(screen.getByRole('menu')).toBeTruthy();
-  expect(trigger.checked).toBe(false);
   expect(
     screen.getByRole<HTMLInputElement>('checkbox', { name: /^Select session for / }).checked,
   ).toBe(false);
@@ -354,13 +344,11 @@ test('selection menu supports keyboard navigation, dismissal and restoring focus
 
   await userEvent.keyboard('{Enter}');
   expect(screen.getByRole('menu')).toBeTruthy();
-  expect(trigger.checked).toBe(false);
   await userEvent.keyboard('{Escape}');
 
   await userEvent.keyboard('{ArrowDown}');
   await userEvent.click(screen.getByRole('menuitem', { name: 'Select all' }));
   expect(document.activeElement).toBe(trigger);
-  expect([trigger.checked, trigger.indeterminate]).toEqual([true, false]);
   expect(
     screen.getByRole<HTMLInputElement>('checkbox', { name: /^Select session for / }).checked,
   ).toBe(true);
@@ -369,12 +357,9 @@ test('selection menu supports keyboard navigation, dismissal and restoring focus
   expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Clear selection' }));
   await userEvent.keyboard('{Tab}');
   expect(screen.queryByRole('menu')).toBeNull();
-  expect(document.activeElement).toBe(
-    screen.getByRole('checkbox', { name: /^Select session for / }),
-  );
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate invoice' }));
 
   await userEvent.click(trigger);
-  expect([trigger.checked, trigger.indeterminate]).toEqual([true, false]);
   await userEvent.click(screen.getByRole('heading', { name: 'Sessions' }));
   expect(screen.queryByRole('menu')).toBeNull();
   expect(
@@ -384,14 +369,13 @@ test('selection menu supports keyboard navigation, dismissal and restoring focus
   await userEvent.click(trigger);
   await userEvent.click(trigger);
   expect(screen.queryByRole('menu')).toBeNull();
-  expect([trigger.checked, trigger.indeterminate]).toEqual([true, false]);
 });
 
 test.each([720, 320, 240])('selection menu stays onscreen at 568 × %i', async (height) => {
   await page.viewport(568, height);
   respond({ timeZone: 'UTC', sessions: [session] });
   render(<App />);
-  const trigger = await screen.findByRole('checkbox', { name: /^Select sessions \(/ });
+  const trigger = await screen.findByRole('button', { name: 'Select sessions' });
   await userEvent.click(screen.getByRole('checkbox', { name: /^Select session for / }));
   await userEvent.click(trigger);
 
@@ -417,10 +401,10 @@ test('a constrained menu scrolls internally to keep keyboard-focused options rea
   const onSelect = vi.fn();
   render(
     <div style={{ position: 'fixed', top: '50%', left: '1rem' }}>
-      <SelectionMenu sessions={[session]} timeZone="UTC" selectedCount={1} onSelect={onSelect} />
+      <SelectionMenu sessions={[session]} timeZone="UTC" onSelect={onSelect} />
     </div>,
   );
-  await userEvent.click(screen.getByRole('checkbox'));
+  await userEvent.click(screen.getByRole('button', { name: 'Select sessions' }));
   const menu = screen.getByRole('menu');
   expect(menu.scrollHeight).toBeGreaterThan(menu.clientHeight);
   expect(menu.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
@@ -445,7 +429,7 @@ test('preparation-only sessions have no flight expansion', async () => {
   expect(screen.queryByRole('button', { name: /flights for/ })).toBeNull();
   fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
   expect(screen.getByRole('status').textContent).toBe('1 of 1 session selected');
-  expect(screen.getByRole('checkbox', { name: 'Select sessions (1 of 1 selected)' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Select sessions' })).toBeTruthy();
 });
 
 test('shows the end date for sessions crossing midnight in the display timezone', async () => {
