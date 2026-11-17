@@ -32,7 +32,6 @@ in the ignored `local/` directory.
 
 ## Usage
 
-- [Adding sessions](docs/session-entry.md)
 - [Invoice example and session validation](examples/README.md#running-it)
 - [Session format](examples/README.md#session-format) and [example configuration](examples/config.json)
 - [Duty reports](docs/duty-reports.md)
