@@ -1,19 +1,21 @@
-import { useId, useRef, useState, type ReactNode } from 'react';
+import { useId, useRef, useState } from 'react';
 import InvoiceForm from './InvoiceForm';
 import DutyReportForm from './DutyReportForm';
+import SelectionMenu from './SelectionMenu';
+import type { Session } from './sessions';
 
 type DocumentKind = 'invoice' | 'dutyReport';
 
 export default function SessionToolbar({
   selectedSessionIds,
-  sessionCount,
+  sessions,
   timeZone,
-  children,
+  onSelectionChange,
 }: {
-  selectedSessionIds: string[];
-  sessionCount: number;
+  selectedSessionIds: ReadonlySet<string>;
+  sessions: Session[];
   timeZone: string;
-  children?: ReactNode;
+  onSelectionChange: (sessionIds: Set<string>) => void;
 }) {
   const [expanded, setExpanded] = useState<DocumentKind | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -33,16 +35,25 @@ export default function SessionToolbar({
 
   return (
     <div className="session-toolbar">
-      <p className="selection-count" role="status">
-        {selectedSessionIds.length} of {sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}{' '}
-        selected
-      </p>
+      <div className="session-selection">
+        {sessions.length > 0 && (
+          <SelectionMenu
+            sessions={sessions}
+            timeZone={timeZone}
+            onSelectionChange={onSelectionChange}
+          />
+        )}
+        <p className="selection-count" role="status">
+          {selectedSessionIds.size} of {sessions.length}{' '}
+          {sessions.length === 1 ? 'session' : 'sessions'} selected
+        </p>
+      </div>
       <div className="document-buttons">
         <button
           ref={invoiceTrigger}
           type="button"
-          className={`action-button${expanded === 'invoice' ? ' secondary' : ''}`}
-          disabled={selectedSessionIds.length === 0 || generating}
+          className="action-button secondary"
+          disabled={selectedSessionIds.size === 0 || generating}
           aria-expanded={expanded === 'invoice'}
           aria-controls={`${formId}-invoice`}
           onClick={() => toggle('invoice')}
@@ -52,7 +63,7 @@ export default function SessionToolbar({
         <button
           ref={reportTrigger}
           type="button"
-          className={`action-button${expanded === 'dutyReport' ? ' secondary' : ''}`}
+          className="action-button secondary"
           disabled={generating}
           aria-expanded={expanded === 'dutyReport'}
           aria-controls={`${formId}-duty-report`}
@@ -60,7 +71,6 @@ export default function SessionToolbar({
         >
           Generate duty report
         </button>
-        {children}
       </div>
       <InvoiceForm
         id={`${formId}-invoice`}

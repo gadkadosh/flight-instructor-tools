@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import SelectionMenu from './SelectionMenu';
 import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
 import { activityKinds, formatDuration, type Session, type SessionView } from './sessions';
@@ -130,10 +129,16 @@ function SessionRow({
   );
 }
 
-function SessionTable({ view: initialView }: { view: SessionView }) {
+function SessionTable({
+  view: initialView,
+  adding,
+  onCloseEntry,
+}: {
+  view: SessionView;
+  adding: boolean;
+  onCloseEntry: () => void;
+}) {
   const [view, setView] = useState(initialView);
-  const [adding, setAdding] = useState(false);
-  const addButtonRef = useRef<HTMLButtonElement>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
   const dateFormat = new Intl.DateTimeFormat('de-DE', {
     timeZone: view.timeZone,
@@ -151,34 +156,11 @@ function SessionTable({ view: initialView }: { view: SessionView }) {
   return (
     <>
       <SessionToolbar
-        selectedSessionIds={[...selectedSessionIds]}
-        sessionCount={view.sessions.length}
+        selectedSessionIds={selectedSessionIds}
+        sessions={view.sessions}
         timeZone={view.timeZone}
-      >
-        <button
-          type="button"
-          className="action-button icon"
-          ref={addButtonRef}
-          aria-label="Add session"
-          title="Add session"
-          aria-expanded={adding}
-          onClick={() => setAdding(true)}
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
-      </SessionToolbar>
+        onSelectionChange={setSelectedSessionIds}
+      />
       {view.sessions.length === 0 && <p role="status">No sessions yet.</p>}
       {(view.sessions.length > 0 || adding) && (
         <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>
@@ -194,16 +176,7 @@ function SessionTable({ view: initialView }: { view: SessionView }) {
             <thead>
               <tr>
                 <th scope="col" className="select-cell">
-                  {view.sessions.length > 0 && (
-                    <SelectionMenu
-                      sessions={view.sessions}
-                      timeZone={view.timeZone}
-                      selectedCount={selectedSessionIds.size}
-                      onSelect={(sessions) => {
-                        setSelectedSessionIds(new Set(sessions.map((session) => session.id)));
-                      }}
-                    />
-                  )}
+                  <span className="visually-hidden">Selection</span>
                 </th>
                 <th scope="col" className="expand-cell">
                   <span className="visually-hidden">Details</span>
@@ -228,16 +201,7 @@ function SessionTable({ view: initialView }: { view: SessionView }) {
               </tr>
             </thead>
             <tbody>
-              {adding && (
-                <SessionEntry
-                  view={view}
-                  onSaved={setView}
-                  onClose={() => {
-                    setAdding(false);
-                    addButtonRef.current?.focus();
-                  }}
-                />
-              )}
+              {adding && <SessionEntry view={view} onSaved={setView} onClose={onCloseEntry} />}
               {view.sessions.map((session) => (
                 <SessionRow
                   key={session.id}
@@ -268,6 +232,8 @@ function SessionTable({ view: initialView }: { view: SessionView }) {
 
 export default function App() {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [adding, setAdding] = useState(false);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -298,7 +264,34 @@ export default function App() {
     <main>
       <header>
         <p className="app-name">Flight Instructor Tools</p>
-        <h1>Sessions</h1>
+        <div className="session-heading">
+          <h1>Sessions</h1>
+          {state.status === 'ready' && (
+            <button
+              type="button"
+              className="action-button icon"
+              ref={addButtonRef}
+              aria-label="Add session"
+              title="Add session"
+              aria-expanded={adding}
+              onClick={() => setAdding(true)}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          )}
+        </div>
       </header>
       {state.status === 'loading' && <p role="status">Loading sessions…</p>}
       {state.status === 'error' && (
@@ -306,7 +299,16 @@ export default function App() {
           {state.message}
         </p>
       )}
-      {state.status === 'ready' && <SessionTable view={state.view} />}
+      {state.status === 'ready' && (
+        <SessionTable
+          view={state.view}
+          adding={adding}
+          onCloseEntry={() => {
+            setAdding(false);
+            addButtonRef.current?.focus();
+          }}
+        />
+      )}
     </main>
   );
 }

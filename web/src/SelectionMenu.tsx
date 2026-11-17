@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from 'react';
+import type { Session } from './sessions';
 
 const presets = {
   thisMonth: 'Select this month',
@@ -31,23 +32,19 @@ function selectSessions<T extends { dutyStart: string }>(
   return sessions.filter((session) => monthIndex(new Date(session.dutyStart)) === month);
 }
 
-export default function SelectionMenu<T extends { dutyStart: string }>({
+export default function SelectionMenu({
   sessions,
   timeZone,
-  selectedCount,
-  onSelect,
+  onSelectionChange,
 }: {
-  sessions: T[];
+  sessions: Pick<Session, 'id' | 'dutyStart'>[];
   timeZone: string;
-  selectedCount: number;
-  onSelect: (sessions: T[]) => void;
+  onSelectionChange: (sessionIds: Set<string>) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const trigger = useRef<HTMLInputElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
-  const wasOpenOnPointerDown = useRef(false);
   const menuId = useId();
-  const isPartiallySelected = selectedCount > 0 && selectedCount < sessions.length;
 
   function open(last = false) {
     menu.current!.showPopover({ source: trigger.current! });
@@ -67,37 +64,41 @@ export default function SelectionMenu<T extends { dutyStart: string }>({
 
   return (
     <>
-      <input
-        ref={(input) => {
-          trigger.current = input;
-          if (input) input.indeterminate = isPartiallySelected;
-        }}
-        type="checkbox"
-        checked={selectedCount === sessions.length}
-        aria-label={`Select sessions (${selectedCount} of ${sessions.length} selected)`}
+      <button
+        ref={trigger}
+        type="button"
+        className="action-button secondary selection-trigger"
+        popoverTarget={menuId}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-controls={menuId}
-        onPointerDown={() => {
-          wasOpenOnPointerDown.current = menu.current!.matches(':popover-open');
-        }}
-        onChange={(event) => {
-          event.currentTarget.indeterminate = isPartiallySelected;
-          // Native light dismissal closes the popover before a checkbox click completes.
-          if (wasOpenOnPointerDown.current) close();
-          else toggle();
-          wasOpenOnPointerDown.current = false;
+        onClick={(event) => {
+          event.preventDefault();
+          toggle();
         }}
         onKeyDown={(event) => {
-          if (event.key === ' ' || event.key === 'Enter') {
-            event.preventDefault();
-            toggle();
-          } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault();
             open(event.key === 'ArrowUp');
           }
         }}
-      />
+      >
+        Select sessions
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
       <div
         ref={menu}
         id={menuId}
@@ -132,7 +133,11 @@ export default function SelectionMenu<T extends { dutyStart: string }>({
             role="menuitem"
             tabIndex={-1}
             onClick={() => {
-              onSelect(selectSessions(sessions, preset as Preset, timeZone));
+              onSelectionChange(
+                new Set(
+                  selectSessions(sessions, preset as Preset, timeZone).map((session) => session.id),
+                ),
+              );
               close();
             }}
           >

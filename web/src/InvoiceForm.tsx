@@ -11,7 +11,7 @@ export default function InvoiceForm({
 }: {
   id: string;
   open: boolean;
-  selectedSessionIds: string[];
+  selectedSessionIds: ReadonlySet<string>;
   timeZone: string;
   onClose: () => void;
   onGeneratingChange: (generating: boolean) => void;
@@ -21,7 +21,7 @@ export default function InvoiceForm({
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const firstInput = useRef<HTMLInputElement>(null);
-  const hasSelection = selectedSessionIds.length > 0;
+  const hasSelection = selectedSessionIds.size > 0;
 
   useEffect(() => {
     if (open) firstInput.current?.focus();
@@ -35,7 +35,7 @@ export default function InvoiceForm({
     try {
       await downloadPDF(
         '/api/invoice',
-        { sessionIds: selectedSessionIds, number: number.trim(), issueDate },
+        { sessionIds: [...selectedSessionIds], number: number.trim(), issueDate },
         `Rechnung-${number.trim()}.pdf`,
         'invoice',
       );
