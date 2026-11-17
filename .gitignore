@@ -16,14 +16,4 @@ fitools
 # Generated invoice artifacts.
 /output/
 
-# Private local configuration and session data.
-/local/
-
-# Keep private files from the former separate-tool layout ignored.
-/cli/local/
-/app/local/
-/cli/example.pdf
-/cli/example.pages
-/cli/output/
-
 .zed
