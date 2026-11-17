@@ -440,16 +440,16 @@ test('invoice controls require a selection and retain entered details when cance
   const number = screen.getByLabelText<HTMLInputElement>('Invoice number');
   expect(document.activeElement).toBe(number);
   expect(number.value).toBe('');
-  expect(number.placeholder).toBe('2027-001');
+  expect(number.placeholder).toBe('2027-01');
   expect(number.checkValidity()).toBe(false);
   expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2027-01-01');
-  fireEvent.change(number, { target: { value: '2027-012' } });
+  fireEvent.change(number, { target: { value: '2027-12' } });
   expect(number.checkValidity()).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.queryByRole('form')).toBeNull();
   expect(document.activeElement).toBe(trigger);
   fireEvent.click(trigger);
-  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2027-012');
+  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2027-12');
   selectPreset('Clear selection');
   expect(trigger.disabled).toBe(true);
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Download PDF' }).disabled).toBe(
@@ -487,7 +487,7 @@ test('downloads the generated PDF for exactly the selected sessions without clea
   fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }));
   fireEvent.click(alex);
   fireEvent.click(sam);
-  fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-012' } });
+  fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-12' } });
   fireEvent.change(screen.getByLabelText('Issue date'), { target: { value: '2026-06-09' } });
   fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
   expect(fetch).toHaveBeenLastCalledWith('/api/invoice', {
@@ -495,7 +495,7 @@ test('downloads the generated PDF for exactly the selected sessions without clea
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       sessionIds: ['session-2'],
-      number: '2026-012',
+      number: '2026-12',
       issueDate: '2026-06-09',
     }),
   });
@@ -510,7 +510,7 @@ test('downloads the generated PDF for exactly the selected sessions without clea
   finish(new Response(pdf, { headers: { 'Content-Type': 'application/pdf' } }));
   await waitFor(() => expect(downloads).toHaveLength(1));
   expect(downloads).toEqual([
-    { href: 'blob:invoice', name: 'Rechnung-2026-012.pdf', connected: true },
+    { href: 'blob:invoice', name: 'Rechnung-2026-12.pdf', connected: true },
   ]);
   const blob = createObjectURL.mock.calls[0][0] as Blob;
   const contents = await new Promise((resolve) => {
@@ -520,7 +520,7 @@ test('downloads the generated PDF for exactly the selected sessions without clea
   });
   expect(contents).toBe(pdf);
   expect(screen.getByRole('form', { name: 'Generate invoice' })).toBeTruthy();
-  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-012');
+  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-12');
   expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-06-09');
   expect(screen.queryByText('PDF download started.')).toBeNull();
   expect(sam.checked).toBe(true);
@@ -539,13 +539,13 @@ test('invoice errors preserve form details and allow retrying', async () => {
   await screen.findByRole('button', { name: 'Generate invoice' });
   selectPreset('Select all');
   fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }));
-  fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-012' } });
+  fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-12' } });
   fetch.mockResolvedValueOnce(
     new Response(JSON.stringify({ error: 'Install WeasyPrint' }), { status: 500 }),
   );
   fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
   expect((await screen.findByRole('alert')).textContent).toBe('Install WeasyPrint');
-  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-012');
+  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-12');
   expect(
     screen.getByRole<HTMLInputElement>('checkbox', { name: /Select session for Alex/ }).checked,
   ).toBe(true);

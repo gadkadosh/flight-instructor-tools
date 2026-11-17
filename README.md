@@ -35,11 +35,10 @@ in the ignored `local/` directory.
 - [Duty reports](docs/duty-reports.md)
 
 Select sessions and click **Generate invoice** above the table to download a PDF
-using the configured billing details and rates. Enter an invoice number
-(`year-running number`, e.g. `2026-001`) and an issue date, which defaults to today
-in the configured timezone. Only selected sessions are included. No invoice
-artifacts are kept on the server; invoice numbers and billing status are not
-tracked.
+using the configured billing details and rates. Enter an invoice number and an
+issue date, which defaults to today in the configured timezone. Only selected
+sessions are included. No invoice artifacts are kept on the server; invoice
+numbers and billing status are not tracked.
 
 Invoice session dates and CLI month selection use the configured `timeZone`,
 falling back to UTC when omitted.

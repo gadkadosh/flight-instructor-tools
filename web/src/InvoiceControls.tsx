@@ -110,8 +110,8 @@ export default function InvoiceControls({
                   type="text"
                   required
                   pattern="[0-9]{4}-[0-9]+"
-                  title="Year followed by a running number, for example 2026-001"
-                  placeholder={`${issueDate.slice(0, 4)}-001`}
+                  title="Year followed by a running number, for example 2026-01"
+                  placeholder={`${issueDate.slice(0, 4)}-01`}
                   value={number}
                   onChange={(event) => setNumber(event.target.value)}
                 />

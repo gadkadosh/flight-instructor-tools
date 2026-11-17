@@ -45,19 +45,19 @@ func TestInvoiceDownloadUsesSelectedSessionsAndCleansUp(t *testing.T) {
 		t.Fatal(err)
 	}
 	handler := webHandler(fstest.MapFS{}, sessionSource{inputPath: inputPath, configPath: "examples/realistic-config.json"})
-	request := `{"sessionIds":["second","2026-05-03-alex","second"],"number":"2026-007","issueDate":"2026-07-01"}`
+	request := `{"sessionIds":["second","2026-05-03-alex","second"],"number":"2026-07","issueDate":"2026-07-01"}`
 	for attempt := 0; attempt < 2; attempt++ {
 		response := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/invoice", strings.NewReader(request))
 		r.Header.Set("Content-Type", "application/json")
 		handler.ServeHTTP(response, r)
 		if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "application/pdf" ||
-			response.Header().Get("Content-Disposition") != "attachment; filename=Rechnung-2026-007.pdf" ||
+			response.Header().Get("Content-Disposition") != "attachment; filename=Rechnung-2026-07.pdf" ||
 			response.Header().Get("Cache-Control") != "no-store" {
 			t.Fatalf("status = %d, headers = %v, body = %s", response.Code, response.Header(), response.Body)
 		}
 		body := response.Body.String()
-		for _, want := range []string{"Rechnung Nr. 2026-007", "01.07.2026", "Alex Beispiel - Flugvorbereitung", "Sam Beispiel - Blockzeit", "03.05.26", "03.06.26", "93,17 €"} {
+		for _, want := range []string{"Rechnung Nr. 2026-07", "01.07.2026", "Alex Beispiel - Flugvorbereitung", "Sam Beispiel - Blockzeit", "03.05.26", "03.06.26", "93,17 €"} {
 			if !strings.Contains(body, want) {
 				t.Errorf("invoice missing %q", want)
 			}
@@ -73,7 +73,7 @@ func TestInvoiceDownloadUsesSelectedSessionsAndCleansUp(t *testing.T) {
 }
 
 func TestInvoiceDownloadErrors(t *testing.T) {
-	valid := `{"sessionIds":["2026-05-03-alex"],"number":"2026-007","issueDate":"2026-06-09"}`
+	valid := `{"sessionIds":["2026-05-03-alex"],"number":"2026-07","issueDate":"2026-06-09"}`
 	for _, test := range []struct {
 		name, body, contentType, config, origin, want string
 		status                                        int
@@ -81,8 +81,8 @@ func TestInvoiceDownloadErrors(t *testing.T) {
 		{name: "empty selection", body: strings.Replace(valid, `["2026-05-03-alex"]`, `[]`, 1), status: 400, want: "select at least one session"},
 		{name: "unknown selection", body: strings.Replace(valid, "2026-05-03-alex", "missing", 1), status: 400, want: "no longer exist"},
 		{name: "partly stale selection", body: strings.Replace(valid, `["2026-05-03-alex"]`, `["2026-05-03-alex","missing"]`, 1), status: 400, want: "no longer exist"},
-		{name: "missing number", body: strings.Replace(valid, "2026-007", "", 1), status: 400, want: "invoice number"},
-		{name: "invalid number", body: strings.Replace(valid, "2026-007", "../other", 1), status: 400, want: "invoice number"},
+		{name: "missing number", body: strings.Replace(valid, "2026-07", "", 1), status: 400, want: "invoice number"},
+		{name: "invalid number", body: strings.Replace(valid, "2026-07", "../other", 1), status: 400, want: "invoice number"},
 		{name: "invalid date", body: strings.Replace(valid, "2026-06-09", "2026-02-30", 1), status: 400, want: "issue date"},
 		{name: "missing date", body: strings.Replace(valid, "2026-06-09", "", 1), status: 400, want: "issue date"},
 		{name: "malformed request", body: `{`, status: 400, want: "invalid invoice request"},

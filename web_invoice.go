@@ -46,7 +46,7 @@ func (source sessionSource) serveInvoice(w http.ResponseWriter, r *http.Request)
 	}
 	request.Number = strings.TrimSpace(request.Number)
 	if !invoiceNumberPattern.MatchString(request.Number) {
-		invoiceError(w, http.StatusBadRequest, fmt.Errorf("invoice number must use year-running number, for example 2026-001"))
+		invoiceError(w, http.StatusBadRequest, fmt.Errorf("invoice number must use year-running number, for example 2026-01"))
 		return
 	}
 	issueDate, err := parseDate(request.IssueDate)
