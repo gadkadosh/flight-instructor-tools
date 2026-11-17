@@ -38,7 +38,6 @@ export default function DocumentControls({
         selected
       </p>
       <div className="document-buttons">
-        {children}
         <button
           ref={invoiceTrigger}
           type="button"
@@ -61,6 +60,7 @@ export default function DocumentControls({
         >
           Generate duty report
         </button>
+        {children}
       </div>
       <InvoiceForm
         id={`${formId}-invoice`}
