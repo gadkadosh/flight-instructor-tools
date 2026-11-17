@@ -42,11 +42,13 @@ export default function SessionEntry({
   const start = parseClock(startInput);
   const end = parseClock(endInput);
   const overnight = Boolean(date && start && end && end < start);
-  let endDate = date;
-  if (overnight) {
-    const nextDay = new Date(`${date}T00:00:00Z`);
-    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-    endDate = nextDay.toISOString().slice(0, 10);
+  let endDate: string | undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const day = new Date(`${date}T00:00:00Z`);
+    if (overnight) day.setUTCDate(day.getUTCDate() + 1);
+    if (Number.isFinite(day.getTime()) && day.getUTCFullYear() <= 9999) {
+      endDate = day.toISOString().slice(0, 10);
+    }
   }
   const students = [
     ...new Set(
@@ -99,6 +101,9 @@ export default function SessionEntry({
     function invalid(message: string, name: string) {
       setError(message);
       (form.elements.namedItem(name) as HTMLElement | null)?.focus();
+    }
+    if (!endDate) {
+      return invalid('Enter a valid session date and duty end within years 0001–9999.', 'date');
     }
     if (!start) return invalid('Enter a duty start such as 0900 or 09:00.', 'start');
     if (!end) return invalid('Enter a duty end such as 1730 or 17:30.', 'end');
@@ -225,7 +230,7 @@ export default function SessionEntry({
             onBlur={() => setEndInput(end ?? endInput)}
             disabled={saving}
           />
-          {overnight && (
+          {overnight && endDate && (
             <span className="description">
               Next day:{' '}
               <time dateTime={endDate}>

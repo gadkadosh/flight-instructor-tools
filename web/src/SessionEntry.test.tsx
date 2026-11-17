@@ -206,6 +206,37 @@ test('validates entries, infers overnight duty, and preserves data after errors'
   });
 });
 
+test.each(['20260-05-03', '9999-12-31'])(
+  'preserves an overnight draft when date %s exceeds the supported range',
+  async (date) => {
+    const { entries } = sessionAPI();
+    await openEntry();
+    await fillBasics();
+    await userEvent.fill(screen.getByLabelText('Duty start'), '2300');
+    await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
+    await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '45');
+    await userEvent.fill(screen.getByLabelText('Session date'), date);
+
+    expect((screen.getByLabelText('Student') as HTMLInputElement).value).toBe('New Student');
+    expect((screen.getByLabelText('Flight 1 duration') as HTMLInputElement).value).toBe('45');
+    await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    expect(screen.getByRole('alert').textContent).toContain('session date');
+    expect(document.activeElement).toBe(screen.getByLabelText('Session date'));
+    expect(entries).toHaveLength(0);
+
+    await userEvent.fill(screen.getByLabelText('Session date'), '2026-05-03');
+    await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    await screen.findByRole('rowheader', { name: 'New Student' });
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      dutyStart: '2026-05-03T23:00',
+      dutyEnd: '2026-05-04T01:00',
+      student: 'New Student',
+      activities: [expect.objectContaining({ type: 'dual', minutes: 45 })],
+    });
+  },
+);
+
 test.each([
   ['2026-05-31', '2026-06-01'],
   ['2026-12-31', '2027-01-01'],
