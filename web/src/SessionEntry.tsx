@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import {
-  activityLabels,
+  activityKinds,
   dateInZone,
   formatDuration,
   parseClock,
@@ -55,8 +55,10 @@ export default function SessionEntry({
         .filter((student): student is string => Boolean(student)),
     ),
   ].sort((a, b) => a.localeCompare(b));
-  const totals = { dual: 0, soloSupervision: 0 };
-  for (const flight of flights) totals[flight.type] += parseDuration(flight.duration) ?? 0;
+  const totals = { preparation: 0, block: 0, soloSupervision: 0 };
+  for (const flight of flights) {
+    totals[activityKinds[flight.type].summary] += parseDuration(flight.duration) ?? 0;
+  }
 
   useEffect(() => {
     dateRef.current?.focus();
@@ -101,9 +103,6 @@ export default function SessionEntry({
     if (!start) return invalid('Enter a duty start such as 0900 or 09:00.', 'start');
     if (!end) return invalid('Enter a duty end such as 1730 or 17:30.', 'end');
     if (start === end) return invalid('Duty end must differ from duty start.', 'end');
-    if (!text('student')) {
-      return invalid('Enter a student.', 'student');
-    }
     const prep = parseDuration(preparation);
     if (prep === undefined) return invalid('Enter preparation in minutes or H:MM.', 'preparation');
     const activities: Activity[] =
@@ -119,6 +118,13 @@ export default function SessionEntry({
     if (activities.length === 0) {
       return invalid('Enter preparation time or at least one flight.', 'preparation');
     }
+    const hasFlight = activities.some((activity) => activity.type !== 'preparation');
+    if (
+      !text('student') &&
+      (!hasFlight || activities.some((activity) => activityKinds[activity.type].studentRequired))
+    ) {
+      return invalid('Enter a student for training or preparation-only sessions.', 'student');
+    }
     savingRef.current = true;
     setSaving(true);
     try {
@@ -130,7 +136,6 @@ export default function SessionEntry({
           dutyStart: `${text('date')}T${start}`,
           dutyEnd: `${endDate}T${end}`,
           student: text('student'),
-          description: '',
           activities,
         }),
       });
@@ -247,7 +252,7 @@ export default function SessionEntry({
           />
         </td>
         <td className="numeric">
-          <span aria-label="Dual total">{formatDuration(totals.dual)}</span>
+          <span aria-label="Block time total">{formatDuration(totals.block)}</span>
         </td>
         <td className="numeric">
           <span aria-label="Solo supervision total">{formatDuration(totals.soloSupervision)}</span>
@@ -299,8 +304,13 @@ export default function SessionEntry({
                             );
                           }}
                         >
-                          <option value="dual">{activityLabels.dual}</option>
-                          <option value="soloSupervision">{activityLabels.soloSupervision}</option>
+                          {Object.entries(activityKinds)
+                            .filter(([type]) => type !== 'preparation')
+                            .map(([type, kind]) => (
+                              <option key={type} value={type}>
+                                {kind.label}
+                              </option>
+                            ))}
                         </select>
                       </td>
                       <td className="numeric">

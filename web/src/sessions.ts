@@ -1,4 +1,9 @@
-export type ActivityType = 'preparation' | 'dual' | 'soloSupervision';
+export type ActivityType =
+  | 'preparation'
+  | 'dual'
+  | 'soloSupervision'
+  | 'rundflug'
+  | 'schnupperflug';
 
 export interface Activity {
   id: string;
@@ -11,7 +16,6 @@ export interface Session {
   dutyStart: string;
   dutyEnd: string;
   student?: string;
-  description?: string;
   activities: Activity[];
 }
 
@@ -20,10 +24,15 @@ export interface SessionView {
   timeZone: string;
 }
 
-export const activityLabels: Record<ActivityType, string> = {
-  preparation: 'Preparation',
-  dual: 'Dual',
-  soloSupervision: 'Solo supervision',
+export const activityKinds: Record<
+  ActivityType,
+  { label: string; summary: 'preparation' | 'block' | 'soloSupervision'; studentRequired: boolean }
+> = {
+  preparation: { label: 'Preparation', summary: 'preparation', studentRequired: false },
+  dual: { label: 'Dual', summary: 'block', studentRequired: true },
+  soloSupervision: { label: 'Solo supervision', summary: 'soloSupervision', studentRequired: true },
+  rundflug: { label: 'Rundflug', summary: 'block', studentRequired: false },
+  schnupperflug: { label: 'Schnupperflug', summary: 'block', studentRequired: false },
 };
 
 export function formatDuration(minutes: number) {

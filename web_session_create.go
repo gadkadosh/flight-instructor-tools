@@ -15,12 +15,11 @@ import (
 
 // Duty times are wall-clock values in the configured timezone, not the browser's.
 type sessionEntry struct {
-	ID          string     `json:"id"`
-	DutyStart   string     `json:"dutyStart"`
-	DutyEnd     string     `json:"dutyEnd"`
-	Student     string     `json:"student"`
-	Description string     `json:"description"`
-	Activities  []Activity `json:"activities"`
+	ID         string     `json:"id"`
+	DutyStart  string     `json:"dutyStart"`
+	DutyEnd    string     `json:"dutyEnd"`
+	Student    string     `json:"student"`
+	Activities []Activity `json:"activities"`
 }
 
 func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request) {
@@ -64,14 +63,14 @@ func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request
 	}
 	session := Session{
 		ID: entry.ID, DutyStart: start, DutyEnd: end,
-		Student: strings.TrimSpace(entry.Student), Description: strings.TrimSpace(entry.Description),
+		Student:    strings.TrimSpace(entry.Student),
 		Activities: entry.Activities,
 	}
 	for _, existing := range view.Sessions {
 		if existing.ID == session.ID {
 			// A retry after a lost response must not append another session.
 			if !existing.DutyStart.Equal(session.DutyStart) || !existing.DutyEnd.Equal(session.DutyEnd) ||
-				existing.Student != session.Student || existing.Description != session.Description ||
+				existing.Student != session.Student ||
 				!slices.Equal(existing.Activities, session.Activities) {
 				fail(http.StatusConflict, fmt.Errorf("session ID already exists with different values; reload before trying again"))
 				return

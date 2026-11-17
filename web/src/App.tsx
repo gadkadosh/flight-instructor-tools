@@ -2,13 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import SelectionMenu from './SelectionMenu';
 import DocumentControls from './DocumentControls';
 import SessionEntry from './SessionEntry';
-import {
-  activityLabels,
-  formatDuration,
-  type ActivityType,
-  type Session,
-  type SessionView,
-} from './sessions';
+import { activityKinds, formatDuration, type Session, type SessionView } from './sessions';
 
 type LoadState =
   | { status: 'loading' }
@@ -36,9 +30,12 @@ function SessionRow({
   const endDate = dateFormat.format(end);
   const timeSuffix = timeFormat.resolvedOptions().timeZone === 'UTC' ? 'Z' : 'LT';
   const flights = session.activities.filter((activity) => activity.type !== 'preparation');
-  const totals: Record<ActivityType, number> = { preparation: 0, dual: 0, soloSupervision: 0 };
+  const subject =
+    session.student?.trim() ||
+    [...new Set(flights.map((activity) => activityKinds[activity.type].label))].sort().join(' / ');
+  const totals = { preparation: 0, block: 0, soloSupervision: 0 };
   for (const activity of session.activities) {
-    totals[activity.type] += activity.minutes;
+    totals[activityKinds[activity.type].summary] += activity.minutes;
   }
   return (
     <>
@@ -52,7 +49,7 @@ function SessionRow({
         <td className="select-cell" onClick={(event) => event.stopPropagation()}>
           <input
             type="checkbox"
-            aria-label={`Select session for ${session.student || session.description} on ${startDate}`}
+            aria-label={`Select session for ${subject} on ${startDate}`}
             checked={selected}
             onChange={onSelect}
           />
@@ -64,7 +61,7 @@ function SessionRow({
               className="row-toggle"
               aria-expanded={expanded}
               aria-controls={detailsId}
-              aria-label={`${expanded ? 'Hide' : 'Show'} flights for ${session.student || session.description} on ${startDate}`}
+              aria-label={`${expanded ? 'Hide' : 'Show'} flights for ${subject} on ${startDate}`}
             >
               <svg
                 className="chevron"
@@ -86,10 +83,7 @@ function SessionRow({
           <time dateTime={session.dutyStart}>{startDate}</time>
         </td>
         <th scope="row" className="session-subject">
-          {session.student || session.description}
-          {session.student && session.description && (
-            <span className="description">{session.description}</span>
-          )}
+          {subject}
         </th>
         <td className="numeric">
           <time dateTime={session.dutyStart}>
@@ -103,15 +97,12 @@ function SessionRow({
           </time>
         </td>
         <td className="numeric">{formatDuration(totals.preparation)}</td>
-        <td className="numeric">{formatDuration(totals.dual)}</td>
+        <td className="numeric">{formatDuration(totals.block)}</td>
         <td className="numeric">{formatDuration(totals.soloSupervision)}</td>
       </tr>
       <tr id={detailsId} hidden={!expanded} className="activity-details">
         <td colSpan={9}>
-          <table
-            className="flight-table"
-            aria-label={`Flights for ${session.student || session.description} on ${startDate}`}
-          >
+          <table className="flight-table" aria-label={`Flights for ${subject} on ${startDate}`}>
             <thead>
               <tr>
                 <th scope="col">Flight</th>
@@ -127,7 +118,7 @@ function SessionRow({
                   <th scope="row" className="flight-number">
                     {index + 1}
                   </th>
-                  <td>{activityLabels[activity.type]}</td>
+                  <td>{activityKinds[activity.type].label}</td>
                   <td className="numeric">{formatDuration(activity.minutes)}</td>
                 </tr>
               ))}
@@ -218,7 +209,7 @@ function SessionTable({ view: initialView }: { view: SessionView }) {
                   <span className="visually-hidden">Details</span>
                 </th>
                 <th scope="col">Date</th>
-                <th scope="col">Student / description</th>
+                <th scope="col">Student / flight</th>
                 <th scope="col" className="numeric">
                   Duty start
                 </th>
@@ -229,7 +220,7 @@ function SessionTable({ view: initialView }: { view: SessionView }) {
                   Preparation
                 </th>
                 <th scope="col" className="numeric">
-                  Dual
+                  Block time
                 </th>
                 <th scope="col" className="numeric">
                   Solo supervision

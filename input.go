@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const supportedSessionSchemaVersion = 2
+const supportedSessionSchemaVersion = 3
 
 type SessionFile struct {
 	SchemaVersion int       `json:"schemaVersion"`
@@ -17,12 +17,11 @@ type SessionFile struct {
 }
 
 type Session struct {
-	ID          string     `json:"id"`
-	DutyStart   time.Time  `json:"dutyStart"`
-	DutyEnd     time.Time  `json:"dutyEnd"`
-	Student     string     `json:"student,omitempty"`
-	Description string     `json:"description,omitempty"`
-	Activities  []Activity `json:"activities"`
+	ID         string     `json:"id"`
+	DutyStart  time.Time  `json:"dutyStart"`
+	DutyEnd    time.Time  `json:"dutyEnd"`
+	Student    string     `json:"student,omitempty"`
+	Activities []Activity `json:"activities"`
 }
 
 type ActivityType string
@@ -31,7 +30,23 @@ const (
 	ActivityPreparation     ActivityType = "preparation"
 	ActivityDual            ActivityType = "dual"
 	ActivitySoloSupervision ActivityType = "soloSupervision"
+	ActivityRundflug        ActivityType = "rundflug"
+	ActivitySchnupperflug   ActivityType = "schnupperflug"
 )
+
+type activityKind struct {
+	invoiceLabel    string
+	ownBlock        bool
+	studentRequired bool
+}
+
+var activityKinds = map[ActivityType]activityKind{
+	ActivityPreparation:     {invoiceLabel: "Flugvorbereitung"},
+	ActivityDual:            {invoiceLabel: "Blockzeit", ownBlock: true, studentRequired: true},
+	ActivitySoloSupervision: {invoiceLabel: "Blockzeit", studentRequired: true},
+	ActivityRundflug:        {invoiceLabel: "Rundflug", ownBlock: true},
+	ActivitySchnupperflug:   {invoiceLabel: "Schnupperflug", ownBlock: true},
+}
 
 type Activity struct {
 	ID      string       `json:"id"`
@@ -43,10 +58,8 @@ func (activity Activity) validate() error {
 	if strings.TrimSpace(activity.ID) == "" {
 		return fmt.Errorf("id: must not be empty")
 	}
-	switch activity.Type {
-	case ActivityPreparation, ActivityDual, ActivitySoloSupervision:
-	default:
-		return fmt.Errorf("type: got %q, want preparation, dual, or soloSupervision", activity.Type)
+	if _, supported := activityKinds[activity.Type]; !supported {
+		return fmt.Errorf("type: got %q, want preparation, dual, soloSupervision, rundflug, or schnupperflug", activity.Type)
 	}
 	if activity.Minutes <= 0 {
 		return fmt.Errorf("minutes: must be positive")
@@ -172,16 +185,19 @@ func validateSessionRecords(input SessionFile) error {
 			return fmt.Errorf("%s.dutyEnd: must be after dutyStart", path)
 		}
 
-		if strings.TrimSpace(session.Student) == "" && strings.TrimSpace(session.Description) == "" {
-			return fmt.Errorf("%s: student or description is required", path)
-		}
 		if len(session.Activities) == 0 {
 			return fmt.Errorf("%s.activities: must contain at least one activity", path)
 		}
+		hasFlight, studentRequired := false, false
 		for activityIndex, activity := range session.Activities {
 			if err := activity.validate(); err != nil {
 				return fmt.Errorf("%s.activities[%d].%w", path, activityIndex, err)
 			}
+			hasFlight = hasFlight || activity.Type != ActivityPreparation
+			studentRequired = studentRequired || activityKinds[activity.Type].studentRequired
+		}
+		if strings.TrimSpace(session.Student) == "" && (studentRequired || !hasFlight) {
+			return fmt.Errorf("%s.student: required for training and preparation-only sessions", path)
 		}
 	}
 

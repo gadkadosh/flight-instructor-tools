@@ -36,7 +36,7 @@ func sessionWriter(t *testing.T) (http.Handler, string) {
 func validSessionEntry() sessionEntry {
 	return sessionEntry{
 		ID: "new-session", DutyStart: "2026-05-03T23:00", DutyEnd: "2026-05-04T01:00",
-		Student: " New Student ", Description: " Night circuits ",
+		Student: " New Student ",
 		Activities: []Activity{
 			{ID: "prep", Type: ActivityPreparation, Minutes: 30},
 			{ID: "dual-1", Type: ActivityDual, Minutes: 45},
@@ -87,7 +87,7 @@ func TestCreateSessionPersistsAndRetries(t *testing.T) {
 			t.Fatal("save lost existing sessions or duplicated a retry")
 		}
 		saved := persisted.Sessions[len(persisted.Sessions)-1]
-		if saved.Student != "New Student" || saved.Description != "Night circuits" || len(saved.Activities) != 4 ||
+		if saved.Student != "New Student" || len(saved.Activities) != 4 ||
 			saved.DutyStart.UTC().Format(time.RFC3339) != "2026-05-03T21:00:00Z" ||
 			saved.DutyEnd.Sub(saved.DutyStart) != 2*time.Hour {
 			t.Fatalf("wrong persisted session: %+v", saved)
@@ -108,7 +108,7 @@ func TestCreateSessionRejectsInvalidRecordsWithoutChangingFile(t *testing.T) {
 		name string
 		edit func(*sessionEntry)
 	}{
-		{"missing subject", func(e *sessionEntry) { e.Student = " "; e.Description = "" }},
+		{"missing student", func(e *sessionEntry) { e.Student = " " }},
 		{"missing ID", func(e *sessionEntry) { e.ID = "" }},
 		{"no activities", func(e *sessionEntry) { e.Activities = nil }},
 		{"zero duration", func(e *sessionEntry) { e.Activities[0].Minutes = 0 }},
@@ -135,6 +135,35 @@ func TestCreateSessionRejectsInvalidRecordsWithoutChangingFile(t *testing.T) {
 	}
 }
 
+func TestCreateSessionPersistsUnnamedSpecialFlights(t *testing.T) {
+	handler, path := sessionWriter(t)
+	entry := validSessionEntry()
+	entry.Student = ""
+	entry.Activities = []Activity{
+		{ID: "prep", Type: ActivityPreparation, Minutes: 15},
+		{ID: "rundflug", Type: ActivityRundflug, Minutes: 45},
+		{ID: "schnupperflug", Type: ActivitySchnupperflug, Minutes: 30},
+	}
+	for _, status := range []int{http.StatusCreated, http.StatusOK} {
+		response := postSession(t, handler, entry)
+		if response.Code != status {
+			t.Fatalf("status = %d, body = %s", response.Code, response.Body)
+		}
+	}
+	persisted, err := readSessionFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(persisted.Sessions) != 2 {
+		t.Fatalf("wrong session count after retry: %d", len(persisted.Sessions))
+	}
+	saved := persisted.Sessions[1]
+	if saved.Student != "" || len(saved.Activities) != 3 || saved.Activities[1].Type != ActivityRundflug ||
+		saved.Activities[2].Type != ActivitySchnupperflug {
+		t.Fatalf("wrong persisted special flights: %+v", saved)
+	}
+}
+
 func TestCreateSessionRejectsUnsafeAndMalformedRequests(t *testing.T) {
 	for _, test := range []struct {
 		name, origin, contentType, body string
@@ -145,6 +174,7 @@ func TestCreateSessionRejectsUnsafeAndMalformedRequests(t *testing.T) {
 		{"other local origin", "http://localhost:9999", "application/json", `{}`, 403},
 		{"simple form submission", "", "text/plain", `{}`, 415},
 		{"invalid JSON", "", "application/json", `{`, 400},
+		{"removed description", "", "application/json", `{"description":"Rundflug"}`, 400},
 		{"unknown fields", "", "application/json", `{"unexpected":true}`, 400},
 		{"trailing JSON", "", "application/json", `{} {}`, 400},
 		{"oversized body", "", "application/json", `{"id":"` + strings.Repeat("x", 1<<20) + `"}`, 400},

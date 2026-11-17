@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "sessions": [
     {
       "id": "2026-04-30-pat",
@@ -149,11 +149,10 @@
       "id": "2026-05-24-sightseeing",
       "dutyStart": "2026-05-24T10:00:00Z",
       "dutyEnd": "2026-05-24T11:00:00Z",
-      "description": "Rundflug 45°",
       "activities": [
         {
           "id": "2026-05-24-sightseeing-flight-1",
-          "type": "dual",
+          "type": "rundflug",
           "minutes": 45
         }
       ]

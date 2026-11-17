@@ -24,6 +24,16 @@ func TestDutyReportDailySpansAndPersonalBlock(t *testing.T) {
 			Activity{ID: "dual-3", Type: ActivityDual, Minutes: 60}),
 		dutySession(t, "solo-only", "2026-05-05T11:00:00+02:00", "2026-05-05T14:00:00+02:00",
 			Activity{ID: "supervision-2", Type: ActivitySoloSupervision, Minutes: 120}),
+		{
+			ID:        "special-flights",
+			DutyStart: mustTimestamp(t, "2026-05-06T09:00:00+02:00"),
+			DutyEnd:   mustTimestamp(t, "2026-05-06T11:00:00+02:00"),
+			Activities: []Activity{
+				{ID: "prep-special", Type: ActivityPreparation, Minutes: 10},
+				{ID: "rundflug", Type: ActivityRundflug, Minutes: 30},
+				{ID: "schnupperflug", Type: ActivitySchnupperflug, Minutes: 45},
+			},
+		},
 	}
 	issueDate := mustTimestamp(t, "2026-06-10T00:00:00+02:00")
 	report, err := buildDutyReport(sessions, Config{TimeZone: "Europe/Berlin"}, "2026-05", issueDate, 7200)
@@ -40,6 +50,7 @@ func TestDutyReportDailySpansAndPersonalBlock(t *testing.T) {
 		{3, 390, 95, "09:00", "15:30", "2026-05-04 03:30"},
 		{4, 240, 60, "09:00", "13:00", "2026-05-05 01:00"},
 		{5, 180, 0, "11:00", "14:00", "2026-05-06 02:00"},
+		{6, 120, 75, "09:00", "11:00", "2026-05-06 23:00"},
 	} {
 		line := report.Lines[test.day-1]
 		if line.Day != test.day || line.DutyMinutes != test.duty || line.BlockMinutes != test.block ||
@@ -48,11 +59,11 @@ func TestDutyReportDailySpansAndPersonalBlock(t *testing.T) {
 			t.Errorf("day %d = %+v, want %+v", test.day, line, test)
 		}
 	}
-	if want := (DutyReportTotals{CarryOver: 7200, CurrentMonth: 810, CurrentYear: 8010, BlockMinutes: 155}); report.Totals != want {
+	if want := (DutyReportTotals{CarryOver: 7200, CurrentMonth: 930, CurrentYear: 8130, BlockMinutes: 230}); report.Totals != want {
 		t.Errorf("totals = %+v, want %+v", report.Totals, want)
 	}
 	for _, line := range report.Lines {
-		if line.Day >= 3 && line.Day <= 5 {
+		if line.Day >= 3 && line.Day <= 6 {
 			continue
 		}
 		if !line.Start.IsZero() || !line.End.IsZero() || !line.DutyOffUntil.IsZero() || line.DutyMinutes != 0 || line.BlockMinutes != 0 {

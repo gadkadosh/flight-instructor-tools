@@ -52,8 +52,8 @@ test('enters a session by keyboard, calculates totals, and saves individual flig
   await userEvent.keyboard('{Tab}45{Tab}{Tab}{Enter}');
   expect(document.activeElement).toBe(screen.getByLabelText('Flight 2 duration'));
   await userEvent.keyboard('1:15');
-  expect(screen.getByLabelText('Dual total').textContent).toBe('2:00');
-  expect(screen.getByLabelText('Dual total').tagName).toBe('SPAN');
+  expect(screen.getByLabelText('Block time total').textContent).toBe('2:00');
+  expect(screen.getByLabelText('Block time total').tagName).toBe('SPAN');
   await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
   await userEvent.selectOptions(screen.getByLabelText('Flight 3 type'), 'soloSupervision');
   await userEvent.fill(screen.getByLabelText('Flight 3 duration'), '20');
@@ -101,7 +101,7 @@ test('save-and-add shortcut retains the date, resets inputs, and focuses the stu
   ]) {
     expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe('');
   }
-  expect(screen.getByLabelText('Dual total').textContent).toBe('0:00');
+  expect(screen.getByLabelText('Block time total').textContent).toBe('0:00');
   const suggestions = document.getElementById(
     screen.getByLabelText('Student').getAttribute('list')!,
   );
@@ -116,6 +116,53 @@ test('save-and-add shortcut retains the date, resets inputs, and focuses the stu
   ]);
 });
 
+test('saves unnamed special flights with preparation and includes them in block totals', async () => {
+  const { entries } = sessionAPI();
+  await openEntry();
+  await fillBasics();
+  await userEvent.fill(screen.getByLabelText('Student'), '');
+  await userEvent.fill(screen.getByLabelText('Preparation duration'), '15');
+  await userEvent.selectOptions(screen.getByLabelText('Flight 1 type'), 'rundflug');
+  await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '45');
+  await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
+  await userEvent.selectOptions(screen.getByLabelText('Flight 2 type'), 'schnupperflug');
+  await userEvent.fill(screen.getByLabelText('Flight 2 duration'), '30');
+  expect(screen.getByLabelText('Block time total').textContent).toBe('1:15');
+  expect(screen.getByLabelText('Solo supervision total').textContent).toBe('0:00');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  await screen.findByRole('rowheader', { name: 'Rundflug / Schnupperflug' });
+  expect(entries).toHaveLength(1);
+  expect(entries[0]!.activities).toEqual([
+    expect.objectContaining({ type: 'preparation', minutes: 15 }),
+    expect.objectContaining({ type: 'rundflug', minutes: 45 }),
+    expect.objectContaining({ type: 'schnupperflug', minutes: 30 }),
+  ]);
+  expect(entries[0]).not.toHaveProperty('description');
+});
+
+test.each(['dual', 'soloSupervision', 'preparation'])(
+  'requires a student for sessions containing %s',
+  async (type) => {
+    const { entries } = sessionAPI();
+    await openEntry();
+    await fillBasics();
+    await userEvent.fill(screen.getByLabelText('Student'), '');
+    if (type === 'preparation') {
+      await userEvent.fill(screen.getByLabelText('Preparation duration'), '15');
+    } else {
+      await userEvent.selectOptions(screen.getByLabelText('Flight 1 type'), 'rundflug');
+      await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '30');
+      await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
+      await userEvent.selectOptions(screen.getByLabelText('Flight 2 type'), type);
+      await userEvent.fill(screen.getByLabelText('Flight 2 duration'), '15');
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    expect(screen.getByRole('alert').textContent).toContain('Enter a student');
+    expect(document.activeElement).toBe(screen.getByLabelText('Student'));
+    expect(entries).toHaveLength(0);
+  },
+);
+
 test('removing flights updates totals and keeps keyboard focus in the editor', async () => {
   sessionAPI();
   await openEntry();
@@ -123,11 +170,11 @@ test('removing flights updates totals and keeps keyboard focus in the editor', a
   await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
   await userEvent.fill(screen.getByLabelText('Flight 2 duration'), '15');
   await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
-  expect(screen.getByLabelText('Dual total').textContent).toBe('0:15');
+  expect(screen.getByLabelText('Block time total').textContent).toBe('0:15');
   await expect.poll(() => document.activeElement).toBe(screen.getByLabelText('Flight 1 duration'));
   await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add flight' }));
-  expect(screen.getByLabelText('Dual total').textContent).toBe('0:00');
+  expect(screen.getByLabelText('Block time total').textContent).toBe('0:00');
 });
 
 test('validates entries, infers overnight duty, and preserves data after errors', async () => {
@@ -156,7 +203,6 @@ test('validates entries, infers overnight duty, and preserves data after errors'
   expect(entries[0]).toMatchObject({
     dutyEnd: '2026-05-04T01:00',
     student: 'New Student',
-    description: '',
   });
 });
 

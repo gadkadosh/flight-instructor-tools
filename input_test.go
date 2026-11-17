@@ -36,15 +36,16 @@ func TestReadSessionFileRejectsDuplicateSessionIDs(t *testing.T) {
 }
 
 func TestReadSessionFileRejectsInvalidInput(t *testing.T) {
-	const valid = `{"schemaVersion":2,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","activities":[{"id":"activity-1","type":"dual","minutes":60}]}]}`
+	const valid = `{"schemaVersion":3,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","activities":[{"id":"activity-1","type":"dual","minutes":60}]}]}`
 	tests := []struct {
 		name        string
 		find        string
 		replaceWith string
 		wantError   string
 	}{
-		{"old schema", `"schemaVersion":2`, `"schemaVersion":1`, "schemaVersion: got 1, want 2"},
-		{"future schema", `"schemaVersion":2`, `"schemaVersion":3`, "schemaVersion: got 3, want 2"},
+		{"old schema", `"schemaVersion":3`, `"schemaVersion":1`, "schemaVersion: got 1, want 3"},
+		{"previous schema", `"schemaVersion":3`, `"schemaVersion":2`, "schemaVersion: got 2, want 3"},
+		{"future schema", `"schemaVersion":3`, `"schemaVersion":4`, "schemaVersion: got 4, want 3"},
 		{"no sessions", `[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","activities":[{"id":"activity-1","type":"dual","minutes":60}]}]`, `[]`, "sessions: must contain at least one session"},
 		{"missing session ID", `"id":"session-1",`, ``, "sessions[0].id"},
 		{"dutyStart date is null", `"dutyStart":"2026-05-03T10:00:00Z"`, `"dutyStart":null`, "sessions[0].dutyStart: missing or zero"},
@@ -55,7 +56,7 @@ func TestReadSessionFileRejectsInvalidInput(t *testing.T) {
 		{"invalid dutyEnd date", `2026-05-03T12:00:00Z`, `2026-02-30T12:00:00Z`, "2026-02-30T12:00:00Z"},
 		{"dutyEnd before dutyStart", `2026-05-03T12:00:00Z`, `2026-05-03T09:00:00Z`, "sessions[0].dutyEnd: must be after dutyStart"},
 		{"dutyEnd equals dutyStart", `2026-05-03T12:00:00Z`, `2026-05-03T10:00:00Z`, "sessions[0].dutyEnd: must be after dutyStart"},
-		{"missing subject", `"student":"Alex",`, ``, "sessions[0]: student or description is required"},
+		{"missing subject", `"student":"Alex",`, ``, "sessions[0].student: required for training and preparation-only sessions"},
 		{"missing activities", `,"activities":[{"id":"activity-1","type":"dual","minutes":60}]`, ``, "sessions[0].activities: must contain at least one activity"},
 		{"empty activities", `[{"id":"activity-1","type":"dual","minutes":60}]`, `[]`, "sessions[0].activities: must contain at least one activity"},
 		{"null activities", `[{"id":"activity-1","type":"dual","minutes":60}]`, `null`, "sessions[0].activities: must contain at least one activity"},
@@ -71,6 +72,7 @@ func TestReadSessionFileRejectsInvalidInput(t *testing.T) {
 		{"fractional duration", `"minutes":60`, `"minutes":1.5`, "minutes"},
 		{"legacy preparation field", `"student":"Alex"`, `"student":"Alex","preparationMinutes":30`, `unknown field "preparationMinutes"`},
 		{"legacy flights field", `"student":"Alex"`, `"student":"Alex","flights":[]`, `unknown field "flights"`},
+		{"removed description", `"student":"Alex"`, `"student":"Alex","description":"Rundflug"`, `unknown field "description"`},
 		{"legacy block duration", `"minutes":60`, `"blockMinutes":60`, `unknown field "blockMinutes"`},
 		{"unknown session field", `"student":"Alex"`, `"student":"Alex","unknown":true`, `unknown field "unknown"`},
 		{"unknown activity field", `"minutes":60`, `"minutes":60,"unknown":true`, `unknown field "unknown"`},
@@ -97,10 +99,10 @@ func TestReadSessionFileRejectsInvalidInput(t *testing.T) {
 }
 
 func TestReadSessionFileAcceptsActivityTypes(t *testing.T) {
-	for _, activityType := range []ActivityType{ActivityPreparation, ActivityDual, ActivitySoloSupervision} {
+	for _, activityType := range []ActivityType{ActivityPreparation, ActivityDual, ActivitySoloSupervision, ActivityRundflug, ActivitySchnupperflug} {
 		t.Run(string(activityType), func(t *testing.T) {
 			contents := `{
-				"schemaVersion": 2,
+				"schemaVersion": 3,
 				"sessions": [{
 					"id": "session-1",
 					"dutyStart": "2026-05-03T10:00:00Z",
@@ -123,6 +125,45 @@ func TestReadSessionFileAcceptsActivityTypes(t *testing.T) {
 			want := []Activity{{ID: "activity-1", Type: activityType, Minutes: 60}}
 			if !slices.Equal(input.Sessions[0].Activities, want) {
 				t.Errorf("activities = %+v, want %+v", input.Sessions[0].Activities, want)
+			}
+		})
+	}
+}
+
+func TestSessionStudentRequirements(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		types        []ActivityType
+		student      string
+		wantRequired bool
+	}{
+		{"preparation only", []ActivityType{ActivityPreparation}, "", true},
+		{"dual", []ActivityType{ActivityDual}, "", true},
+		{"solo supervision", []ActivityType{ActivitySoloSupervision}, "", true},
+		{"blank student", []ActivityType{ActivityDual}, " \t ", true},
+		{"rundflug", []ActivityType{ActivityRundflug}, "", false},
+		{"schnupperflug", []ActivityType{ActivitySchnupperflug}, "", false},
+		{"special flights with preparation", []ActivityType{ActivityPreparation, ActivityRundflug, ActivitySchnupperflug}, "", false},
+		{"dual with special flight", []ActivityType{ActivityRundflug, ActivityDual}, "", true},
+		{"solo with special flight", []ActivityType{ActivitySchnupperflug, ActivitySoloSupervision}, "", true},
+		{"named mixed session", []ActivityType{ActivityPreparation, ActivityDual, ActivitySoloSupervision, ActivityRundflug, ActivitySchnupperflug}, "Alex", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			session := Session{
+				ID: "session", Student: test.student,
+				DutyStart: mustTimestamp(t, "2026-05-03T10:00:00Z"),
+				DutyEnd:   mustTimestamp(t, "2026-05-03T12:00:00Z"),
+			}
+			for _, activityType := range test.types {
+				session.Activities = append(session.Activities, Activity{ID: string(activityType), Type: activityType, Minutes: 30})
+			}
+			err := validateSessionRecords(SessionFile{SchemaVersion: 3, Sessions: []Session{session}})
+			if test.wantRequired {
+				if err == nil || !strings.Contains(err.Error(), "sessions[0].student: required") {
+					t.Fatalf("error = %v, want a required student", err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
