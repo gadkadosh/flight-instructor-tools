@@ -18,7 +18,7 @@ Requires Go 1.26.5+, Node.js 24.11+ on the 24.x line (see
 
 ```sh
 make build
-./fitools --input examples/realistic-sessions.json --config examples/realistic-config.json
+./fitools --input examples/sessions.json --config examples/config.json
 ```
 
 This opens the session viewer with the bundled example data in your
@@ -31,7 +31,7 @@ in the ignored `local/` directory.
 ## Usage
 
 - [Invoice example and session validation](examples/README.md#running-it)
-- [Session format](examples/README.md#session-format) and [example configuration](examples/realistic-config.json)
+- [Session format](examples/README.md#session-format) and [example configuration](examples/config.json)
 - [Duty reports](docs/duty-reports.md)
 
 Select sessions and click **Generate invoice** above the table to download a PDF
@@ -55,7 +55,8 @@ make dev
 ```
 
 The UI runs at `http://127.0.0.1:5173` with React hot reload. Go uses port 8080
-and reads data from the repository root; restart after Go changes.
+and reads the bundled `examples/sessions.json` and `examples/config.json`;
+restart after Go changes.
 
 Run checks and tests:
 

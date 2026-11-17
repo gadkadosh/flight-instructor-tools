@@ -17,7 +17,7 @@ import (
 )
 
 func TestSessionsAPI(t *testing.T) {
-	fixture, err := os.ReadFile("examples/realistic-sessions.json")
+	fixture, err := os.ReadFile("examples/sessions.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func startTestWebServer(t *testing.T, arguments []string) string {
 func TestServeHosts(t *testing.T) {
 	url := startTestWebServer(t, []string{
 		"serve", "--no-open", "--input", "testdata/minimal-sessions.json",
-		"--config", "examples/realistic-config.json",
+		"--config", "examples/config.json",
 	})
 	client := &http.Client{Timeout: 5 * time.Second}
 	for _, test := range []struct {

@@ -44,7 +44,7 @@ func TestInvoiceDownloadUsesSelectedSessionsAndCleansUp(t *testing.T) {
 	if err := os.WriteFile(inputPath, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	handler := webHandler(fstest.MapFS{}, sessionSource{inputPath: inputPath, configPath: "examples/realistic-config.json"})
+	handler := webHandler(fstest.MapFS{}, sessionSource{inputPath: inputPath, configPath: "examples/config.json"})
 	request := `{"sessionIds":["second","2026-05-03-alex","second"],"number":"2026-07","issueDate":"2026-07-01"}`
 	for attempt := 0; attempt < 2; attempt++ {
 		response := httptest.NewRecorder()

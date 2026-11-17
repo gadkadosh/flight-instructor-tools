@@ -2,8 +2,8 @@
 
 These files model a small but realistic flight-instruction billing period without containing private data:
 
-- `realistic-sessions.json` contains sessions around May 2026.
-- `realistic-config.json` contains fictional issuer, customer, bank, and tax data.
+- `sessions.json` contains sessions around May 2026.
+- `config.json` contains fictional issuer, customer, bank, and tax data.
 
 ## Running it
 
@@ -11,15 +11,15 @@ From the repository root, [build the tool](../README.md#getting-started), then
 validate the example sessions:
 
 ```sh
-./fitools validate examples/realistic-sessions.json
+./fitools validate examples/sessions.json
 ```
 
 Generate the May invoice (requires [WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) on `PATH`):
 
 ```sh
 ./fitools generate \
-  --input examples/realistic-sessions.json \
-  --config examples/realistic-config.json \
+  --input examples/sessions.json \
+  --config examples/config.json \
   --month 2026-05 \
   --number 2026-05 \
   --issue-date 2026-06-09
