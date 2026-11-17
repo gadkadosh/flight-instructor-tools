@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import SelectionMenu from './SelectionMenu';
-import DocumentControls from './DocumentControls';
+import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
 import { activityKinds, formatDuration, type Session, type SessionView } from './sessions';
 
@@ -150,7 +150,7 @@ function SessionTable({ view: initialView }: { view: SessionView }) {
 
   return (
     <>
-      <DocumentControls
+      <SessionToolbar
         selectedSessionIds={[...selectedSessionIds]}
         sessionCount={view.sessions.length}
         timeZone={view.timeZone}
@@ -178,7 +178,7 @@ function SessionTable({ view: initialView }: { view: SessionView }) {
             <path d="M12 5v14M5 12h14" />
           </svg>
         </button>
-      </DocumentControls>
+      </SessionToolbar>
       {view.sessions.length === 0 && <p role="status">No sessions yet.</p>}
       {(view.sessions.length > 0 || adding) && (
         <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>

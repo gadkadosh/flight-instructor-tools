@@ -4,7 +4,7 @@ import DutyReportForm from './DutyReportForm';
 
 type DocumentKind = 'invoice' | 'dutyReport';
 
-export default function DocumentControls({
+export default function SessionToolbar({
   selectedSessionIds,
   sessionCount,
   timeZone,
