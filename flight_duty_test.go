@@ -160,7 +160,7 @@ func TestDutyReportRejectsLocalMidnightButInvoiceDoesNot(t *testing.T) {
 	if err != nil || invoice.Totals.GrossCents != 3000 {
 		t.Fatalf("overnight invoice = %+v, %v; want 3000 cents", invoice, err)
 	}
-	if _, err := selectSessions([]Session{session}, "2026-05"); err == nil {
+	if _, err := selectSessions([]Session{session}, "2026-05", time.UTC); err == nil {
 		t.Fatal("invoice selection must still reject empty months")
 	}
 }

@@ -76,6 +76,21 @@ type Rate struct {
 	BlockCentsPerHour       int    `json:"blockCentsPerHour"`
 }
 
+func (config Config) location() (*time.Location, error) {
+	timeZone := config.TimeZone
+	if timeZone == "" {
+		timeZone = "UTC"
+	}
+	if timeZone == "Local" {
+		return nil, fmt.Errorf("timeZone: use an explicit IANA timezone such as Europe/Berlin; Local is not supported")
+	}
+	location, err := time.LoadLocation(timeZone)
+	if err != nil {
+		return nil, fmt.Errorf("timeZone %q: %w", timeZone, err)
+	}
+	return location, nil
+}
+
 func readSessionFile(path string) (SessionFile, error) {
 	var input SessionFile
 	if err := readJSONFile(path, &input); err != nil {

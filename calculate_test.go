@@ -19,7 +19,7 @@ func TestBuildMinimalInvoiceDocument(t *testing.T) {
 	}
 	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, time.Local)
 
-	sessions, err := selectSessions(input.Sessions, "2026-05")
+	sessions, err := selectSessions(input.Sessions, "2026-05", time.UTC)
 	if err != nil {
 		t.Fatalf("select sessions: %v", err)
 	}
@@ -72,6 +72,49 @@ func TestBuildMinimalInvoiceDocument(t *testing.T) {
 		if !strings.Contains(rendered.String(), expected) {
 			t.Errorf("rendered invoice does not contain %q", expected)
 		}
+	}
+}
+
+func TestInvoiceDatesUseConfiguredTimeZone(t *testing.T) {
+	config, err := readConfig("testdata/minimal-config.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name, zone, start, date, printedDate string
+	}{
+		{"east of UTC", "Europe/Berlin", "2026-05-31T22:30:00Z", "2026-06-01", "01.06.26"},
+		{"west of UTC", "America/New_York", "2026-06-01T00:30:00Z", "2026-05-31", "31.05.26"},
+		{"default UTC", "", "2026-06-01T00:30:00+02:00", "2026-05-31", "31.05.26"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := config
+			config.TimeZone = test.zone
+			session := Session{
+				ID:         "boundary",
+				DutyStart:  mustTimestamp(t, test.start),
+				Student:    "Alex",
+				Activities: []Activity{{ID: "flight", Type: ActivityDual, Minutes: 60}},
+			}
+			document, err := buildInvoiceDocument([]Session{session}, config, "2026-001", mustTimestamp(t, "2026-07-01T00:00:00Z"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			snapshot := newInvoiceSnapshot(document)
+			if len(snapshot.Lines) != 1 {
+				t.Fatalf("lines = %+v, want one billed flight", snapshot.Lines)
+			}
+			if got := snapshot.Lines[0].Date; got != test.date {
+				t.Errorf("invoice date = %s, want %s", got, test.date)
+			}
+			var html bytes.Buffer
+			if err := renderInvoiceHTML(&html, document, nil); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(html.String(), test.printedDate) {
+				t.Errorf("rendered invoice missing %q", test.printedDate)
+			}
+		})
 	}
 }
 
@@ -142,7 +185,7 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndActivities(t *testing.T) {
 	}
 	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, time.Local)
 
-	sessions, err := selectSessions(input.Sessions, "2026-05")
+	sessions, err := selectSessions(input.Sessions, "2026-05", time.UTC)
 	if err != nil {
 		t.Fatalf("select sessions: %v", err)
 	}
@@ -210,7 +253,7 @@ func TestSelectSessionsForMonth(t *testing.T) {
 		{ID: "june", DutyStart: mustTimestamp(t, "2026-06-01T12:00:00Z")},
 	}
 
-	selected, err := selectSessions(sessions, "2026-05")
+	selected, err := selectSessions(sessions, "2026-05", time.UTC)
 	if err != nil {
 		t.Fatalf("select session: %v", err)
 	}
@@ -231,7 +274,7 @@ func TestSelectSessionsForMonth(t *testing.T) {
 func TestSelectSessionsRejectsNoSessions(t *testing.T) {
 	sessions := []Session{{ID: "april", DutyStart: mustTimestamp(t, "2026-04-30T14:00:00Z")}}
 
-	_, err := selectSessions(sessions, "2026-05")
+	_, err := selectSessions(sessions, "2026-05", time.UTC)
 	if err == nil {
 		t.Fatal("select session unexpectedly succeeded")
 	}

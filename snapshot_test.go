@@ -38,7 +38,7 @@ func buildMinimalDocumentForSnapshotTest(t *testing.T) Document {
 	}
 	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, time.Local)
 
-	sessions, err := selectSessions(input.Sessions, "2026-05")
+	sessions, err := selectSessions(input.Sessions, "2026-05", time.UTC)
 	if err != nil {
 		t.Fatalf("select sessions: %v", err)
 	}

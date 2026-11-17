@@ -7,9 +7,13 @@ import (
 )
 
 func buildInvoiceDocument(sessions []Session, config Config, number string, issueDate time.Time) (Document, error) {
+	location, err := config.location()
+	if err != nil {
+		return Document{}, err
+	}
 	var lines []Line
 	for _, session := range sessions {
-		sessionDate := session.DutyStart
+		sessionDate := session.DutyStart.In(location)
 		rate, err := rateForDate(config.Rates, sessionDate)
 		if err != nil {
 			return Document{}, fmt.Errorf("session %q: %w", session.ID, err)
@@ -44,7 +48,7 @@ func buildInvoiceDocument(sessions []Session, config Config, number string, issu
 	}, nil
 }
 
-func selectSessions(sessions []Session, month string) ([]Session, error) {
+func selectSessions(sessions []Session, month string, location *time.Location) ([]Session, error) {
 	requestedMonth, err := parseMonth(month)
 	if err != nil {
 		return []Session{}, err
@@ -52,7 +56,7 @@ func selectSessions(sessions []Session, month string) ([]Session, error) {
 
 	var selected []Session
 	for _, session := range sessions {
-		date := session.DutyStart
+		date := session.DutyStart.In(location)
 		if date.Year() == requestedMonth.Year() && date.Month() == requestedMonth.Month() {
 			selected = append(selected, session)
 		}

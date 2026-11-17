@@ -41,6 +41,9 @@ in the configured timezone. Only selected sessions are included. No invoice
 artifacts are kept on the server; invoice numbers and billing status are not
 tracked.
 
+Invoice session dates and CLI month selection use the configured `timeZone`,
+falling back to UTC when omitted.
+
 Run `./fitools <command> --help` for command options. PDF generation requires
 [WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) on `PATH`.
 
