@@ -506,6 +506,9 @@ test('downloads the generated PDF for exactly the selected sessions without clea
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice' }).disabled).toBe(
     true,
   );
+  expect(
+    screen.getByRole<HTMLButtonElement>('button', { name: 'Generate duty report' }).disabled,
+  ).toBe(true);
   expect(downloads).toEqual([]);
   finish(new Response(pdf, { headers: { 'Content-Type': 'application/pdf' } }));
   await waitFor(() => expect(downloads).toHaveLength(1));
@@ -556,6 +559,11 @@ test('invoice errors preserve form details and allow retrying', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
   expect((await screen.findByRole('alert')).textContent).toBe('Connection lost');
   expect(fetch).toHaveBeenCalledTimes(3);
+  fireEvent.click(screen.getByRole('button', { name: 'Generate duty report' }));
+  expect(screen.queryByRole('alert')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }));
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-12');
 });
 
 test.each([
@@ -613,6 +621,10 @@ test('switching document forms preserves their independent details and shows onl
   expect(screen.queryByRole('form', { name: 'Generate invoice' })).toBeNull();
   expect(invoiceTrigger.getAttribute('aria-expanded')).toBe('false');
   expect(reportTrigger.getAttribute('aria-expanded')).toBe('true');
+  expect(document.activeElement).toBe(screen.getByLabelText('Month'));
+  expect(document.getElementById(reportTrigger.getAttribute('aria-controls')!)).toBe(
+    screen.getByRole('form', { name: 'Generate duty report' }),
+  );
   fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-09' } });
   fireEvent.change(screen.getByLabelText('Flight-duty total before this month'), {
     target: { value: '432:10' },
@@ -620,6 +632,10 @@ test('switching document forms preserves their independent details and shows onl
   fireEvent.change(screen.getByLabelText('Issue date'), { target: { value: '2026-10-01' } });
   fireEvent.click(invoiceTrigger);
   expect(screen.getAllByRole('form')).toHaveLength(1);
+  expect(document.activeElement).toBe(screen.getByLabelText('Invoice number'));
+  expect(document.getElementById(invoiceTrigger.getAttribute('aria-controls')!)).toBe(
+    screen.getByRole('form', { name: 'Generate invoice' }),
+  );
   expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-123');
   expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-10-05');
   fireEvent.click(reportTrigger);
@@ -660,8 +676,14 @@ test('duty report download ignores table selection and preserves details after a
   );
   fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
   expect(trigger.disabled).toBe(true);
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice' }).disabled).toBe(
+    true,
+  );
   expect(screen.getByLabelText<HTMLInputElement>('Month').matches(':disabled')).toBe(true);
   expect((await screen.findByRole('alert')).textContent).toBe('Install WeasyPrint');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  fireEvent.click(trigger);
+  expect(screen.queryByRole('alert')).toBeNull();
   selectPreset('Clear selection');
   expect(trigger.disabled).toBe(false);
   expect(screen.getByLabelText<HTMLInputElement>('Month').value).toBe('2026-05');
