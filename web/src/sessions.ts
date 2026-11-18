@@ -60,6 +60,11 @@ export function groupSessionsByMonth(sessions: Session[], timeZone: string) {
     if (group) group.sessions.push(session);
     else groups.set(month, { label: monthLabel.format(date), sessions: [session] });
   }
+  for (const group of groups.values()) {
+    group.sessions.sort(
+      (first, second) => Date.parse(second.dutyStart) - Date.parse(first.dutyStart),
+    );
+  }
   return [...groups].sort(([first], [second]) => second - first);
 }
 

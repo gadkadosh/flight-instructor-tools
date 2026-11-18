@@ -236,8 +236,8 @@ test('selects sessions individually and in bulk without expanding flights', asyn
 });
 
 test.each([
-  ['Select this month', ['Today', 'Later today', 'End of month']],
-  ['Select last month', ['Start of last month', 'End of last month']],
+  ['Select this month', ['End of month', 'Later today', 'Today']],
+  ['Select last month', ['End of last month', 'Start of last month']],
 ])('%s replaces selection using dates in the configured timezone', async (preset, expected) => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-01-31T23:30:00Z'));
@@ -278,7 +278,7 @@ test.each([
   }
 });
 
-test('groups sessions by local month and replaces selection from a month heading', async () => {
+test('groups sessions newest first by local month and replaces selection from a month heading', async () => {
   await page.viewport(568, 720);
   const dates = [
     ['Last January', '2025-01-11T12:00:00Z'],
@@ -321,7 +321,7 @@ test('groups sessions by local month and replaces selection from a month heading
     within(table)
       .getAllByRole('checkbox', { checked: true })
       .map((checkbox) => within(checkbox.closest('tr')!).getByRole('rowheader').textContent);
-  expect(selected()).toEqual(['New Year lesson', 'January lesson']);
+  expect(selected()).toEqual(['January lesson', 'New Year lesson']);
   expect(screen.getByRole('status').textContent).toBe('2 of 4 sessions selected');
   await userEvent.click(within(table).getByRole('checkbox', { name: /New Year lesson/ }));
   expect(selected()).toEqual(['January lesson']);
