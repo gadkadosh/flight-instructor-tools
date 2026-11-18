@@ -523,23 +523,36 @@ td {
   padding-right: 0.75rem;
 }
 
+.entry-duty-end {
+  position: relative;
+  display: block;
+}
+
+.entry-next-day {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: 0.5rem;
+  transform: translateY(-50%);
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.entry-next-day:not(:empty) {
+  border: 1px solid #a4bce8;
+  border-radius: 0.25rem;
+  padding: 0.0625rem 0.25rem;
+}
+
+.entry-next-day:not(:empty) + input {
+  padding-inline-end: 3.75rem;
+}
+
 .entry-details fieldset {
   min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
-}
-
-.entry-overnight {
-  position: sticky;
-  inset-inline-start: 1rem;
-  box-sizing: border-box;
-  max-width: calc(100cqi - 5.25rem);
-  margin: 0 0 0.5rem;
-  padding-inline-start: 0.625rem;
-  border-inline-start: 2px solid #93b4f7;
-  color: inherit;
-  font-size: 0.875rem;
 }
 
 .entry-hint {

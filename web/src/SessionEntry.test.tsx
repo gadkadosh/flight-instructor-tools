@@ -196,6 +196,7 @@ test('validates entries, infers overnight duty, and preserves data after errors'
   const entryRow = end.closest('tr')!;
   const save = screen.getByRole('button', { name: 'Save session' });
   const rowHeight = entryRow.getBoundingClientRect().height;
+  const endWidth = end.getBoundingClientRect().width;
   const form = screen.getByRole('form', { name: 'Add session' });
   const flights = screen.getByRole('table', { name: 'New session flights' });
   expect(flights.getBoundingClientRect().top).toBe(form.getBoundingClientRect().top);
@@ -206,34 +207,35 @@ test('validates entries, infers overnight duty, and preserves data after errors'
     save.getBoundingClientRect().top - entryRow.getBoundingClientRect().bottom;
   const savePosition = saveOffset();
   await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}233');
-  expect(screen.queryByText(/Duty ends the next day/)).toBeNull();
+  expect(within(entryRow).queryByText('+1 day')).toBeNull();
   await userEvent.keyboard('0');
   await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}0100');
-  expect(screen.queryByText(/Duty ends the next day/)).toBeNull();
+  expect(within(entryRow).queryByText('+1 day')).toBeNull();
   expect(saveOffset()).toBe(savePosition);
   await userEvent.keyboard('{Tab}');
-  expect(saveOffset()).toBeGreaterThan(savePosition);
+  expect(saveOffset()).toBe(savePosition);
   expect(entryRow.getBoundingClientRect().height).toBe(rowHeight);
+  expect(end.getBoundingClientRect().width).toBe(endWidth);
   expect(end.getBoundingClientRect().top).toBe(start.getBoundingClientRect().top);
-  const hint = screen.getByText('Duty ends the next day (', { exact: false });
-  expect(hint.textContent).toBe('Duty ends the next day (04.05.2026).');
-  expect(entryRow.contains(hint)).toBe(false);
+  const marker = within(entryRow).getByText('+1 day');
+  expect(marker.getAttribute('title')).toBe('04.05.2026');
   const tableRegion = screen.getByRole('region', { name: 'Sessions table' });
   end.scrollIntoView({ block: 'nearest', inline: 'center' });
   expect(tableRegion.scrollLeft).toBeGreaterThan(0);
-  expect(hint.getBoundingClientRect().left).toBeGreaterThanOrEqual(
-    tableRegion.getBoundingClientRect().left,
-  );
-  expect(hint.getBoundingClientRect().right).toBeLessThanOrEqual(
-    tableRegion.getBoundingClientRect().right,
+  const markerBounds = marker.parentElement!.getBoundingClientRect();
+  const endBounds = end.getBoundingClientRect();
+  expect(markerBounds.right).toBeLessThanOrEqual(tableRegion.getBoundingClientRect().right);
+  expect(markerBounds.right).toBeLessThanOrEqual(endBounds.right);
+  expect(markerBounds.left).toBeGreaterThanOrEqual(
+    endBounds.right - Number.parseFloat(getComputedStyle(end).paddingInlineEnd),
   );
   await expect
     .element(page.getByRole('textbox', { name: 'Duty end' }))
     .toHaveAccessibleDescription(/Duty ends the next day.*04\.05\.2026/);
   await userEvent.fill(end, '2330');
-  expect(hint.textContent).toBe('Duty ends the next day (04.05.2026).');
+  expect(marker.isConnected).toBe(true);
   await userEvent.keyboard('{Tab}');
-  expect(screen.queryByText(/Duty ends the next day/)).toBeNull();
+  expect(within(entryRow).queryByText('+1 day')).toBeNull();
   expect(saveOffset()).toBe(savePosition);
   await userEvent.fill(end, '0100');
   await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '1:99');

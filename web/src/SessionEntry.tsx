@@ -37,7 +37,6 @@ export default function SessionEntry({
   const repeatRef = useRef<HTMLButtonElement>(null);
   const savingRef = useRef(false);
   const focusStudent = useRef(false);
-  const pointerPress = useRef<{ id?: number; updateHint?: () => void }>({});
   const [id, setId] = useState(() => crypto.randomUUID());
   const [date, setDate] = useState(() => dateInZone(view.timeZone));
   const [startInput, setStartInput] = useState('');
@@ -48,6 +47,9 @@ export default function SessionEntry({
   const [focusFlight, setFocusFlight] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const overnightDateLabel = overnightHintDate
+    ? endDateFormat.format(new Date(`${overnightHintDate}T00:00:00Z`))
+    : undefined;
   const start = parseClock(startInput);
   const end = parseClock(endInput);
   const overnight = Boolean(date && start && end && end < start);
@@ -86,32 +88,6 @@ export default function SessionEntry({
     }
   }, [saving]);
 
-  useEffect(() => {
-    const press = pointerPress.current;
-    const events = new AbortController();
-    const options = { capture: true, signal: events.signal };
-    function startPress(event: PointerEvent) {
-      if (event.isPrimary && event.button === 0) press.id = event.pointerId;
-    }
-    function finishPress(event: PointerEvent) {
-      if (press.id !== event.pointerId) return;
-      press.id = undefined;
-      if (!press.updateHint) return;
-      // Wait for the click before moving any controls below the hint.
-      requestAnimationFrame(() => {
-        if (press.id === undefined) press.updateHint?.();
-      });
-    }
-    document.addEventListener('pointerdown', startPress, options);
-    document.addEventListener('pointerup', finishPress, options);
-    document.addEventListener('pointercancel', finishPress, options);
-    return () => {
-      events.abort();
-      press.id = undefined;
-      press.updateHint = undefined;
-    };
-  }, []);
-
   function addFlight() {
     const flight = newFlight();
     setFlights((previous) => [...previous, flight]);
@@ -125,21 +101,13 @@ export default function SessionEntry({
     }
   }
 
-  function showOvernightHint() {
-    pointerPress.current.updateHint = undefined;
-    setOvernightHintDate(overnight ? endDate : undefined);
-  }
-
-  function confirmOvernightHint() {
-    if (saving || savingRef.current) return;
-    const press = pointerPress.current;
-    if (press.id === undefined) showOvernightHint();
-    else press.updateHint = showOvernightHint;
+  function updateOvernightHint() {
+    if (!saving && !savingRef.current) setOvernightHintDate(overnight ? endDate : undefined);
   }
 
   async function save(form: HTMLFormElement, another: boolean) {
     if (savingRef.current) return;
-    showOvernightHint();
+    updateOvernightHint();
     setError('');
     const data = new FormData(form);
     const text = (name: string) => {
@@ -231,7 +199,7 @@ export default function SessionEntry({
             aria-label="Session date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
-            onBlur={confirmOvernightHint}
+            onBlur={updateOvernightHint}
             required
             disabled={saving}
           />
@@ -265,28 +233,43 @@ export default function SessionEntry({
             onChange={(event) => setStartInput(event.target.value)}
             onBlur={() => {
               setStartInput((value) => parseClock(value) ?? value);
-              confirmOvernightHint();
+              updateOvernightHint();
             }}
             disabled={saving}
           />
         </td>
         <td>
-          <input
-            form={formId}
-            name="end"
-            aria-label="Duty end"
-            aria-describedby={overnightHintDate ? overnightHintId : undefined}
-            placeholder="1730"
-            inputMode="numeric"
-            required
-            value={endInput}
-            onChange={(event) => setEndInput(event.target.value)}
-            onBlur={() => {
-              setEndInput((value) => parseClock(value) ?? value);
-              confirmOvernightHint();
-            }}
-            disabled={saving}
-          />
+          <label className="entry-duty-end">
+            <span id={overnightHintId} className="entry-next-day" aria-live="polite">
+              {overnightHintDate && (
+                <>
+                  <span aria-hidden="true" title={overnightDateLabel}>
+                    +1 day
+                  </span>
+                  <span className="visually-hidden">
+                    Duty ends the next day (
+                    <time dateTime={overnightHintDate}>{overnightDateLabel}</time>).
+                  </span>
+                </>
+              )}
+            </span>
+            <input
+              form={formId}
+              name="end"
+              aria-label="Duty end"
+              aria-describedby={overnightHintDate ? overnightHintId : undefined}
+              placeholder="1730"
+              inputMode="numeric"
+              required
+              value={endInput}
+              onChange={(event) => setEndInput(event.target.value)}
+              onBlur={() => {
+                setEndInput((value) => parseClock(value) ?? value);
+                updateOvernightHint();
+              }}
+              disabled={saving}
+            />
+          </label>
         </td>
         <td>
           <input
@@ -319,17 +302,6 @@ export default function SessionEntry({
               void save(event.currentTarget, another);
             }}
           >
-            <div aria-live="polite">
-              {overnightHintDate && (
-                <p id={overnightHintId} className="entry-overnight">
-                  Duty ends the next day (
-                  <time dateTime={overnightHintDate}>
-                    {endDateFormat.format(new Date(`${overnightHintDate}T00:00:00Z`))}
-                  </time>
-                  ).
-                </p>
-              )}
-            </div>
             <fieldset disabled={saving}>
               <legend className="visually-hidden">Flights</legend>
               <table className="flight-table flight-entry-table" aria-label="New session flights">
