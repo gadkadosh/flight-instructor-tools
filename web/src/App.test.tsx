@@ -134,7 +134,7 @@ test('the session row highlights on hover while expanded', async () => {
   expect(background()).toBe(hoverBackground);
 });
 
-test('shows a next-day marker without growing the saved row and keeps dates for longer sessions', async () => {
+test('reveals the overnight end date without growing the saved row or expanding flights', async () => {
   respond({
     timeZone: 'Europe/Berlin',
     sessions: [
@@ -161,9 +161,31 @@ test('shows a next-day marker without growing the saved row and keeps dates for 
   )!;
   const ordinary = screen.getByRole('rowheader', { name: session.student }).closest('tr')!;
   const endCell = within(overnight).getAllByRole('cell')[4];
-  expect(endCell.textContent).toBe('00:30 LT · +1 day');
-  expect(within(endCell).getByTitle('01.01.2027')).toBeTruthy();
+  const marker = within(endCell).getByRole('button', { name: '+1 day' });
+  const date = page.getByText('End date 01.01.2027');
+  const flights = within(overnight).getByRole('button', { name: /Show flights/ });
+  expect(marker.previousElementSibling?.textContent).toBe('00:30 LT');
   expect(overnight.getBoundingClientRect().height).toBe(ordinary.getBoundingClientRect().height);
+  await expect.element(date).not.toBeVisible();
+
+  flights.focus();
+  await userEvent.keyboard('{Tab}');
+  expect(document.activeElement).toBe(marker);
+  await expect
+    .element(page.elementLocator(marker))
+    .toHaveAccessibleDescription('End date 01.01.2027');
+  await userEvent.keyboard('{Enter}');
+  await expect.element(date).toBeVisible();
+  expect(overnight.getBoundingClientRect().height).toBe(ordinary.getBoundingClientRect().height);
+  expect(flights.getAttribute('aria-expanded')).toBe('false');
+  await userEvent.keyboard('{Escape}');
+  await expect.element(date).not.toBeVisible();
+
+  await userEvent.click(marker);
+  await expect.element(date).toBeVisible();
+  expect(flights.getAttribute('aria-expanded')).toBe('false');
+  await page.getByRole('heading', { name: 'Sessions' }).click();
+  await expect.element(date).not.toBeVisible();
 
   const multiDay = screen.getByRole('rowheader', { name: 'Multi-day Student' }).closest('tr')!;
   expect(within(multiDay).getByText('30.12.2026')).toBeTruthy();
@@ -354,8 +376,10 @@ test('shows the next-day marker with UTC duty times', async () => {
   await screen.findByRole('button', { name: /flights for/ });
   expect(screen.getByText('UTC')).toBeTruthy();
   expect(screen.getByText('22:30').textContent).toBe('22:30 Z');
-  expect(screen.getByText('01:00').textContent).toBe('01:00 Z · +1 day');
-  expect(screen.getByTitle('04.05.2026')).toBeTruthy();
+  expect(screen.getByText('01:00').textContent).toBe('01:00 Z');
+  await expect
+    .element(page.getByRole('button', { name: '+1 day' }))
+    .toHaveAccessibleDescription('End date 04.05.2026');
 });
 
 test('shows an empty state for a valid empty sessions file', async () => {

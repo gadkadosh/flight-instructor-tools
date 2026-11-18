@@ -361,10 +361,48 @@ td {
 }
 
 .time-zone,
-.next-day,
 .time-note {
   color: #566478;
   font-size: 0.8rem;
+}
+
+.next-day {
+  min-height: 1.5rem;
+  border: 0;
+  padding: 0 0.125rem;
+  background: none;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.next-day-date {
+  border: 1px solid #b9c4d2;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  background: #fff;
+  color: #223145;
+  font-size: 0.8rem;
+}
+
+@supports (position-area: bottom) {
+  .next-day-date {
+    position-area: bottom;
+    position-try-fallbacks: flip-block, flip-inline;
+    margin: 0.25rem;
+  }
+}
+
+@supports not selector(:popover-open) {
+  .next-day {
+    display: none;
+  }
+
+  .next-day-date {
+    display: block;
+  }
 }
 
 .time-note {

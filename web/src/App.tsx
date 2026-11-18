@@ -30,6 +30,7 @@ function SessionRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
+  const endDateId = useId();
   const start = new Date(session.dutyStart);
   const end = new Date(session.dutyEnd);
   const startDate = dateFormat.format(start);
@@ -107,14 +108,33 @@ function SessionRow({
         <td className="numeric">
           <time dateTime={session.dutyEnd}>
             {timeFormat.format(end)} <span className="time-zone">{timeSuffix}</span>
-            {endsNextDay ? (
-              <span className="next-day" title={endDate}>
-                {' · +1 day'}
-              </span>
-            ) : (
-              endDate !== startDate && <span className="description">{endDate}</span>
+            {!endsNextDay && endDate !== startDate && (
+              <span className="description">{endDate}</span>
             )}
           </time>
+          {endsNextDay && (
+            <>
+              {' '}
+              <button
+                type="button"
+                className="next-day"
+                popoverTarget={endDateId}
+                aria-describedby={endDateId}
+                title={endDate}
+                onClick={(event) => event.stopPropagation()}
+              >
+                +1 day
+              </button>
+              <span
+                id={endDateId}
+                className="next-day-date"
+                popover="auto"
+                onClick={(event) => event.stopPropagation()}
+              >
+                End date {endDate}
+              </span>
+            </>
+          )}
         </td>
         <td className="numeric">{formatDuration(totals.preparation)}</td>
         <td className="numeric">{formatDuration(totals.block)}</td>
