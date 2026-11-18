@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -71,6 +72,52 @@ func TestBuildMinimalInvoiceDocument(t *testing.T) {
 	for _, expected := range []string{"Alex Beispiel - Blockzeit", ">1:05<", ">32,50 €<", ">45,00 €<"} {
 		if !strings.Contains(rendered.String(), expected) {
 			t.Errorf("rendered invoice does not contain %q", expected)
+		}
+	}
+}
+
+func TestBuildInvoiceDocumentOrdersSessionsByDutyStart(t *testing.T) {
+	sessions := []Session{
+		{
+			ID:         "zulu",
+			DutyStart:  mustTimestamp(t, "2026-05-03T12:00:00Z"),
+			Student:    "Zulu",
+			Activities: []Activity{{ID: "zulu-flight", Type: ActivityDual, Minutes: 60}},
+		},
+		{
+			ID:        "early",
+			DutyStart: mustTimestamp(t, "2026-05-03T13:00:00+02:00"),
+			Student:   "Early",
+			Activities: []Activity{
+				{ID: "early-flight", Type: ActivityDual, Minutes: 60},
+				{ID: "early-prep", Type: ActivityPreparation, Minutes: 30},
+			},
+		},
+		{
+			ID:         "alpha",
+			DutyStart:  mustTimestamp(t, "2026-05-03T14:00:00+02:00"),
+			Student:    "Alpha",
+			Activities: []Activity{{ID: "alpha-flight", Type: ActivityDual, Minutes: 60}},
+		},
+	}
+	config := Config{Rates: []Rate{{EffectiveFrom: "2026-01-01", PreparationCentsPerHour: 2500, BlockCentsPerHour: 3000}}}
+
+	document, err := buildInvoiceDocument(sessions, config, "2026-05", time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var descriptions []string
+	for _, line := range document.Lines {
+		descriptions = append(descriptions, line.Description)
+	}
+	wantDescriptions := []string{"Early - Flugvorbereitung", "Early - Blockzeit", "Zulu - Blockzeit", "Alpha - Blockzeit"}
+	if !slices.Equal(descriptions, wantDescriptions) {
+		t.Errorf("invoice line order = %q, want %q", descriptions, wantDescriptions)
+	}
+	for i, want := range []string{"zulu", "early", "alpha"} {
+		if got := sessions[i].ID; got != want {
+			t.Errorf("input session %d = %q, want %q", i, got, want)
 		}
 	}
 }
