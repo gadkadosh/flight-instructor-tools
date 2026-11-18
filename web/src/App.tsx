@@ -52,12 +52,14 @@ function SessionRow({
         }}
       >
         <td className="select-cell" onClick={(event) => event.stopPropagation()}>
-          <input
-            type="checkbox"
-            aria-label={`Select session for ${subject} on ${startDate}`}
-            checked={selected}
-            onChange={onSelect}
-          />
+          <label>
+            <input
+              type="checkbox"
+              aria-label={`Select session for ${subject} on ${startDate}`}
+              checked={selected}
+              onChange={onSelect}
+            />
+          </label>
         </td>
         <td className="expand-cell">
           {flights.length > 0 && (

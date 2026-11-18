@@ -65,15 +65,22 @@ table {
 }
 
 .select-cell {
+  position: relative;
+}
+
+.select-cell label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
   padding-inline: 1.125rem 0.375rem;
-  text-align: center;
+  cursor: pointer;
 }
 
 .select-cell input {
-  display: block;
   width: 1rem;
   height: 1rem;
-  margin: 0 auto;
+  margin: 0;
   accent-color: #2563eb;
   cursor: pointer;
 }

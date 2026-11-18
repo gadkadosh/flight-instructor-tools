@@ -200,7 +200,7 @@ test('clears selected sessions across months and keeps keyboard focus in the too
   expect(count.textContent).toBe('0 of 2 sessions selected');
   expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
 
-  await userEvent.click(alex);
+  await userEvent.click(alex.closest('td')!, { position: { x: 5, y: 5 } });
   expect([alex.checked, sam.checked]).toEqual([true, false]);
   expect(count.textContent).toBe('1 of 2 sessions selected');
   expect(alex.closest('tr')?.getAttribute('data-selected')).toBe('true');
