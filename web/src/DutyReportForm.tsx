@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { downloadPDF, today } from './documents';
 
+const monthPattern = /^[0-9]{4}-(0[1-9]|1[0-2])$/;
+const reportMonthFormat = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'UTC',
+  month: 'long',
+  year: 'numeric',
+});
+
 function previousMonth(date: string) {
   const year = Number(date.slice(0, 4));
   const month = Number(date.slice(5, 7));
@@ -56,6 +63,10 @@ export default function DutyReportForm({
     return null;
   }
 
+  const monthLabel = monthPattern.test(month)
+    ? reportMonthFormat.format(new Date(`${month}-01T00:00:00Z`))
+    : '';
+
   return (
     <form
       id={id}
@@ -75,7 +86,7 @@ export default function DutyReportForm({
             ref={firstInput}
             type="month"
             required
-            pattern="[0-9]{4}-(0[1-9]|1[0-2])"
+            pattern={monthPattern.source}
             title="Month in YYYY-MM format"
             value={month}
             onChange={(event) => {
@@ -106,13 +117,23 @@ export default function DutyReportForm({
             onChange={(event) => setIssueDate(event.target.value)}
           />
         </label>
-        <div className="document-form-actions">
-          <button type="submit" className="action-button" disabled={generating}>
-            {generating ? 'Generating…' : 'Download PDF'}
-          </button>
-          <button type="button" className="action-button text" onClick={onClose}>
-            Cancel
-          </button>
+        <div className="document-form-footer">
+          <p id={`${id}-scope`} className="document-scope">
+            {monthLabel && `Includes all sessions in ${monthLabel}`}
+          </p>
+          <div className="document-form-actions">
+            <button type="button" className="action-button text" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="action-button"
+              aria-describedby={monthLabel ? `${id}-scope` : undefined}
+              disabled={generating}
+            >
+              {generating ? 'Generating…' : 'Download PDF'}
+            </button>
+          </div>
         </div>
       </fieldset>
       {error && (

@@ -356,6 +356,9 @@ test('the invoice form can close without a selection and retains entered details
   fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
   expect(trigger.disabled).toBe(false);
   fireEvent.click(trigger);
+  await expect
+    .element(page.getByText('Includes 1 selected session', { exact: true }))
+    .toBeVisible();
   const number = screen.getByLabelText<HTMLInputElement>('Invoice number');
   expect(document.activeElement).toBe(number);
   expect(number.value).toBe('');
@@ -371,9 +374,12 @@ test('the invoice form can close without a selection and retains entered details
   expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2027-12');
   fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
   expect(trigger.disabled).toBe(false);
-  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Download PDF' }).disabled).toBe(
-    true,
-  );
+  expect(
+    screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Download PDF',
+      description: 'Includes 0 selected sessions',
+    }).disabled,
+  ).toBe(true);
   await userEvent.click(trigger);
   expect(screen.queryByRole('form', { name: 'Generate invoice' })).toBeNull();
   expect(trigger.disabled).toBe(true);
@@ -417,11 +423,18 @@ test('downloads the generated PDF for exactly the sessions selected across month
   );
   await userEvent.click(may);
   fireEvent.click(screen.getByRole('button', { name: 'Generate invoice…' }));
+  await expect.element(page.getByText('Includes 2 selected sessions')).toBeVisible();
   await userEvent.click(screen.getByRole('button', { name: 'Select 1 session in April 2026' }));
+  await expect.element(page.getByText('Includes 3 selected sessions')).toBeVisible();
   await userEvent.click(screen.getByRole('checkbox', { name: /Select session for Alex/ }));
   fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-12' } });
   fireEvent.change(screen.getByLabelText('Issue date'), { target: { value: '2026-06-09' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'Download PDF',
+      description: 'Includes 2 selected sessions',
+    }),
+  );
   expect(fetch).toHaveBeenLastCalledWith('/api/invoice', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -582,8 +595,44 @@ test('switching document forms preserves their independent details and shows onl
   expect(screen.queryByRole('form')).toBeNull();
 });
 
+test('editing the report month keeps the controls and session table in place', async () => {
+  await page.viewport(1280, 720);
+  respond({ timeZone: 'Europe/Berlin', sessions: [session] });
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Generate duty report…' }));
+  const month = screen.getByLabelText('Month');
+  const download = screen.getByRole('button', { name: 'Download PDF' });
+  const sessionsTable = screen.getByRole('table', { name: 'Sessions by month' });
+  const bounds = () =>
+    [month, download, sessionsTable].map((element) => element.getBoundingClientRect().toJSON());
+
+  fireEvent.change(month, { target: { value: '2026-05' } });
+  const initialBounds = bounds();
+  fireEvent.change(month, { target: { value: '2026-09' } });
+  expect(bounds()).toEqual(initialBounds);
+  const scope = screen.getByText('Includes all sessions in September 2026').getBoundingClientRect();
+  const button = download.getBoundingClientRect();
+  expect(month.getBoundingClientRect().bottom).toBeLessThan(button.top);
+  expect(scope.right).toBeLessThan(button.left);
+  expect(scope.top + scope.height / 2).toBeCloseTo(button.top + button.height / 2);
+  fireEvent.change(month, { target: { value: '' } });
+  expect(bounds()).toEqual(initialBounds);
+});
+
 test('duty report download ignores table selection and preserves details after an error', async () => {
-  const fetch = respond({ timeZone: 'Europe/Berlin', sessions: [session] });
+  const fetch = respond({
+    timeZone: 'Europe/Berlin',
+    sessions: [
+      session,
+      {
+        ...session,
+        id: 'session-2',
+        student: 'Sam Beispiel',
+        dutyStart: '2026-06-03T22:30:00Z',
+        dutyEnd: '2026-06-03T23:55:00Z',
+      },
+    ],
+  });
   vi.stubGlobal('URL', {
     createObjectURL: vi.fn().mockReturnValue('blob:report'),
     revokeObjectURL: vi.fn(),
@@ -598,9 +647,18 @@ test('duty report download ignores table selection and preserves details after a
   const trigger = await screen.findByRole<HTMLButtonElement>('button', {
     name: 'Generate duty report…',
   });
-  fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
+  const juneSession = screen.getByRole<HTMLInputElement>('checkbox', {
+    name: 'Select session for Sam Beispiel on 04.06.2026',
+  });
+  fireEvent.click(juneSession);
   fireEvent.click(trigger);
-  fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-05' } });
+  const month = screen.getByLabelText('Month');
+  fireEvent.change(month, { target: { value: '2026-06' } });
+  await expect.element(page.getByText('Includes all sessions in June 2026')).toBeVisible();
+  fireEvent.change(month, { target: { value: '' } });
+  expect(screen.queryByText(/Includes all sessions in/)).toBeNull();
+  fireEvent.change(month, { target: { value: '2026-05' } });
+  await expect.element(page.getByText('Includes all sessions in May 2026')).toBeVisible();
   fireEvent.change(screen.getByLabelText('Flight-duty total before this month'), {
     target: { value: '120:00' },
   });
@@ -618,7 +676,6 @@ test('duty report download ignores table selection and preserves details after a
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   fireEvent.click(trigger);
   expect(screen.queryByRole('alert')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
   expect(trigger.disabled).toBe(false);
   expect(screen.getByLabelText<HTMLInputElement>('Month').value).toBe('2026-05');
   expect(screen.getByLabelText<HTMLInputElement>('Flight-duty total before this month').value).toBe(
@@ -627,7 +684,12 @@ test('duty report download ignores table selection and preserves details after a
   fetch.mockResolvedValueOnce(
     new Response('%PDF-1.7\nduty report', { headers: { 'Content-Type': 'application/pdf' } }),
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'Download PDF',
+      description: 'Includes all sessions in May 2026',
+    }),
+  );
   await waitFor(() => expect(downloads).toEqual(['Dienstzeitnachweis-2026-05.pdf']));
   expect(fetch).toHaveBeenLastCalledWith('/api/duty-report', {
     method: 'POST',
@@ -640,5 +702,6 @@ test('duty report download ignores table selection and preserves details after a
   });
   expect(screen.queryByRole('alert')).toBeNull();
   expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-06-09');
-  expect(screen.getByRole('status').textContent).toBe('0 of 1 session selected');
+  expect(juneSession.checked).toBe(true);
+  expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
 });
