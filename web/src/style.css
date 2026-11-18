@@ -418,6 +418,7 @@ td {
   outline: none;
 }
 
+.session-row:has([aria-expanded='true']),
 .activity-details {
   background: #f8fafc;
 }
