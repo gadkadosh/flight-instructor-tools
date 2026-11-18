@@ -35,6 +35,32 @@ export const activityKinds: Record<
   schnupperflug: { label: 'Schnupperflug', summary: 'block', studentRequired: false },
 };
 
+export function groupSessionsByMonth(sessions: Session[], timeZone: string) {
+  const monthParts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+  });
+  const monthLabel = new Intl.DateTimeFormat('en-GB', { timeZone, month: 'long', year: 'numeric' });
+  const groups = new Map<number, { label: string; sessions: Session[] }>();
+  for (const session of sessions) {
+    const date = new Date(session.dutyStart);
+    const parts = monthParts.formatToParts(date);
+    const year = Number(parts.find((part) => part.type === 'year')?.value);
+    const month = Number(parts.find((part) => part.type === 'month')?.value);
+    const monthIndex = year * 12 + month;
+    const group = groups.get(monthIndex);
+    if (group) group.sessions.push(session);
+    else groups.set(monthIndex, { label: monthLabel.format(date), sessions: [session] });
+  }
+  for (const group of groups.values()) {
+    group.sessions.sort(
+      (first, second) => Date.parse(second.dutyStart) - Date.parse(first.dutyStart),
+    );
+  }
+  return [...groups].sort(([first], [second]) => second - first);
+}
+
 export function formatDuration(minutes: number) {
   return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
 }

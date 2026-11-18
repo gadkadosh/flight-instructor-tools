@@ -2,7 +2,6 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, expect, test, vi } from 'vite-plus/test';
 import { page, userEvent } from 'vite-plus/test/browser';
 import App from './App';
-import SelectionMenu from './SelectionMenu';
 import './style.css';
 
 const session = {
@@ -37,12 +36,7 @@ afterEach(async () => {
   await page.viewport(1280, 720);
 });
 
-function selectPreset(name: string) {
-  fireEvent.click(screen.getByRole('button', { name: 'Select sessions' }));
-  fireEvent.click(screen.getByRole('menuitem', { name }));
-}
-
-test('loads sessions in file order and expands flights by clicking a data cell', async () => {
+test('loads sessions and expands flights by clicking a data cell', async () => {
   const fetch = respond({
     timeZone: 'Europe/Berlin',
     sessions: [
@@ -67,13 +61,9 @@ test('loads sessions in file order and expands flights by clicking a data cell',
     expect.objectContaining({ signal: expect.any(AbortSignal) }),
   );
   expect(screen.getByText('Europe/Berlin')).toBeTruthy();
-  const rows = within(screen.getByRole('table', { name: 'Sessions in file order' })).getAllByRole(
-    'row',
-  );
-  expect(rows).toHaveLength(3);
-  expect(rows[1].textContent).toContain('Alex Beispiel');
-  expect(rows[2].textContent).toContain('Rundflug');
-  const cells = within(rows[1]).getAllByRole('cell');
+  expect(screen.getByRole('rowheader', { name: 'Rundflug' })).toBeTruthy();
+  const row = within(toggle.closest('tr')!);
+  const cells = row.getAllByRole('cell');
   expect(cells[1].contains(toggle)).toBe(true);
   expect(cells.slice(2).map((cell) => cell.textContent)).toEqual([
     '04.05.2026',
@@ -91,7 +81,7 @@ test('loads sessions in file order and expands flights by clicking a data cell',
 
   fireEvent.click(cells[2]);
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
-  expect(within(rows[1]).getByRole<HTMLInputElement>('checkbox').checked).toBe(false);
+  expect(row.getByRole<HTMLInputElement>('checkbox').checked).toBe(false);
   expect(screen.getAllByRole('table')).toHaveLength(2);
   const flights = screen.getByRole('table', { name: 'Flights for Alex Beispiel on 04.05.2026' });
   expect(
@@ -181,79 +171,67 @@ test('special flights count as own block time and retain their types in flight r
   expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
 });
 
-test('selects sessions individually and in bulk without expanding flights', async () => {
+test('clears selected sessions across months and keeps keyboard focus in the toolbar', async () => {
   respond({
     timeZone: 'UTC',
-    sessions: [session, { ...session, id: 'session-2', student: 'Sam Beispiel' }],
+    sessions: [
+      session,
+      {
+        ...session,
+        id: 'session-2',
+        student: 'Sam Beispiel',
+        dutyStart: '2026-04-03T22:30:00Z',
+        dutyEnd: '2026-04-03T23:55:00Z',
+      },
+    ],
   });
   render(<App />);
-  const selectionMenu = await screen.findByRole<HTMLButtonElement>('button', {
-    name: 'Select sessions',
-  });
-  const alex = screen.getByRole<HTMLInputElement>('checkbox', {
+  const alex = await screen.findByRole<HTMLInputElement>('checkbox', {
     name: 'Select session for Alex Beispiel on 03.05.2026',
   });
   const sam = screen.getByRole<HTMLInputElement>('checkbox', {
-    name: 'Select session for Sam Beispiel on 03.05.2026',
+    name: 'Select session for Sam Beispiel on 03.04.2026',
   });
   const toggle = screen.getByRole('button', {
     name: 'Show flights for Alex Beispiel on 03.05.2026',
   });
+  const count = screen.getByRole('status');
   expect([alex.checked, sam.checked]).toEqual([false, false]);
-  expect(screen.getByRole('status').textContent).toBe('0 of 2 sessions selected');
+  expect(count.textContent).toBe('0 of 2 sessions selected');
+  expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
 
-  await userEvent.click(alex);
+  await userEvent.click(alex.closest('td')!, { position: { x: 5, y: 5 } });
   expect([alex.checked, sam.checked]).toEqual([true, false]);
-  expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
+  expect(count.textContent).toBe('1 of 2 sessions selected');
   expect(alex.closest('tr')?.getAttribute('data-selected')).toBe('true');
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
-
-  await userEvent.click(selectionMenu);
-  expect(screen.getByRole('menu')).toBeTruthy();
-  await userEvent.click(selectionMenu);
-  expect(screen.queryByRole('menu')).toBeNull();
-  expect([alex.checked, sam.checked]).toEqual([true, false]);
-  expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
-  await userEvent.click(selectionMenu);
-  await userEvent.keyboard('{Escape}');
 
   fireEvent.click(toggle);
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
   expect(alex.checked).toBe(true);
-  const flights = screen.getByRole('table', { name: 'Flights for Alex Beispiel on 03.05.2026' });
-  expect(flights.closest('td')?.colSpan).toBe(9);
-
-  selectPreset('Select all');
+  await userEvent.click(sam);
   expect([alex.checked, sam.checked]).toEqual([true, true]);
-  expect(screen.getByRole('status').textContent).toBe('2 of 2 sessions selected');
-  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  expect(count.textContent).toBe('2 of 2 sessions selected');
 
-  fireEvent.click(alex);
-  expect([alex.checked, sam.checked]).toEqual([false, true]);
-  expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
+  screen.getByRole('button', { name: 'Clear selection' }).focus();
+  await userEvent.keyboard('{Enter}');
+  expect([alex.checked, sam.checked]).toEqual([false, false]);
+  expect(count.textContent).toBe('0 of 2 sessions selected');
+  expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
   expect(alex.closest('tr')?.getAttribute('data-selected')).toBe('false');
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
-
-  selectPreset('Clear selection');
-  expect([alex.checked, sam.checked]).toEqual([false, false]);
-  expect(screen.getByRole('status').textContent).toBe('0 of 2 sessions selected');
+  expect(document.activeElement).toBe(count);
+  await userEvent.keyboard('{Tab}');
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate duty report' }));
 });
 
-test.each([
-  ['Select this month', ['Today', 'Later today', 'End of month']],
-  ['Select last month', ['Start of last month', 'End of last month']],
-])('%s replaces selection using dates in the configured timezone', async (preset, expected) => {
-  vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date('2026-01-31T23:30:00Z'));
+test('groups sessions newest first by local month and toggles selection from a month heading', async () => {
+  await page.viewport(568, 720);
   const dates = [
-    ['Today', '2026-01-31T23:15:00Z'],
-    ['Later today', '2026-02-01T12:00:00Z'],
-    ['End of month', '2026-02-28T22:59:00Z'],
-    ['Next month', '2026-02-28T23:00:00Z'],
-    ['Start of last month', '2025-12-31T23:00:00Z'],
-    ['End of last month', '2026-01-31T22:59:00Z'],
-    ['Previous month', '2025-12-31T22:59:00Z'],
-    ['Same month last year', '2025-02-01T12:00:00Z'],
+    ['Last January', '2025-01-11T12:00:00Z'],
+    ['New Year lesson', '2025-12-31T23:30:00Z'],
+    ['December lesson', '2025-12-31T22:30:00Z'],
+    ['January lesson', '2026-01-02T08:00:00Z'],
   ];
   respond({
     timeZone: 'Europe/Berlin',
@@ -262,163 +240,44 @@ test.each([
       id: student,
       student,
       dutyStart,
-      dutyEnd: new Date(Date.parse(dutyStart) + 3600000).toISOString(),
+      dutyEnd: new Date(Date.parse(dutyStart) + 60 * 60 * 1000).toISOString(),
     })),
   });
   render(<App />);
-  await screen.findByRole('button', { name: 'Select sessions' });
-  selectPreset('Select all');
-  for (let attempt = 0; attempt < 2; attempt++) {
-    selectPreset(preset);
-    const selected = screen
-      .getAllByRole<HTMLInputElement>('checkbox', { name: /^Select session for / })
-      .filter((checkbox) => checkbox.checked)
-      .map((checkbox) => within(checkbox.closest('tr')!).getByRole('rowheader').textContent);
-    expect(selected).toEqual(expected);
-    expect(screen.getByRole('status').textContent).toBe(
-      `${expected.length} of 8 sessions selected`,
-    );
-    expect(screen.queryByRole('menu')).toBeNull();
-  }
-});
-
-test('last month includes December of the previous year and clears a selection when empty', async () => {
-  vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date('2026-01-01T12:00:00Z'));
-  respond({
-    timeZone: 'UTC',
-    sessions: [
-      { ...session, dutyStart: '2025-12-31T23:30:00Z', dutyEnd: '2026-01-01T00:30:00Z' },
-      { ...session, id: 'older', student: 'Older', dutyStart: '2024-12-31T23:30:00Z' },
-    ],
-  });
-  render(<App />);
-  await screen.findByRole('button', { name: 'Select sessions' });
-  selectPreset('Select last month');
-  expect(screen.getByRole<HTMLInputElement>('checkbox', { name: /Alex Beispiel/ }).checked).toBe(
-    true,
-  );
-  expect(screen.getByRole<HTMLInputElement>('checkbox', { name: /Older/ }).checked).toBe(false);
-  selectPreset('Select this month');
+  const table = await screen.findByRole('table', { name: 'Sessions by month' });
+  const groups = within(table).getAllByRole('rowgroup').slice(1);
   expect(
-    screen
-      .getAllByRole<HTMLInputElement>('checkbox', { name: /^Select session for / })
-      .every((checkbox) => !checkbox.checked),
-  ).toBe(true);
-  expect(screen.getByRole('status').textContent).toBe('0 of 2 sessions selected');
-});
-
-test('selection menu supports keyboard navigation, dismissal and restoring focus', async () => {
-  respond({ timeZone: 'UTC', sessions: [session] });
-  render(<App />);
-  const trigger = await screen.findByRole<HTMLButtonElement>('button', {
-    name: 'Select sessions',
-  });
-  await userEvent.click(trigger);
-  expect(trigger.getAttribute('aria-expanded')).toBe('true');
-  expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
-    'Select this month',
-    'Select last month',
-    'Select all',
-    'Clear selection',
+    groups.map((group) =>
+      within(group)
+        .getByRole('button', { name: /^Select \d/ })
+        .getAttribute('aria-label'),
+    ),
+  ).toEqual([
+    'Select 2 sessions in January 2026',
+    'Select 1 session in December 2025',
+    'Select 1 session in January 2025',
   ]);
-  expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Select this month' }));
-  await userEvent.keyboard('{ArrowUp}');
-  expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Clear selection' }));
-  await userEvent.keyboard('{Home}');
-  await userEvent.keyboard('{ArrowDown}');
-  expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Select last month' }));
-  await userEvent.keyboard('{End}');
-  expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Clear selection' }));
-  await userEvent.keyboard('{Escape}');
-  expect(screen.queryByRole('menu')).toBeNull();
-  expect(document.activeElement).toBe(trigger);
-  expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  const monthButton = (action: 'Select' | 'Deselect') =>
+    within(table).getByRole('button', { name: `${action} 2 sessions in January 2026` });
+  const selected = () =>
+    within(table)
+      .queryAllByRole('checkbox', { checked: true })
+      .map((checkbox) => within(checkbox.closest('tr')!).getByRole('rowheader').textContent);
 
-  await userEvent.keyboard(' ');
-  expect(screen.getByRole('menu')).toBeTruthy();
-  expect(
-    screen.getByRole<HTMLInputElement>('checkbox', { name: /^Select session for / }).checked,
-  ).toBe(false);
-  await userEvent.keyboard('{Escape}');
-
-  await userEvent.keyboard('{Enter}');
-  expect(screen.getByRole('menu')).toBeTruthy();
-  await userEvent.keyboard('{Escape}');
-
-  await userEvent.keyboard('{ArrowDown}');
-  await userEvent.click(screen.getByRole('menuitem', { name: 'Select all' }));
-  expect(document.activeElement).toBe(trigger);
-  expect(
-    screen.getByRole<HTMLInputElement>('checkbox', { name: /^Select session for / }).checked,
-  ).toBe(true);
-
-  await userEvent.keyboard('{ArrowUp}');
-  expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Clear selection' }));
-  await userEvent.keyboard('{Tab}');
-  expect(screen.queryByRole('menu')).toBeNull();
-  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate invoice' }));
-
-  await userEvent.click(trigger);
-  await userEvent.click(screen.getByRole('heading', { name: 'Sessions' }));
-  expect(screen.queryByRole('menu')).toBeNull();
-  expect(
-    screen.getByRole<HTMLInputElement>('checkbox', { name: /^Select session for / }).checked,
-  ).toBe(true);
-
-  await userEvent.click(trigger);
-  await userEvent.click(trigger);
-  expect(screen.queryByRole('menu')).toBeNull();
-});
-
-test.each([720, 320, 240])('selection menu stays onscreen at 568 × %i', async (height) => {
-  await page.viewport(568, height);
-  respond({ timeZone: 'UTC', sessions: [session] });
-  render(<App />);
-  const trigger = await screen.findByRole('button', { name: 'Select sessions' });
-  await userEvent.click(screen.getByRole('checkbox', { name: /^Select session for / }));
-  await userEvent.click(trigger);
-
-  const bounds = screen.getByRole('menu').getBoundingClientRect();
-  expect(bounds.top).toBeGreaterThanOrEqual(0);
-  expect(bounds.bottom).toBeLessThanOrEqual(height);
-  expect(bounds.left).toBeGreaterThanOrEqual(0);
-  expect(bounds.right).toBeLessThanOrEqual(568);
-  const anchor = trigger.getBoundingClientRect();
-  expect(bounds.left).toBeCloseTo(anchor.left + 4);
-  expect(bounds.top >= anchor.bottom || bounds.bottom <= anchor.top).toBe(true);
-  await userEvent.keyboard('{End}');
-  const clear = screen.getByRole('menuitem', { name: 'Clear selection' });
-  expect(document.activeElement).toBe(clear);
-  expect(clear.getBoundingClientRect().bottom).toBeLessThanOrEqual(height);
-  await userEvent.click(clear);
-  expect(screen.getByRole('status').textContent).toBe('0 of 1 session selected');
-  expect(document.activeElement).toBe(trigger);
-});
-
-test('a constrained menu scrolls internally to keep keyboard-focused options reachable', async () => {
-  await page.viewport(568, 100);
-  const onSelectionChange = vi.fn();
-  render(
-    <div style={{ position: 'fixed', top: '50%', left: '1rem' }}>
-      <SelectionMenu sessions={[session]} timeZone="UTC" onSelectionChange={onSelectionChange} />
-    </div>,
+  expect(monthButton('Select').getBoundingClientRect().right).toBeLessThanOrEqual(568);
+  await userEvent.click(
+    within(table).getByRole('button', { name: 'Select 1 session in December 2025' }),
   );
-  await userEvent.click(screen.getByRole('button', { name: 'Select sessions' }));
-  const menu = screen.getByRole('menu');
-  expect(menu.scrollHeight).toBeGreaterThan(menu.clientHeight);
-  expect(menu.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
-  expect(menu.getBoundingClientRect().bottom).toBeLessThanOrEqual(100);
+  await userEvent.click(monthButton('Select'));
+  expect(selected()).toEqual(['January lesson', 'New Year lesson', 'December lesson']);
+  expect(screen.getByRole('status').textContent).toBe('3 of 4 sessions selected');
 
-  await userEvent.keyboard('{End}');
-  const clear = screen.getByRole('menuitem', { name: 'Clear selection' });
-  expect(document.activeElement).toBe(clear);
-  expect(menu.scrollTop).toBeGreaterThan(0);
-  expect(clear.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
-  expect(clear.getBoundingClientRect().bottom).toBeLessThanOrEqual(100);
-  await userEvent.keyboard('{Enter}');
-  expect(onSelectionChange).toHaveBeenCalledExactlyOnceWith(new Set());
-  expect(screen.queryByRole('menu')).toBeNull();
+  await userEvent.click(within(table).getByRole('checkbox', { name: /New Year lesson/ }));
+  expect(selected()).toEqual(['January lesson', 'December lesson']);
+  await userEvent.click(monthButton('Select'));
+  expect(selected()).toEqual(['January lesson', 'New Year lesson', 'December lesson']);
+  await userEvent.click(monthButton('Deselect'));
+  expect(selected()).toEqual(['December lesson']);
 });
 
 test('preparation-only sessions have no flight expansion', async () => {
@@ -429,7 +288,6 @@ test('preparation-only sessions have no flight expansion', async () => {
   expect(screen.queryByRole('button', { name: /flights for/ })).toBeNull();
   fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
   expect(screen.getByRole('status').textContent).toBe('1 of 1 session selected');
-  expect(screen.getByRole('button', { name: 'Select sessions' })).toBeTruthy();
 });
 
 test('shows the end date for sessions crossing midnight in the display timezone', async () => {
@@ -489,17 +347,27 @@ test('invoice controls require a selection and retain entered details when cance
   expect(document.activeElement).toBe(trigger);
   fireEvent.click(trigger);
   expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2027-12');
-  selectPreset('Clear selection');
+  fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
   expect(trigger.disabled).toBe(true);
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Download PDF' }).disabled).toBe(
     true,
   );
 });
 
-test('downloads the generated PDF for exactly the selected sessions without clearing selection', async () => {
+test('downloads the generated PDF for exactly the sessions selected across months', async () => {
   const fetch = respond({
     timeZone: 'UTC',
-    sessions: [session, { ...session, id: 'session-2', student: 'Sam Beispiel' }],
+    sessions: [
+      session,
+      { ...session, id: 'session-2', student: 'Sam Beispiel' },
+      {
+        ...session,
+        id: 'session-3',
+        student: 'Robin Beispiel',
+        dutyStart: '2026-04-03T22:30:00Z',
+        dutyEnd: '2026-04-03T23:55:00Z',
+      },
+    ],
   });
   const pdf = '%PDF-1.7\ninvoice';
   let finish!: (response: Response) => void;
@@ -512,8 +380,8 @@ test('downloads the generated PDF for exactly the selected sessions without clea
     downloads.push({ href: this.href, name: this.download, connected: this.isConnected });
   });
   render(<App />);
-  const sam = await screen.findByRole<HTMLInputElement>('checkbox', {
-    name: /Select session for Sam/,
+  const may = await screen.findByRole('button', {
+    name: 'Select 2 sessions in May 2026',
   });
   fetch.mockImplementationOnce(
     () =>
@@ -521,11 +389,10 @@ test('downloads the generated PDF for exactly the selected sessions without clea
         finish = resolve;
       }),
   );
-  const alex = screen.getByRole('checkbox', { name: /Select session for Alex/ });
-  fireEvent.click(alex);
+  await userEvent.click(may);
   fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }));
-  fireEvent.click(alex);
-  fireEvent.click(sam);
+  await userEvent.click(screen.getByRole('button', { name: 'Select 1 session in April 2026' }));
+  await userEvent.click(screen.getByRole('checkbox', { name: /Select session for Alex/ }));
   fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-12' } });
   fireEvent.change(screen.getByLabelText('Issue date'), { target: { value: '2026-06-09' } });
   fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
@@ -533,7 +400,7 @@ test('downloads the generated PDF for exactly the selected sessions without clea
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      sessionIds: ['session-2'],
+      sessionIds: ['session-2', 'session-3'],
       number: '2026-12',
       issueDate: '2026-06-09',
     }),
@@ -565,10 +432,12 @@ test('downloads the generated PDF for exactly the selected sessions without clea
   expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-12');
   expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-06-09');
   expect(screen.queryByText('PDF download started.')).toBeNull();
-  expect(sam.checked).toBe(true);
   expect(
-    screen.getByRole<HTMLInputElement>('checkbox', { name: /Select session for Alex/ }).checked,
-  ).toBe(false);
+    screen.getAllByRole('checkbox', { checked: true }).map((checkbox) => checkbox.ariaLabel),
+  ).toEqual([
+    'Select session for Sam Beispiel on 03.05.2026',
+    'Select session for Robin Beispiel on 03.04.2026',
+  ]);
   expect(document.querySelector('a[download]')).toBeNull();
   await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:invoice'), {
     timeout: 2000,
@@ -579,7 +448,7 @@ test('invoice errors preserve form details and allow retrying', async () => {
   const fetch = respond({ timeZone: 'UTC', sessions: [session] });
   render(<App />);
   await screen.findByRole('button', { name: 'Generate invoice' });
-  selectPreset('Select all');
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }));
   fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-12' } });
   fetch.mockResolvedValueOnce(
@@ -651,7 +520,7 @@ test('switching document forms preserves their independent details and shows onl
   respond({ timeZone: 'UTC', sessions: [session] });
   render(<App />);
   const reportTrigger = await screen.findByRole('button', { name: 'Generate duty report' });
-  selectPreset('Select all');
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
   const invoiceTrigger = screen.getByRole('button', { name: 'Generate invoice' });
   fireEvent.click(invoiceTrigger);
   fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-123' } });
@@ -703,7 +572,7 @@ test('duty report download ignores table selection and preserves details after a
   const trigger = await screen.findByRole<HTMLButtonElement>('button', {
     name: 'Generate duty report',
   });
-  selectPreset('Select all');
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
   fireEvent.click(trigger);
   fireEvent.change(screen.getByLabelText('Month'), { target: { value: '2026-05' } });
   fireEvent.change(screen.getByLabelText('Flight-duty total before this month'), {
@@ -723,7 +592,7 @@ test('duty report download ignores table selection and preserves details after a
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   fireEvent.click(trigger);
   expect(screen.queryByRole('alert')).toBeNull();
-  selectPreset('Clear selection');
+  fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
   expect(trigger.disabled).toBe(false);
   expect(screen.getByLabelText<HTMLInputElement>('Month').value).toBe('2026-05');
   expect(screen.getByLabelText<HTMLInputElement>('Flight-duty total before this month').value).toBe(

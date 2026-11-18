@@ -1,7 +1,13 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
-import { activityKinds, formatDuration, type Session, type SessionView } from './sessions';
+import {
+  activityKinds,
+  formatDuration,
+  groupSessionsByMonth,
+  type Session,
+  type SessionView,
+} from './sessions';
 
 type LoadState =
   | { status: 'loading' }
@@ -46,12 +52,14 @@ function SessionRow({
         }}
       >
         <td className="select-cell" onClick={(event) => event.stopPropagation()}>
-          <input
-            type="checkbox"
-            aria-label={`Select session for ${subject} on ${startDate}`}
-            checked={selected}
-            onChange={onSelect}
-          />
+          <label>
+            <input
+              type="checkbox"
+              aria-label={`Select session for ${subject} on ${startDate}`}
+              checked={selected}
+              onChange={onSelect}
+            />
+          </label>
         </td>
         <td className="expand-cell">
           {flights.length > 0 && (
@@ -140,6 +148,10 @@ function SessionTable({
 }) {
   const [view, setView] = useState(initialView);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
+  const monthGroups = useMemo(
+    () => groupSessionsByMonth(view.sessions, view.timeZone),
+    [view.sessions, view.timeZone],
+  );
   const dateFormat = new Intl.DateTimeFormat('de-DE', {
     timeZone: view.timeZone,
     day: '2-digit',
@@ -153,13 +165,25 @@ function SessionTable({
     hourCycle: 'h23',
   });
 
+  function toggleSessions(sessions: Session[]) {
+    setSelectedSessionIds((previous) => {
+      const allSelected = sessions.every((session) => previous.has(session.id));
+      const next = new Set(previous);
+      for (const { id } of sessions) {
+        if (allSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }
+
   return (
     <>
       <SessionToolbar
         selectedSessionIds={selectedSessionIds}
-        sessions={view.sessions}
+        sessionCount={view.sessions.length}
         timeZone={view.timeZone}
-        onSelectionChange={setSelectedSessionIds}
+        onClearSelection={() => setSelectedSessionIds(new Set())}
       />
       {view.sessions.length === 0 && <p role="status">No sessions yet.</p>}
       {(view.sessions.length > 0 || adding) && (
@@ -172,7 +196,7 @@ function SessionTable({
               <col />
               <col className="time-column" span={5} />
             </colgroup>
-            <caption className="visually-hidden">Sessions in file order</caption>
+            <caption className="visually-hidden">Sessions by month</caption>
             <thead>
               <tr>
                 <th scope="col" className="select-cell">
@@ -200,26 +224,45 @@ function SessionTable({
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {adding && <SessionEntry view={view} onSaved={setView} onClose={onCloseEntry} />}
-              {view.sessions.map((session) => (
-                <SessionRow
-                  key={session.id}
-                  session={session}
-                  dateFormat={dateFormat}
-                  timeFormat={timeFormat}
-                  selected={selectedSessionIds.has(session.id)}
-                  onSelect={() => {
-                    setSelectedSessionIds((previous) => {
-                      const next = new Set(previous);
-                      if (next.has(session.id)) next.delete(session.id);
-                      else next.add(session.id);
-                      return next;
-                    });
-                  }}
-                />
-              ))}
-            </tbody>
+            {adding && (
+              <tbody>
+                <SessionEntry view={view} onSaved={setView} onClose={onCloseEntry} />
+              </tbody>
+            )}
+            {monthGroups.map(([month, { label, sessions }]) => {
+              const allSelected = sessions.every((session) => selectedSessionIds.has(session.id));
+              const selectionLabel = `${allSelected ? 'Deselect' : 'Select'} ${sessions.length} ${sessions.length === 1 ? 'session' : 'sessions'}`;
+              return (
+                <tbody key={month}>
+                  <tr className="month-heading">
+                    <th scope="rowgroup" colSpan={9} aria-label={label}>
+                      <div className="month-heading-content">
+                        {label}
+                        <button
+                          type="button"
+                          className="action-button secondary"
+                          aria-label={`${selectionLabel} in ${label}`}
+                          data-selected={allSelected}
+                          onClick={() => toggleSessions(sessions)}
+                        >
+                          {selectionLabel}
+                        </button>
+                      </div>
+                    </th>
+                  </tr>
+                  {sessions.map((session) => (
+                    <SessionRow
+                      key={session.id}
+                      session={session}
+                      dateFormat={dateFormat}
+                      timeFormat={timeFormat}
+                      selected={selectedSessionIds.has(session.id)}
+                      onSelect={() => toggleSessions([session])}
+                    />
+                  ))}
+                </tbody>
+              );
+            })}
           </table>
         </div>
       )}
