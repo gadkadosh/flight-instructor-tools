@@ -12,8 +12,14 @@ func buildInvoiceDocument(sessions []Session, config Config, number string, issu
 	if err != nil {
 		return Document{}, err
 	}
+
+	orderedSessions := slices.Clone(sessions)
+	slices.SortStableFunc(orderedSessions, func(a, b Session) int {
+		return a.DutyStart.Compare(b.DutyStart)
+	})
+
 	var lines []Line
-	for _, session := range sessions {
+	for _, session := range orderedSessions {
 		sessionDate := session.DutyStart.In(location)
 		rate, err := rateForDate(config.Rates, sessionDate)
 		if err != nil {
