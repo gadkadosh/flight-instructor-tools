@@ -112,6 +112,28 @@ test('loads sessions and expands flights by clicking a data cell', async () => {
   ).toBeNull();
 });
 
+test('the session row highlights on hover while expanded', async () => {
+  respond({ timeZone: 'UTC', sessions: [session] });
+  render(<App />);
+  const subject = page.getByRole('rowheader', { name: session.student });
+  const heading = page.getByRole('heading', { name: 'Sessions' });
+  const row = (await screen.findByRole('rowheader', { name: session.student })).closest('tr')!;
+  const background = () => getComputedStyle(row).backgroundColor;
+
+  await heading.hover();
+  const collapsedBackground = background();
+  await subject.hover();
+  const hoverBackground = background();
+  expect(hoverBackground).not.toBe(collapsedBackground);
+
+  await page.getByRole('button', { name: /Show flights for Alex Beispiel/ }).click();
+  expect(screen.getByRole('table', { name: /Flights for Alex Beispiel/ })).toBeTruthy();
+  await heading.hover();
+  expect(background()).not.toBe(hoverBackground);
+  await subject.hover();
+  expect(background()).toBe(hoverBackground);
+});
+
 test('special flights count as own block time and retain their types in flight rows', async () => {
   respond({
     timeZone: 'UTC',
