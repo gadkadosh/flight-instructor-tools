@@ -1,14 +1,15 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vite-plus/test';
-import { userEvent } from 'vite-plus/test/browser';
+import { page, userEvent } from 'vite-plus/test/browser';
 import App from './App';
 import type { Session } from './sessions';
 import './style.css';
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  await page.viewport(1280, 720);
 });
 
 function sessionAPI(sessions: Session[] = []) {
@@ -143,9 +144,12 @@ test('save-and-add shortcut retains the date, resets inputs, and focuses the stu
   await fillBasics();
   await userEvent.fill(screen.getByLabelText('Preparation duration'), '0:30');
   await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '65');
+  await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
   await userEvent.keyboard('{Control>}{Enter}{/Control}');
   await screen.findByRole('rowheader', { name: 'New Student' });
+  expect(entries[0]).toMatchObject({ dutyEnd: '2026-05-04T01:00' });
   await expect.poll(() => document.activeElement).toBe(screen.getByLabelText('Student'));
+  expect(screen.queryByText(/Duty ends the next day/)).toBeNull();
   expect((screen.getByLabelText('Session date') as HTMLInputElement).value).toBe('2026-05-03');
   for (const label of [
     'Student',
@@ -233,6 +237,7 @@ test('removing flights updates totals and keeps keyboard focus in the editor', a
 });
 
 test('validates entries, infers overnight duty, and preserves data after errors', async () => {
+  await page.viewport(390, 720);
   const { fetch, entries } = sessionAPI();
   await openEntry();
   await fillBasics();
@@ -240,13 +245,57 @@ test('validates entries, infers overnight duty, and preserves data after errors'
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect(screen.getByRole('alert').textContent).toContain('duty start');
   expect(document.activeElement).toBe(screen.getByLabelText('Duty start'));
-  await userEvent.fill(screen.getByLabelText('Duty start'), '2300');
-  await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
+  const start = screen.getByLabelText('Duty start');
+  const end = screen.getByLabelText('Duty end');
+  const entryRow = end.closest('tr')!;
+  const save = screen.getByRole('button', { name: 'Save session' });
+  const rowHeight = entryRow.getBoundingClientRect().height;
+  const endWidth = end.getBoundingClientRect().width;
+  const form = screen.getByRole('form', { name: 'Add session' });
+  const flights = screen.getByRole('table', { name: 'New session flights' });
+  expect(flights.getBoundingClientRect().top).toBe(form.getBoundingClientRect().top);
+  await userEvent.fill(end, '2330');
+  await userEvent.fill(start, '2300');
+  await userEvent.click(end);
+  const saveOffset = () =>
+    save.getBoundingClientRect().top - entryRow.getBoundingClientRect().bottom;
+  const savePosition = saveOffset();
+  await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}233');
+  expect(within(entryRow).queryByText('+1 day')).toBeNull();
+  await userEvent.keyboard('0');
+  await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}0100');
+  expect(within(entryRow).queryByText('+1 day')).toBeNull();
+  expect(saveOffset()).toBe(savePosition);
+  await userEvent.keyboard('{Tab}');
+  expect(saveOffset()).toBe(savePosition);
+  expect(entryRow.getBoundingClientRect().height).toBe(rowHeight);
+  expect(end.getBoundingClientRect().width).toBe(endWidth);
+  expect(end.getBoundingClientRect().top).toBe(start.getBoundingClientRect().top);
+  const marker = within(entryRow).getByText('+1 day');
+  expect(marker.getAttribute('title')).toBe('04.05.2026');
+  const tableRegion = screen.getByRole('region', { name: 'Sessions table' });
+  end.scrollIntoView({ block: 'nearest', inline: 'center' });
+  expect(tableRegion.scrollLeft).toBeGreaterThan(0);
+  const markerBounds = marker.parentElement!.getBoundingClientRect();
+  const endBounds = end.getBoundingClientRect();
+  expect(markerBounds.right).toBeLessThanOrEqual(tableRegion.getBoundingClientRect().right);
+  expect(markerBounds.right).toBeLessThanOrEqual(endBounds.right);
+  expect(markerBounds.left).toBeGreaterThanOrEqual(
+    endBounds.right - Number.parseFloat(getComputedStyle(end).paddingInlineEnd),
+  );
+  await expect
+    .element(page.getByRole('textbox', { name: 'Duty end' }))
+    .toHaveAccessibleDescription(/Duty ends the next day.*04\.05\.2026/);
+  await userEvent.fill(end, '2330');
+  expect(marker.isConnected).toBe(true);
+  await userEvent.keyboard('{Tab}');
+  expect(within(entryRow).queryByText('+1 day')).toBeNull();
+  expect(saveOffset()).toBe(savePosition);
+  await userEvent.fill(end, '0100');
   await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '1:99');
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect(screen.getByRole('alert').textContent).toContain('flight duration');
   await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '45');
-  expect(screen.getByText(/Next day:/).textContent).toContain('04.05.2026');
   fetch.mockResolvedValueOnce(Response.json({ error: 'Disk is full' }, { status: 500 }));
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect((await screen.findByRole('alert')).textContent).toBe('Disk is full');
@@ -260,6 +309,22 @@ test('validates entries, infers overnight duty, and preserves data after errors'
     student: 'New Student',
   });
 });
+
+test.each([320, 1280])(
+  'one click saves overnight duty at %ipx with the end time focused',
+  async (width) => {
+    await page.viewport(width, 720);
+    const { entries } = sessionAPI();
+    await openEntry();
+    await fillBasics();
+    await userEvent.fill(screen.getByLabelText('Preparation duration'), '30');
+    await userEvent.fill(screen.getByLabelText('Duty start'), '0900');
+    await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
+    await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    await screen.findByRole('rowheader', { name: 'New Student' });
+    expect(entries[0]).toMatchObject({ dutyEnd: '2026-05-04T01:00' });
+  },
+);
 
 test.each(['20260-05-03', '9999-12-31'])(
   'preserves an overnight draft when date %s exceeds the supported range',
@@ -307,9 +372,10 @@ test.each([
   expect(screen.getByRole('alert').textContent).toContain('must differ');
   expect(entries).toHaveLength(0);
   await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
+  await userEvent.keyboard('{Tab}');
   expect(
     screen
-      .getByText(/Next day:/)
+      .getByText(/Duty ends the next day/)
       .querySelector('time')
       ?.getAttribute('datetime'),
   ).toBe(nextDate);

@@ -384,6 +384,45 @@ td {
   font-size: 0.8rem;
 }
 
+.next-day {
+  min-height: 1.5rem;
+  border: 0;
+  padding: 0 0.125rem;
+  background: none;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.next-day-date {
+  border: 1px solid #b9c4d2;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  background: #fff;
+  color: #223145;
+  font-size: 0.8rem;
+}
+
+@supports (position-area: bottom) {
+  .next-day-date {
+    position-area: bottom;
+    position-try-fallbacks: flip-block, flip-inline;
+    margin: 0.25rem;
+  }
+}
+
+@supports not selector(:popover-open) {
+  .next-day {
+    display: none;
+  }
+
+  .next-day-date {
+    display: block;
+  }
+}
+
 .time-note {
   margin: 0.65rem 0.25rem 0;
   font-size: 0.75rem;
@@ -530,6 +569,31 @@ td {
 .entry-row .numeric {
   vertical-align: middle;
   padding-right: 0.75rem;
+}
+
+.entry-duty-end {
+  position: relative;
+  display: block;
+}
+
+.entry-next-day {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: 0.5rem;
+  transform: translateY(-50%);
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.entry-next-day:not(:empty) {
+  border: 1px solid #a4bce8;
+  border-radius: 0.25rem;
+  padding: 0.0625rem 0.25rem;
+}
+
+.entry-next-day:not(:empty) + input {
+  padding-inline-end: 4.25rem;
 }
 
 .entry-details fieldset {

@@ -12,6 +12,12 @@ import {
 
 type FlightDraft = { id: string; type: Exclude<ActivityType, 'preparation'>; duration: string };
 const newFlight = (): FlightDraft => ({ id: crypto.randomUUID(), type: 'dual', duration: '' });
+const endDateFormat = new Intl.DateTimeFormat('de-DE', {
+  timeZone: 'UTC',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
 
 export default function SessionEntry({
   view,
@@ -24,6 +30,7 @@ export default function SessionEntry({
 }) {
   const formId = useId();
   const suggestionsId = useId();
+  const overnightHintId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   const studentRef = useRef<HTMLInputElement>(null);
@@ -34,11 +41,15 @@ export default function SessionEntry({
   const [date, setDate] = useState(() => dateInZone(view.timeZone));
   const [startInput, setStartInput] = useState('');
   const [endInput, setEndInput] = useState('');
+  const [overnightHintDate, setOvernightHintDate] = useState<string>();
   const [preparation, setPreparation] = useState('');
   const [flights, setFlights] = useState<FlightDraft[]>(() => [newFlight()]);
   const [focusFlight, setFocusFlight] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const overnightDateLabel = overnightHintDate
+    ? endDateFormat.format(new Date(`${overnightHintDate}T00:00:00Z`))
+    : undefined;
   const start = parseClock(startInput);
   const end = parseClock(endInput);
   const overnight = Boolean(date && start && end && end < start);
@@ -90,8 +101,13 @@ export default function SessionEntry({
     }
   }
 
+  function updateOvernightHint() {
+    if (!saving && !savingRef.current) setOvernightHintDate(overnight ? endDate : undefined);
+  }
+
   async function save(form: HTMLFormElement, another: boolean) {
     if (savingRef.current) return;
+    updateOvernightHint();
     setError('');
     const data = new FormData(form);
     const text = (name: string) => {
@@ -151,6 +167,7 @@ export default function SessionEntry({
         form.reset();
         setStartInput('');
         setEndInput('');
+        setOvernightHintDate(undefined);
         setId(crypto.randomUUID());
         setPreparation('');
         setFlights([newFlight()]);
@@ -182,6 +199,7 @@ export default function SessionEntry({
             aria-label="Session date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
+            onBlur={updateOvernightHint}
             required
             disabled={saving}
           />
@@ -213,36 +231,45 @@ export default function SessionEntry({
             required
             value={startInput}
             onChange={(event) => setStartInput(event.target.value)}
-            onBlur={() => setStartInput(start ?? startInput)}
+            onBlur={() => {
+              setStartInput((value) => parseClock(value) ?? value);
+              updateOvernightHint();
+            }}
             disabled={saving}
           />
         </td>
         <td>
-          <input
-            form={formId}
-            name="end"
-            aria-label="Duty end"
-            placeholder="1730"
-            inputMode="numeric"
-            required
-            value={endInput}
-            onChange={(event) => setEndInput(event.target.value)}
-            onBlur={() => setEndInput(end ?? endInput)}
-            disabled={saving}
-          />
-          {overnight && endDate && (
-            <span className="description">
-              Next day:{' '}
-              <time dateTime={endDate}>
-                {new Intl.DateTimeFormat('de-DE', {
-                  timeZone: 'UTC',
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                }).format(new Date(`${endDate}T00:00:00Z`))}
-              </time>
+          <label className="entry-duty-end">
+            <span id={overnightHintId} className="entry-next-day" aria-live="polite">
+              {overnightHintDate && (
+                <>
+                  <span aria-hidden="true" title={overnightDateLabel}>
+                    +1 day
+                  </span>
+                  <span className="visually-hidden">
+                    Duty ends the next day (
+                    <time dateTime={overnightHintDate}>{overnightDateLabel}</time>).
+                  </span>
+                </>
+              )}
             </span>
-          )}
+            <input
+              form={formId}
+              name="end"
+              aria-label="Duty end"
+              aria-describedby={overnightHintDate ? overnightHintId : undefined}
+              placeholder="1730"
+              inputMode="numeric"
+              required
+              value={endInput}
+              onChange={(event) => setEndInput(event.target.value)}
+              onBlur={() => {
+                setEndInput((value) => parseClock(value) ?? value);
+                updateOvernightHint();
+              }}
+              disabled={saving}
+            />
+          </label>
         </td>
         <td>
           <input
