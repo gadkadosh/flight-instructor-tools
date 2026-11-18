@@ -7,11 +7,13 @@ type DocumentKind = 'invoice' | 'dutyReport';
 export default function SessionToolbar({
   selectedSessionIds,
   sessionCount,
+  countSessionsInMonth,
   timeZone,
   onClearSelection,
 }: {
   selectedSessionIds: ReadonlySet<string>;
   sessionCount: number;
+  countSessionsInMonth: (month: string) => number;
   timeZone: string;
   onClearSelection: () => void;
 }) {
@@ -90,6 +92,7 @@ export default function SessionToolbar({
       <DutyReportForm
         id={`${formId}-duty-report`}
         open={expanded === 'dutyReport'}
+        countSessionsInMonth={countSessionsInMonth}
         timeZone={timeZone}
         onClose={close}
         onGeneratingChange={setGenerating}
