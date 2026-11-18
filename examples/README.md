@@ -129,7 +129,6 @@ Set `dutyReportTemplateFile` and an explicit IANA `timeZone` in your config. Add
 [sample template](../testdata/duty-report.html.tmpl).
 
 Enter the year-to-date flight-duty total before the report month as `H:MM` (use
-`0:00` in January). In the form, you can omit the colon, for example `12045` for
-`120:45`. The last two digits are minutes. Reports include every session in the
-chosen month, regardless of the viewer selection. Daily flight-duty time spans
-the earliest duty start to the latest duty end, including gaps.
+`0:00` in January). Reports include every session in the chosen month, regardless
+of the viewer selection. Daily flight-duty time spans the earliest duty start to
+the latest duty end, including gaps.
