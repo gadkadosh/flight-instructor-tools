@@ -12,6 +12,12 @@ import {
 
 type FlightDraft = { id: string; type: Exclude<ActivityType, 'preparation'>; duration: string };
 const newFlight = (): FlightDraft => ({ id: crypto.randomUUID(), type: 'dual', duration: '' });
+const endDateFormat = new Intl.DateTimeFormat('de-DE', {
+  timeZone: 'UTC',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
 
 export default function SessionEntry({
   view,
@@ -24,6 +30,7 @@ export default function SessionEntry({
 }) {
   const formId = useId();
   const suggestionsId = useId();
+  const overnightHintId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   const studentRef = useRef<HTMLInputElement>(null);
@@ -50,6 +57,7 @@ export default function SessionEntry({
       endDate = day.toISOString().slice(0, 10);
     }
   }
+  const overnightEnd = overnight ? endDate : undefined;
   const students = [
     ...new Set(
       view.sessions
@@ -222,6 +230,7 @@ export default function SessionEntry({
             form={formId}
             name="end"
             aria-label="Duty end"
+            aria-describedby={overnightEnd ? overnightHintId : undefined}
             placeholder="1730"
             inputMode="numeric"
             required
@@ -230,19 +239,6 @@ export default function SessionEntry({
             onBlur={() => setEndInput(end ?? endInput)}
             disabled={saving}
           />
-          {overnight && endDate && (
-            <span className="description">
-              Next day:{' '}
-              <time dateTime={endDate}>
-                {new Intl.DateTimeFormat('de-DE', {
-                  timeZone: 'UTC',
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                }).format(new Date(`${endDate}T00:00:00Z`))}
-              </time>
-            </span>
-          )}
         </td>
         <td>
           <input
@@ -275,6 +271,17 @@ export default function SessionEntry({
               void save(event.currentTarget, another);
             }}
           >
+            <div aria-live="polite">
+              {overnightEnd && (
+                <p id={overnightHintId} className="entry-overnight">
+                  Duty ends the next day (
+                  <time dateTime={overnightEnd}>
+                    {endDateFormat.format(new Date(`${overnightEnd}T00:00:00Z`))}
+                  </time>
+                  ).
+                </p>
+              )}
+            </div>
             <fieldset disabled={saving}>
               <legend className="visually-hidden">Flights</legend>
               <table className="flight-table flight-entry-table" aria-label="New session flights">

@@ -361,6 +361,7 @@ td {
 }
 
 .time-zone,
+.next-day,
 .time-note {
   color: #566478;
   font-size: 0.8rem;
@@ -527,6 +528,18 @@ td {
   margin: 0;
   padding: 0;
   border: 0;
+}
+
+.entry-overnight {
+  position: sticky;
+  inset-inline-start: 1rem;
+  box-sizing: border-box;
+  max-width: calc(100cqi - 5.25rem);
+  margin: 0 0 0.5rem;
+  padding-inline-start: 0.625rem;
+  border-inline-start: 2px solid #93b4f7;
+  color: inherit;
+  font-size: 0.875rem;
 }
 
 .entry-hint {

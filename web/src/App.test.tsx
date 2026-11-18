@@ -134,6 +134,42 @@ test('the session row highlights on hover while expanded', async () => {
   expect(background()).toBe(hoverBackground);
 });
 
+test('shows a next-day marker without growing the saved row and keeps dates for longer sessions', async () => {
+  respond({
+    timeZone: 'Europe/Berlin',
+    sessions: [
+      session,
+      {
+        ...session,
+        id: 'overnight',
+        student: 'Overnight Student',
+        dutyStart: '2026-12-31T22:00:00Z',
+        dutyEnd: '2026-12-31T23:30:00Z',
+      },
+      {
+        ...session,
+        id: 'multi-day',
+        student: 'Multi-day Student',
+        dutyStart: '2026-12-28T22:00:00Z',
+        dutyEnd: '2026-12-29T23:30:00Z',
+      },
+    ],
+  });
+  render(<App />);
+  const overnight = (await screen.findByRole('rowheader', { name: 'Overnight Student' })).closest(
+    'tr',
+  )!;
+  const ordinary = screen.getByRole('rowheader', { name: session.student }).closest('tr')!;
+  const endCell = within(overnight).getAllByRole('cell')[4];
+  expect(endCell.textContent).toBe('00:30 LT · +1 day');
+  expect(within(endCell).getByTitle('01.01.2027')).toBeTruthy();
+  expect(overnight.getBoundingClientRect().height).toBe(ordinary.getBoundingClientRect().height);
+
+  const multiDay = screen.getByRole('rowheader', { name: 'Multi-day Student' }).closest('tr')!;
+  expect(within(multiDay).getByText('30.12.2026')).toBeTruthy();
+  expect(within(multiDay).queryByText(/\+1 day/)).toBeNull();
+});
+
 test('special flights count as own block time and retain their types in flight rows', async () => {
   respond({
     timeZone: 'UTC',
@@ -312,14 +348,14 @@ test('preparation-only sessions have no flight expansion', async () => {
   expect(screen.getByRole('status').textContent).toBe('1 of 1 session selected');
 });
 
-test('shows the end date for sessions crossing midnight in the display timezone', async () => {
+test('shows the next-day marker with UTC duty times', async () => {
   respond({ timeZone: 'UTC', sessions: [{ ...session, dutyEnd: '2026-05-04T01:00:00Z' }] });
   render(<App />);
   await screen.findByRole('button', { name: /flights for/ });
   expect(screen.getByText('UTC')).toBeTruthy();
   expect(screen.getByText('22:30').textContent).toBe('22:30 Z');
-  expect(screen.getByText('01:00').textContent).toContain('01:00 Z');
-  expect(screen.getByText('04.05.2026')).toBeTruthy();
+  expect(screen.getByText('01:00').textContent).toBe('01:00 Z · +1 day');
+  expect(screen.getByTitle('04.05.2026')).toBeTruthy();
 });
 
 test('shows an empty state for a valid empty sessions file', async () => {

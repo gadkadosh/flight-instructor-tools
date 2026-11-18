@@ -3,6 +3,7 @@ import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
 import {
   activityKinds,
+  dateInZone,
   formatDuration,
   groupSessionsByMonth,
   type Session,
@@ -33,7 +34,13 @@ function SessionRow({
   const end = new Date(session.dutyEnd);
   const startDate = dateFormat.format(start);
   const endDate = dateFormat.format(end);
-  const timeSuffix = timeFormat.resolvedOptions().timeZone === 'UTC' ? 'Z' : 'LT';
+  const { timeZone } = timeFormat.resolvedOptions();
+  const timeSuffix = timeZone === 'UTC' ? 'Z' : 'LT';
+  // Comparing local dates as UTC midnights keeps clock changes out of the day count.
+  const endsNextDay =
+    endDate !== startDate &&
+    Date.parse(dateInZone(timeZone, end)) - Date.parse(dateInZone(timeZone, start)) ===
+      24 * 60 * 60 * 1000;
   const flights = session.activities.filter((activity) => activity.type !== 'preparation');
   const subject =
     session.student?.trim() ||
@@ -100,7 +107,13 @@ function SessionRow({
         <td className="numeric">
           <time dateTime={session.dutyEnd}>
             {timeFormat.format(end)} <span className="time-zone">{timeSuffix}</span>
-            {endDate !== startDate && <span className="description">{endDate}</span>}
+            {endsNextDay ? (
+              <span className="next-day" title={endDate}>
+                {' · +1 day'}
+              </span>
+            ) : (
+              endDate !== startDate && <span className="description">{endDate}</span>
+            )}
           </time>
         </td>
         <td className="numeric">{formatDuration(totals.preparation)}</td>

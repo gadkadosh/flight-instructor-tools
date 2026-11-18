@@ -1,13 +1,15 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vite-plus/test';
-import { userEvent } from 'vite-plus/test/browser';
+import { page, userEvent } from 'vite-plus/test/browser';
 import App from './App';
 import type { Session } from './sessions';
+import './style.css';
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  await page.viewport(1280, 720);
 });
 
 function sessionAPI(sessions: Session[] = []) {
@@ -178,6 +180,7 @@ test('removing flights updates totals and keeps keyboard focus in the editor', a
 });
 
 test('validates entries, infers overnight duty, and preserves data after errors', async () => {
+  await page.viewport(390, 720);
   const { fetch, entries } = sessionAPI();
   await openEntry();
   await fillBasics();
@@ -185,13 +188,36 @@ test('validates entries, infers overnight duty, and preserves data after errors'
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect(screen.getByRole('alert').textContent).toContain('duty start');
   expect(document.activeElement).toBe(screen.getByLabelText('Duty start'));
-  await userEvent.fill(screen.getByLabelText('Duty start'), '2300');
-  await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
+  const start = screen.getByLabelText('Duty start');
+  const end = screen.getByLabelText('Duty end');
+  const entryRow = end.closest('tr')!;
+  const rowHeight = entryRow.getBoundingClientRect().height;
+  await userEvent.fill(start, '2300');
+  await userEvent.fill(end, '0100');
+  expect(entryRow.getBoundingClientRect().height).toBe(rowHeight);
+  expect(end.getBoundingClientRect().top).toBe(start.getBoundingClientRect().top);
+  const hint = screen.getByText('Duty ends the next day (', { exact: false });
+  expect(hint.textContent).toBe('Duty ends the next day (04.05.2026).');
+  expect(entryRow.contains(hint)).toBe(false);
+  const tableRegion = screen.getByRole('region', { name: 'Sessions table' });
+  end.scrollIntoView({ block: 'nearest', inline: 'center' });
+  expect(tableRegion.scrollLeft).toBeGreaterThan(0);
+  expect(hint.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+    tableRegion.getBoundingClientRect().left,
+  );
+  expect(hint.getBoundingClientRect().right).toBeLessThanOrEqual(
+    tableRegion.getBoundingClientRect().right,
+  );
+  await expect
+    .element(page.getByRole('textbox', { name: 'Duty end' }))
+    .toHaveAccessibleDescription(/Duty ends the next day.*04\.05\.2026/);
+  await userEvent.fill(end, '2330');
+  expect(screen.queryByText(/Duty ends the next day/)).toBeNull();
+  await userEvent.fill(end, '0100');
   await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '1:99');
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect(screen.getByRole('alert').textContent).toContain('flight duration');
   await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '45');
-  expect(screen.getByText(/Next day:/).textContent).toContain('04.05.2026');
   fetch.mockResolvedValueOnce(Response.json({ error: 'Disk is full' }, { status: 500 }));
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect((await screen.findByRole('alert')).textContent).toBe('Disk is full');
@@ -254,7 +280,7 @@ test.each([
   await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
   expect(
     screen
-      .getByText(/Next day:/)
+      .getByText(/Duty ends the next day/)
       .querySelector('time')
       ?.getAttribute('datetime'),
   ).toBe(nextDate);
