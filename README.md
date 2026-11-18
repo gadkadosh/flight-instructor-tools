@@ -30,13 +30,14 @@ in the ignored `local/` directory.
 
 - [Invoice example and session validation](examples/README.md#running-it)
 - [Session format](examples/README.md#session-format) and [example configuration](examples/config.json)
-- [Duty reports](docs/duty-reports.md)
+- [Duty reports](examples/README.md#duty-reports)
 
-Select sessions and click **Generate invoice** above the table to download a PDF
-using the configured billing details and rates. Enter an invoice number and an
-issue date, which defaults to today in the configured timezone. Only selected
-sessions are included. No invoice artifacts are kept on the server; invoice
-numbers and billing status are not tracked.
+Select sessions and click **Generate invoice…** above the table to open the
+invoice form. Enter an invoice number, confirm the issue date (which defaults to
+today in the configured timezone), and click **Download PDF**. The invoice uses
+the configured billing details and rates and includes only the selected sessions.
+No invoice artifacts are kept on the server; invoice numbers and billing status
+are not tracked.
 
 Invoice session dates and CLI month selection use the configured `timeZone`,
 falling back to UTC when omitted.

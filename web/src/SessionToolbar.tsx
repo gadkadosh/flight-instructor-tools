@@ -62,7 +62,7 @@ export default function SessionToolbar({
           aria-controls={`${formId}-invoice`}
           onClick={() => toggle('invoice')}
         >
-          Generate invoice
+          Generate invoice…
         </button>
         <button
           ref={reportTrigger}
@@ -73,7 +73,7 @@ export default function SessionToolbar({
           aria-controls={`${formId}-duty-report`}
           onClick={() => toggle('dutyReport')}
         >
-          Generate duty report
+          Generate duty report…
         </button>
       </div>
       <InvoiceForm

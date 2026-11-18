@@ -185,9 +185,9 @@ test('special flights count as own block time and retain their types in flight r
       name: 'Select session for Rundflug / Schnupperflug on 03.05.2026',
     }),
   );
-  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice' }).disabled).toBe(
-    false,
-  );
+  expect(
+    screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice…' }).disabled,
+  ).toBe(false);
   expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
 });
 
@@ -242,7 +242,9 @@ test('clears selected sessions across months and keeps keyboard focus in the too
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
   expect(document.activeElement).toBe(count);
   await userEvent.keyboard('{Tab}');
-  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate duty report' }));
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'Generate duty report…' }),
+  );
 });
 
 test('groups sessions newest first by local month and toggles selection from a month heading', async () => {
@@ -347,7 +349,7 @@ test('invoice controls require a selection and retain entered details when cance
   respond({ timeZone: 'Europe/Berlin', sessions: [session] });
   render(<App />);
   const trigger = await screen.findByRole<HTMLButtonElement>('button', {
-    name: 'Generate invoice',
+    name: 'Generate invoice…',
   });
   expect(trigger.disabled).toBe(true);
   expect(screen.queryByRole('form')).toBeNull();
@@ -410,7 +412,7 @@ test('downloads the generated PDF for exactly the sessions selected across month
       }),
   );
   await userEvent.click(may);
-  fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Generate invoice…' }));
   await userEvent.click(screen.getByRole('button', { name: 'Select 1 session in April 2026' }));
   await userEvent.click(screen.getByRole('checkbox', { name: /Select session for Alex/ }));
   fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-12' } });
@@ -429,11 +431,11 @@ test('downloads the generated PDF for exactly the sessions selected across month
     true,
   );
   expect(screen.getByLabelText<HTMLInputElement>('Invoice number').matches(':disabled')).toBe(true);
-  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice' }).disabled).toBe(
-    true,
-  );
   expect(
-    screen.getByRole<HTMLButtonElement>('button', { name: 'Generate duty report' }).disabled,
+    screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice…' }).disabled,
+  ).toBe(true);
+  expect(
+    screen.getByRole<HTMLButtonElement>('button', { name: 'Generate duty report…' }).disabled,
   ).toBe(true);
   expect(downloads).toEqual([]);
   finish(new Response(pdf, { headers: { 'Content-Type': 'application/pdf' } }));
@@ -467,9 +469,9 @@ test('downloads the generated PDF for exactly the sessions selected across month
 test('invoice errors preserve form details and allow retrying', async () => {
   const fetch = respond({ timeZone: 'UTC', sessions: [session] });
   render(<App />);
-  await screen.findByRole('button', { name: 'Generate invoice' });
+  await screen.findByRole('button', { name: 'Generate invoice…' });
   fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
-  fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Generate invoice…' }));
   fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-12' } });
   fetch.mockResolvedValueOnce(
     new Response(JSON.stringify({ error: 'Install WeasyPrint' }), { status: 500 }),
@@ -487,9 +489,9 @@ test('invoice errors preserve form details and allow retrying', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
   expect((await screen.findByRole('alert')).textContent).toBe('Connection lost');
   expect(fetch).toHaveBeenCalledTimes(3);
-  fireEvent.click(screen.getByRole('button', { name: 'Generate duty report' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Generate duty report…' }));
   expect(screen.queryByRole('alert')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Generate invoice…' }));
   expect(screen.queryByRole('alert')).toBeNull();
   expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-12');
 });
@@ -505,11 +507,11 @@ test.each([
     respond({ timeZone: 'Europe/Berlin', sessions: [] });
     render(<App />);
     const trigger = await screen.findByRole<HTMLButtonElement>('button', {
-      name: 'Generate duty report',
+      name: 'Generate duty report…',
     });
     expect(trigger.disabled).toBe(false);
     expect(
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice' }).disabled,
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice…' }).disabled,
     ).toBe(true);
     fireEvent.click(trigger);
     const monthInput = screen.getByLabelText<HTMLInputElement>('Month');
@@ -539,9 +541,9 @@ test.each([
 test('switching document forms preserves their independent details and shows only one form', async () => {
   respond({ timeZone: 'UTC', sessions: [session] });
   render(<App />);
-  const reportTrigger = await screen.findByRole('button', { name: 'Generate duty report' });
+  const reportTrigger = await screen.findByRole('button', { name: 'Generate duty report…' });
   fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
-  const invoiceTrigger = screen.getByRole('button', { name: 'Generate invoice' });
+  const invoiceTrigger = screen.getByRole('button', { name: 'Generate invoice…' });
   fireEvent.click(invoiceTrigger);
   fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-123' } });
   fireEvent.change(screen.getByLabelText('Issue date'), { target: { value: '2026-10-05' } });
@@ -590,7 +592,7 @@ test('duty report download ignores table selection and preserves details after a
   });
   render(<App />);
   const trigger = await screen.findByRole<HTMLButtonElement>('button', {
-    name: 'Generate duty report',
+    name: 'Generate duty report…',
   });
   fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
   fireEvent.click(trigger);
@@ -604,9 +606,9 @@ test('duty report download ignores table selection and preserves details after a
   );
   fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
   expect(trigger.disabled).toBe(true);
-  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice' }).disabled).toBe(
-    true,
-  );
+  expect(
+    screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice…' }).disabled,
+  ).toBe(true);
   expect(screen.getByLabelText<HTMLInputElement>('Month').matches(':disabled')).toBe(true);
   expect((await screen.findByRole('alert')).textContent).toBe('Install WeasyPrint');
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
