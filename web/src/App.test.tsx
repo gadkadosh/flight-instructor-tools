@@ -601,6 +601,46 @@ test('switching document forms preserves their independent details and shows onl
   expect(screen.queryByRole('form')).toBeNull();
 });
 
+test.each([
+  ['Generate invoice', 'Invoice number', '2026-123', 'Issue date'],
+  ['Generate duty report', 'Flight-duty total before this month', '432:10', 'Month'],
+])(
+  'Escape closes %s after its native picker and preserves the draft',
+  async (name, field, value, pickerLabel) => {
+    respond({ timeZone: 'UTC', sessions: [session] });
+    render(<App />);
+    const trigger = await screen.findByRole('button', { name: `${name}…` });
+    const selection = screen.getByRole('checkbox', { name: /Select session for/ });
+    await userEvent.click(selection);
+    await userEvent.click(trigger);
+    const form = screen.getByRole('form', { name });
+    fireEvent.change(within(form).getByLabelText(field), { target: { value } });
+
+    selection.focus();
+    await userEvent.keyboard('{Escape}');
+    expect(document.activeElement).toBe(selection);
+    trigger.focus();
+    await userEvent.keyboard('{Escape}');
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+
+    const picker = within(form).getByLabelText(pickerLabel);
+    picker.focus();
+    await userEvent.keyboard(' ');
+    expect(picker.matches(':open')).toBe(true);
+    await userEvent.keyboard('{Escape}');
+    expect(picker.matches(':open')).toBe(false);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('form', { name })).toBeNull();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getByLabelText<HTMLInputElement>(field).value).toBe(value);
+  },
+);
+
 test('editing the report month keeps the controls and session table in place', async () => {
   await page.viewport(1280, 720);
   respond({ timeZone: 'Europe/Berlin', sessions: [session] });
