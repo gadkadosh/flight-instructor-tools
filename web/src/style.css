@@ -427,8 +427,13 @@ td {
 }
 
 .flight-summary {
-  max-width: 12rem;
+  max-width: 12.5rem;
   font-variant-numeric: tabular-nums;
+}
+
+.flight-summary tr > :last-child {
+  width: 1%;
+  white-space: nowrap;
 }
 
 .flight-summary thead th {
