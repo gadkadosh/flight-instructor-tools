@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from 'vite-plus/test';
 import { userEvent } from 'vite-plus/test/browser';
 import App from './App';
 import type { Session } from './sessions';
+import './style.css';
 
 afterEach(() => {
   cleanup();
@@ -80,6 +81,42 @@ test('enters a session by keyboard, calculates totals, and saves individual flig
   const flights = screen.getByRole('table', { name: /Flights for New Student/ });
   expect(within(flights).getAllByRole('row')).toHaveLength(4);
   expect(within(flights).getByText('1:15')).toBeTruthy();
+});
+
+test('the flight duration looks disabled while the session is saving', async () => {
+  const { fetch } = sessionAPI();
+  await openEntry();
+  await fillBasics();
+  const duration = screen.getByLabelText('Flight 1 duration');
+  await userEvent.fill(duration, '45');
+  const enabledBackground = getComputedStyle(duration).backgroundColor;
+
+  let finish!: (response: Response) => void;
+  fetch.mockReturnValueOnce(
+    new Promise<Response>((resolve) => {
+      finish = resolve;
+    }),
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  await screen.findByRole('button', { name: 'Saving…' });
+
+  const fieldColors = (field: HTMLElement) => {
+    const { backgroundColor, borderTopColor, color } = getComputedStyle(field);
+    return { backgroundColor, borderTopColor, color };
+  };
+  const date = screen.getByLabelText('Session date');
+  const type = screen.getByLabelText('Flight 1 type');
+  for (const field of [date, type, duration]) {
+    expect(field.matches(':disabled')).toBe(true);
+  }
+  const disabledColors = fieldColors(duration);
+  expect(disabledColors.backgroundColor).not.toBe(enabledBackground);
+  expect(disabledColors).toEqual(fieldColors(date));
+  expect(disabledColors).toEqual(fieldColors(type));
+
+  finish(Response.json({ error: 'Disk is full' }, { status: 500 }));
+  await screen.findByRole('alert');
+  expect(duration.matches(':enabled')).toBe(true);
 });
 
 test('save-and-add shortcut retains the date, resets inputs, and focuses the student', async () => {
