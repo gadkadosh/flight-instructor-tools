@@ -37,10 +37,12 @@ export default function SessionEntry({
   const repeatRef = useRef<HTMLButtonElement>(null);
   const savingRef = useRef(false);
   const focusStudent = useRef(false);
+  const pointerPress = useRef<{ id?: number; updateHint?: () => void }>({});
   const [id, setId] = useState(() => crypto.randomUUID());
   const [date, setDate] = useState(() => dateInZone(view.timeZone));
   const [startInput, setStartInput] = useState('');
   const [endInput, setEndInput] = useState('');
+  const [overnightHintDate, setOvernightHintDate] = useState<string>();
   const [preparation, setPreparation] = useState('');
   const [flights, setFlights] = useState<FlightDraft[]>(() => [newFlight()]);
   const [focusFlight, setFocusFlight] = useState<string>();
@@ -57,7 +59,6 @@ export default function SessionEntry({
       endDate = day.toISOString().slice(0, 10);
     }
   }
-  const overnightEnd = overnight ? endDate : undefined;
   const students = [
     ...new Set(
       view.sessions
@@ -85,6 +86,32 @@ export default function SessionEntry({
     }
   }, [saving]);
 
+  useEffect(() => {
+    const press = pointerPress.current;
+    const events = new AbortController();
+    const options = { capture: true, signal: events.signal };
+    function startPress(event: PointerEvent) {
+      if (event.isPrimary && event.button === 0) press.id = event.pointerId;
+    }
+    function finishPress(event: PointerEvent) {
+      if (press.id !== event.pointerId) return;
+      press.id = undefined;
+      if (!press.updateHint) return;
+      // Wait for the click before moving any controls below the hint.
+      requestAnimationFrame(() => {
+        if (press.id === undefined) press.updateHint?.();
+      });
+    }
+    document.addEventListener('pointerdown', startPress, options);
+    document.addEventListener('pointerup', finishPress, options);
+    document.addEventListener('pointercancel', finishPress, options);
+    return () => {
+      events.abort();
+      press.id = undefined;
+      press.updateHint = undefined;
+    };
+  }, []);
+
   function addFlight() {
     const flight = newFlight();
     setFlights((previous) => [...previous, flight]);
@@ -98,8 +125,21 @@ export default function SessionEntry({
     }
   }
 
+  function showOvernightHint() {
+    pointerPress.current.updateHint = undefined;
+    setOvernightHintDate(overnight ? endDate : undefined);
+  }
+
+  function confirmOvernightHint() {
+    if (saving || savingRef.current) return;
+    const press = pointerPress.current;
+    if (press.id === undefined) showOvernightHint();
+    else press.updateHint = showOvernightHint;
+  }
+
   async function save(form: HTMLFormElement, another: boolean) {
     if (savingRef.current) return;
+    showOvernightHint();
     setError('');
     const data = new FormData(form);
     const text = (name: string) => {
@@ -159,6 +199,7 @@ export default function SessionEntry({
         form.reset();
         setStartInput('');
         setEndInput('');
+        setOvernightHintDate(undefined);
         setId(crypto.randomUUID());
         setPreparation('');
         setFlights([newFlight()]);
@@ -190,6 +231,7 @@ export default function SessionEntry({
             aria-label="Session date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
+            onBlur={confirmOvernightHint}
             required
             disabled={saving}
           />
@@ -221,7 +263,10 @@ export default function SessionEntry({
             required
             value={startInput}
             onChange={(event) => setStartInput(event.target.value)}
-            onBlur={() => setStartInput(start ?? startInput)}
+            onBlur={() => {
+              setStartInput((value) => parseClock(value) ?? value);
+              confirmOvernightHint();
+            }}
             disabled={saving}
           />
         </td>
@@ -230,13 +275,16 @@ export default function SessionEntry({
             form={formId}
             name="end"
             aria-label="Duty end"
-            aria-describedby={overnightEnd ? overnightHintId : undefined}
+            aria-describedby={overnightHintDate ? overnightHintId : undefined}
             placeholder="1730"
             inputMode="numeric"
             required
             value={endInput}
             onChange={(event) => setEndInput(event.target.value)}
-            onBlur={() => setEndInput(end ?? endInput)}
+            onBlur={() => {
+              setEndInput((value) => parseClock(value) ?? value);
+              confirmOvernightHint();
+            }}
             disabled={saving}
           />
         </td>
@@ -272,11 +320,11 @@ export default function SessionEntry({
             }}
           >
             <div aria-live="polite">
-              {overnightEnd && (
+              {overnightHintDate && (
                 <p id={overnightHintId} className="entry-overnight">
                   Duty ends the next day (
-                  <time dateTime={overnightEnd}>
-                    {endDateFormat.format(new Date(`${overnightEnd}T00:00:00Z`))}
+                  <time dateTime={overnightHintDate}>
+                    {endDateFormat.format(new Date(`${overnightHintDate}T00:00:00Z`))}
                   </time>
                   ).
                 </p>

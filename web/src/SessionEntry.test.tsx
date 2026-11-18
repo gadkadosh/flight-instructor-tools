@@ -90,9 +90,12 @@ test('save-and-add shortcut retains the date, resets inputs, and focuses the stu
   await fillBasics();
   await userEvent.fill(screen.getByLabelText('Preparation duration'), '0:30');
   await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '65');
+  await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
   await userEvent.keyboard('{Control>}{Enter}{/Control}');
   await screen.findByRole('rowheader', { name: 'New Student' });
+  expect(entries[0]).toMatchObject({ dutyEnd: '2026-05-04T01:00' });
   await expect.poll(() => document.activeElement).toBe(screen.getByLabelText('Student'));
+  expect(screen.queryByText(/Duty ends the next day/)).toBeNull();
   expect((screen.getByLabelText('Session date') as HTMLInputElement).value).toBe('2026-05-03');
   for (const label of [
     'Student',
@@ -191,9 +194,25 @@ test('validates entries, infers overnight duty, and preserves data after errors'
   const start = screen.getByLabelText('Duty start');
   const end = screen.getByLabelText('Duty end');
   const entryRow = end.closest('tr')!;
+  const save = screen.getByRole('button', { name: 'Save session' });
   const rowHeight = entryRow.getBoundingClientRect().height;
+  const form = screen.getByRole('form', { name: 'Add session' });
+  const flights = screen.getByRole('table', { name: 'New session flights' });
+  expect(flights.getBoundingClientRect().top).toBe(form.getBoundingClientRect().top);
+  await userEvent.fill(end, '2330');
   await userEvent.fill(start, '2300');
-  await userEvent.fill(end, '0100');
+  await userEvent.click(end);
+  const saveOffset = () =>
+    save.getBoundingClientRect().top - entryRow.getBoundingClientRect().bottom;
+  const savePosition = saveOffset();
+  await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}233');
+  expect(screen.queryByText(/Duty ends the next day/)).toBeNull();
+  await userEvent.keyboard('0');
+  await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}0100');
+  expect(screen.queryByText(/Duty ends the next day/)).toBeNull();
+  expect(saveOffset()).toBe(savePosition);
+  await userEvent.keyboard('{Tab}');
+  expect(saveOffset()).toBeGreaterThan(savePosition);
   expect(entryRow.getBoundingClientRect().height).toBe(rowHeight);
   expect(end.getBoundingClientRect().top).toBe(start.getBoundingClientRect().top);
   const hint = screen.getByText('Duty ends the next day (', { exact: false });
@@ -212,7 +231,10 @@ test('validates entries, infers overnight duty, and preserves data after errors'
     .element(page.getByRole('textbox', { name: 'Duty end' }))
     .toHaveAccessibleDescription(/Duty ends the next day.*04\.05\.2026/);
   await userEvent.fill(end, '2330');
+  expect(hint.textContent).toBe('Duty ends the next day (04.05.2026).');
+  await userEvent.keyboard('{Tab}');
   expect(screen.queryByText(/Duty ends the next day/)).toBeNull();
+  expect(saveOffset()).toBe(savePosition);
   await userEvent.fill(end, '0100');
   await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '1:99');
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
@@ -231,6 +253,22 @@ test('validates entries, infers overnight duty, and preserves data after errors'
     student: 'New Student',
   });
 });
+
+test.each([320, 1280])(
+  'one click saves overnight duty at %ipx with the end time focused',
+  async (width) => {
+    await page.viewport(width, 720);
+    const { entries } = sessionAPI();
+    await openEntry();
+    await fillBasics();
+    await userEvent.fill(screen.getByLabelText('Preparation duration'), '30');
+    await userEvent.fill(screen.getByLabelText('Duty start'), '0900');
+    await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
+    await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    await screen.findByRole('rowheader', { name: 'New Student' });
+    expect(entries[0]).toMatchObject({ dutyEnd: '2026-05-04T01:00' });
+  },
+);
 
 test.each(['20260-05-03', '9999-12-31'])(
   'preserves an overnight draft when date %s exceeds the supported range',
@@ -278,6 +316,7 @@ test.each([
   expect(screen.getByRole('alert').textContent).toContain('must differ');
   expect(entries).toHaveLength(0);
   await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
+  await userEvent.keyboard('{Tab}');
   expect(
     screen
       .getByText(/Duty ends the next day/)
