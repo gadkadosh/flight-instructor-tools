@@ -324,8 +324,13 @@ td {
   cursor: pointer;
 }
 
+.session-row:has([aria-expanded='true']),
+.activity-details {
+  background: #f8fafc;
+}
+
 .session-row:hover,
-.session-row:focus-within {
+.session-row:has(:focus-visible) {
   background: #f3f6fa;
 }
 
@@ -409,11 +414,6 @@ td {
 
 .row-toggle:focus-visible {
   outline: none;
-}
-
-.session-row:has([aria-expanded='true']),
-.activity-details {
-  background: #f8fafc;
 }
 
 .activity-details > td {
