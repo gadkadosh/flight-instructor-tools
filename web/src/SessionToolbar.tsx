@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import InvoiceForm from './InvoiceForm';
 import DutyReportForm from './DutyReportForm';
 
@@ -37,8 +37,27 @@ export default function SessionToolbar({
     else setExpanded(kind);
   }
 
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (
+      event.key !== 'Escape' ||
+      event.defaultPrevented ||
+      event.nativeEvent.isComposing ||
+      event.repeat ||
+      generating
+    )
+      return;
+
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest('form')) return;
+    // Let open native pickers handle Escape. :is() tolerates browsers without :open.
+    if (target.matches(':is(input:open)')) return;
+
+    event.preventDefault();
+    close();
+  }
+
   return (
-    <div className="session-toolbar">
+    <div className="session-toolbar" onKeyDown={handleKeyDown}>
       <div className="session-selection">
         <p className="selection-count" ref={selectionStatus} role="status" tabIndex={-1}>
           {selectedSessionIds.size} of {sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}{' '}
