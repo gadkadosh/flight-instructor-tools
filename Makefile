@@ -1,9 +1,14 @@
-.PHONY: build dev
+.PHONY: build install build-web dev
 
-build:
+build: build-web
+	go build -o fitools .
+
+install: build-web
+	go install .
+
+build-web:
 	pnpm --dir web install --frozen-lockfile
 	pnpm --dir web run build
-	go build -o fitools .
 
 dev:
 	pnpm --dir web run dev

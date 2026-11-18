@@ -26,6 +26,9 @@ Without path overrides, the tools use `sessions.json` and `config.json` in the
 current working directory. Keep private data, templates, and signature images
 in the ignored `local/` directory.
 
+To run `fitools` from any directory, use `make install` and put Go's binary
+directory (`~/go/bin` by default) on your `PATH`.
+
 ## Usage
 
 - [Invoice example and session validation](examples/README.md#running-it)
