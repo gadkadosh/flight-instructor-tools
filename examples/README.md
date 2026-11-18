@@ -118,3 +118,17 @@ At preparation and block rates of EUR 25.00 and EUR 30.00 per hour, respectively
 The expected net and gross total is **EUR 485.00**, with EUR 0.00 VAT.
 
 Multiple sessions and multiple activities per session are supported. Grouping across session boundaries is not implemented yet, so the current output contains separate lines for otherwise matching activities from different sessions.
+
+## Duty reports
+
+Open **Generate duty report…** in the session viewer, fill in the form, and click
+**Download PDF**. For CLI options, run `./fitools duty-report --help`.
+
+Set `dutyReportTemplateFile` and an explicit IANA `timeZone` in your config. Add
+`signatureFile` for an optional PNG signature. See the fields and helpers in the
+[sample template](../testdata/duty-report.html.tmpl).
+
+Enter the year-to-date flight-duty total before the report month as `H:MM` (use
+`0:00` in January). Reports include every session in the chosen month, regardless
+of the viewer selection. Daily flight-duty time spans the earliest duty start to
+the latest duty end, including gaps.
