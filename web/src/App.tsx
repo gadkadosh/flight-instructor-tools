@@ -179,6 +179,9 @@ function SessionTable({
       <SessionToolbar
         selectedSessionIds={selectedSessionIds}
         sessionCount={view.sessions.length}
+        countSessionsInMonth={(month) =>
+          monthGroups.find(([key]) => key === month)?.[1].sessions.length ?? 0
+        }
         timeZone={view.timeZone}
         onClearSelection={() => setSelectedSessionIds(new Set())}
       />

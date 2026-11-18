@@ -17,12 +17,14 @@ function previousMonth(date: string) {
 export default function DutyReportForm({
   id,
   open,
+  countSessionsInMonth,
   timeZone,
   onClose,
   onGeneratingChange,
 }: {
   id: string;
   open: boolean;
+  countSessionsInMonth: (month: string) => number;
   timeZone: string;
   onClose: () => void;
   onGeneratingChange: (generating: boolean) => void;
@@ -66,6 +68,7 @@ export default function DutyReportForm({
   const monthLabel = monthPattern.test(month)
     ? reportMonthFormat.format(new Date(`${month}-01T00:00:00Z`))
     : '';
+  const sessionCount = countSessionsInMonth(month);
 
   return (
     <form
@@ -119,7 +122,8 @@ export default function DutyReportForm({
         </label>
         <div className="document-form-footer">
           <p id={`${id}-scope`} className="document-scope">
-            {monthLabel && `Includes all sessions in ${monthLabel}`}
+            {monthLabel &&
+              `Includes ${sessionCount} ${sessionCount === 1 ? 'session' : 'sessions'} in ${monthLabel}`}
           </p>
           <div className="document-form-actions">
             <button type="button" className="action-button text" onClick={onClose}>

@@ -610,7 +610,7 @@ test('editing the report month keeps the controls and session table in place', a
   const initialBounds = bounds();
   fireEvent.change(month, { target: { value: '2026-09' } });
   expect(bounds()).toEqual(initialBounds);
-  const scope = screen.getByText('Includes all sessions in September 2026').getBoundingClientRect();
+  const scope = screen.getByText('Includes 0 sessions in September 2026').getBoundingClientRect();
   const button = download.getBoundingClientRect();
   expect(month.getBoundingClientRect().bottom).toBeLessThan(button.top);
   expect(scope.right).toBeLessThan(button.left);
@@ -630,6 +630,12 @@ test('duty report download ignores table selection and preserves details after a
         student: 'Sam Beispiel',
         dutyStart: '2026-06-03T22:30:00Z',
         dutyEnd: '2026-06-03T23:55:00Z',
+      },
+      {
+        ...session,
+        id: 'session-3',
+        dutyStart: '2026-04-30T22:30:00Z',
+        dutyEnd: '2026-04-30T23:55:00Z',
       },
     ],
   });
@@ -654,11 +660,11 @@ test('duty report download ignores table selection and preserves details after a
   fireEvent.click(trigger);
   const month = screen.getByLabelText('Month');
   fireEvent.change(month, { target: { value: '2026-06' } });
-  await expect.element(page.getByText('Includes all sessions in June 2026')).toBeVisible();
+  await expect.element(page.getByText('Includes 1 session in June 2026')).toBeVisible();
   fireEvent.change(month, { target: { value: '' } });
-  expect(screen.queryByText(/Includes all sessions in/)).toBeNull();
+  expect(screen.queryByText(/Includes \d+ sessions? in/)).toBeNull();
   fireEvent.change(month, { target: { value: '2026-05' } });
-  await expect.element(page.getByText('Includes all sessions in May 2026')).toBeVisible();
+  await expect.element(page.getByText('Includes 2 sessions in May 2026')).toBeVisible();
   fireEvent.change(screen.getByLabelText('Flight-duty total before this month'), {
     target: { value: '120:00' },
   });
@@ -687,7 +693,7 @@ test('duty report download ignores table selection and preserves details after a
   fireEvent.click(
     screen.getByRole('button', {
       name: 'Download PDF',
-      description: 'Includes all sessions in May 2026',
+      description: 'Includes 2 sessions in May 2026',
     }),
   );
   await waitFor(() => expect(downloads).toEqual(['Dienstzeitnachweis-2026-05.pdf']));
@@ -703,5 +709,5 @@ test('duty report download ignores table selection and preserves details after a
   expect(screen.queryByRole('alert')).toBeNull();
   expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-06-09');
   expect(juneSession.checked).toBe(true);
-  expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
+  expect(screen.getByRole('status').textContent).toBe('1 of 3 sessions selected');
 });
