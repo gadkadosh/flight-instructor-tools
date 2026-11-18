@@ -265,24 +265,19 @@ test('groups sessions newest first by local month and toggles selection from a m
       .map((checkbox) => within(checkbox.closest('tr')!).getByRole('rowheader').textContent);
 
   expect(monthButton('Select').getBoundingClientRect().right).toBeLessThanOrEqual(568);
+  await userEvent.click(
+    within(table).getByRole('button', { name: 'Select 1 session in December 2025' }),
+  );
   await userEvent.click(monthButton('Select'));
-  fireEvent.click(within(table).getByRole('checkbox', { name: /December lesson/ }));
-  fireEvent.click(within(table).getByRole('checkbox', { name: /Last January/ }));
-  expect(monthButton('Deselect').textContent).toBe('Deselect 2 sessions');
-  await userEvent.click(monthButton('Deselect'));
-  expect(selected()).toEqual(['December lesson', 'Last January']);
+  expect(selected()).toEqual(['January lesson', 'New Year lesson', 'December lesson']);
+  expect(screen.getByRole('status').textContent).toBe('3 of 4 sessions selected');
 
-  await userEvent.click(monthButton('Select'));
-  expect(selected()).toEqual(['January lesson', 'New Year lesson']);
-  expect(screen.getByRole('status').textContent).toBe('2 of 4 sessions selected');
-  await userEvent.click(monthButton('Deselect'));
-  expect(selected()).toEqual([]);
-
-  await userEvent.click(monthButton('Select'));
   await userEvent.click(within(table).getByRole('checkbox', { name: /New Year lesson/ }));
-  expect(selected()).toEqual(['January lesson']);
+  expect(selected()).toEqual(['January lesson', 'December lesson']);
   await userEvent.click(monthButton('Select'));
-  expect(selected()).toEqual(['January lesson', 'New Year lesson']);
+  expect(selected()).toEqual(['January lesson', 'New Year lesson', 'December lesson']);
+  await userEvent.click(monthButton('Deselect'));
+  expect(selected()).toEqual(['December lesson']);
 });
 
 test('preparation-only sessions have no flight expansion', async () => {
@@ -359,10 +354,20 @@ test('invoice controls require a selection and retain entered details when cance
   );
 });
 
-test('downloads the generated PDF for exactly the selected sessions without clearing selection', async () => {
+test('downloads the generated PDF for exactly the sessions selected across months', async () => {
   const fetch = respond({
     timeZone: 'UTC',
-    sessions: [session, { ...session, id: 'session-2', student: 'Sam Beispiel' }],
+    sessions: [
+      session,
+      { ...session, id: 'session-2', student: 'Sam Beispiel' },
+      {
+        ...session,
+        id: 'session-3',
+        student: 'Robin Beispiel',
+        dutyStart: '2026-04-03T22:30:00Z',
+        dutyEnd: '2026-04-03T23:55:00Z',
+      },
+    ],
   });
   const pdf = '%PDF-1.7\ninvoice';
   let finish!: (response: Response) => void;
@@ -375,8 +380,8 @@ test('downloads the generated PDF for exactly the selected sessions without clea
     downloads.push({ href: this.href, name: this.download, connected: this.isConnected });
   });
   render(<App />);
-  const sam = await screen.findByRole<HTMLInputElement>('checkbox', {
-    name: /Select session for Sam/,
+  const may = await screen.findByRole('button', {
+    name: 'Select 2 sessions in May 2026',
   });
   fetch.mockImplementationOnce(
     () =>
@@ -384,11 +389,10 @@ test('downloads the generated PDF for exactly the selected sessions without clea
         finish = resolve;
       }),
   );
-  const alex = screen.getByRole('checkbox', { name: /Select session for Alex/ });
-  fireEvent.click(alex);
+  await userEvent.click(may);
   fireEvent.click(screen.getByRole('button', { name: 'Generate invoice' }));
-  fireEvent.click(alex);
-  fireEvent.click(sam);
+  await userEvent.click(screen.getByRole('button', { name: 'Select 1 session in April 2026' }));
+  await userEvent.click(screen.getByRole('checkbox', { name: /Select session for Alex/ }));
   fireEvent.change(screen.getByLabelText('Invoice number'), { target: { value: '2026-12' } });
   fireEvent.change(screen.getByLabelText('Issue date'), { target: { value: '2026-06-09' } });
   fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
@@ -396,7 +400,7 @@ test('downloads the generated PDF for exactly the selected sessions without clea
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      sessionIds: ['session-2'],
+      sessionIds: ['session-2', 'session-3'],
       number: '2026-12',
       issueDate: '2026-06-09',
     }),
@@ -428,10 +432,12 @@ test('downloads the generated PDF for exactly the selected sessions without clea
   expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2026-12');
   expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-06-09');
   expect(screen.queryByText('PDF download started.')).toBeNull();
-  expect(sam.checked).toBe(true);
   expect(
-    screen.getByRole<HTMLInputElement>('checkbox', { name: /Select session for Alex/ }).checked,
-  ).toBe(false);
+    screen.getAllByRole('checkbox', { checked: true }).map((checkbox) => checkbox.ariaLabel),
+  ).toEqual([
+    'Select session for Sam Beispiel on 03.05.2026',
+    'Select session for Robin Beispiel on 03.04.2026',
+  ]);
   expect(document.querySelector('a[download]')).toBeNull();
   await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:invoice'), {
     timeout: 2000,

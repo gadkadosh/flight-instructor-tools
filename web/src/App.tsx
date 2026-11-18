@@ -165,23 +165,14 @@ function SessionTable({
     hourCycle: 'h23',
   });
 
-  function toggleSession(id: string) {
+  function toggleSessions(sessions: Session[]) {
     setSelectedSessionIds((previous) => {
+      const allSelected = sessions.every((session) => previous.has(session.id));
       const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleMonth(sessions: Session[], allSelected: boolean) {
-    if (!allSelected) {
-      setSelectedSessionIds(new Set(sessions.map((session) => session.id)));
-      return;
-    }
-    setSelectedSessionIds((previous) => {
-      const next = new Set(previous);
-      for (const session of sessions) next.delete(session.id);
+      for (const { id } of sessions) {
+        if (allSelected) next.delete(id);
+        else next.add(id);
+      }
       return next;
     });
   }
@@ -252,7 +243,7 @@ function SessionTable({
                           className="action-button secondary"
                           aria-label={`${selectionLabel} in ${label}`}
                           data-selected={allSelected}
-                          onClick={() => toggleMonth(sessions, allSelected)}
+                          onClick={() => toggleSessions(sessions)}
                         >
                           {selectionLabel}
                         </button>
@@ -266,7 +257,7 @@ function SessionTable({
                       dateFormat={dateFormat}
                       timeFormat={timeFormat}
                       selected={selectedSessionIds.has(session.id)}
-                      onSelect={() => toggleSession(session.id)}
+                      onSelect={() => toggleSessions([session])}
                     />
                   ))}
                 </tbody>
