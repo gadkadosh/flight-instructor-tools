@@ -1,25 +1,24 @@
 import { useId, useRef, useState } from 'react';
 import InvoiceForm from './InvoiceForm';
 import DutyReportForm from './DutyReportForm';
-import SelectionMenu from './SelectionMenu';
-import type { Session } from './sessions';
 
 type DocumentKind = 'invoice' | 'dutyReport';
 
 export default function SessionToolbar({
   selectedSessionIds,
-  sessions,
+  sessionCount,
   timeZone,
-  onSelectionChange,
+  onClearSelection,
 }: {
   selectedSessionIds: ReadonlySet<string>;
-  sessions: Session[];
+  sessionCount: number;
   timeZone: string;
-  onSelectionChange: (sessionIds: Set<string>) => void;
+  onClearSelection: () => void;
 }) {
   const [expanded, setExpanded] = useState<DocumentKind | null>(null);
   const [generating, setGenerating] = useState(false);
   const formId = useId();
+  const selectionStatus = useRef<HTMLParagraphElement>(null);
   const invoiceTrigger = useRef<HTMLButtonElement>(null);
   const reportTrigger = useRef<HTMLButtonElement>(null);
 
@@ -36,17 +35,22 @@ export default function SessionToolbar({
   return (
     <div className="session-toolbar">
       <div className="session-selection">
-        {sessions.length > 0 && (
-          <SelectionMenu
-            sessions={sessions}
-            timeZone={timeZone}
-            onSelectionChange={onSelectionChange}
-          />
-        )}
-        <p className="selection-count" role="status">
-          {selectedSessionIds.size} of {sessions.length}{' '}
-          {sessions.length === 1 ? 'session' : 'sessions'} selected
+        <p className="selection-count" ref={selectionStatus} role="status" tabIndex={-1}>
+          {selectedSessionIds.size} of {sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}{' '}
+          selected
         </p>
+        {selectedSessionIds.size > 0 && (
+          <button
+            type="button"
+            className="action-button text"
+            onClick={() => {
+              onClearSelection();
+              selectionStatus.current?.focus();
+            }}
+          >
+            Clear selection
+          </button>
+        )}
       </div>
       <div className="document-buttons">
         <button

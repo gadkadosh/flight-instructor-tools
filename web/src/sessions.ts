@@ -35,30 +35,23 @@ export const activityKinds: Record<
   schnupperflug: { label: 'Schnupperflug', summary: 'block', studentRequired: false },
 };
 
-export function monthIndexFormatter(timeZone: string) {
-  const formatter = new Intl.DateTimeFormat('en-GB', {
+export function groupSessionsByMonth(sessions: Session[], timeZone: string) {
+  const monthParts = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     year: 'numeric',
     month: 'numeric',
   });
-  return (date: Date) => {
-    const parts = formatter.formatToParts(date);
-    const year = Number(parts.find((part) => part.type === 'year')?.value);
-    const month = Number(parts.find((part) => part.type === 'month')?.value);
-    return year * 12 + month;
-  };
-}
-
-export function groupSessionsByMonth(sessions: Session[], timeZone: string) {
-  const monthIndex = monthIndexFormatter(timeZone);
   const monthLabel = new Intl.DateTimeFormat('en-GB', { timeZone, month: 'long', year: 'numeric' });
   const groups = new Map<number, { label: string; sessions: Session[] }>();
   for (const session of sessions) {
     const date = new Date(session.dutyStart);
-    const month = monthIndex(date);
-    const group = groups.get(month);
+    const parts = monthParts.formatToParts(date);
+    const year = Number(parts.find((part) => part.type === 'year')?.value);
+    const month = Number(parts.find((part) => part.type === 'month')?.value);
+    const monthIndex = year * 12 + month;
+    const group = groups.get(monthIndex);
     if (group) group.sessions.push(session);
-    else groups.set(month, { label: monthLabel.format(date), sessions: [session] });
+    else groups.set(monthIndex, { label: monthLabel.format(date), sessions: [session] });
   }
   for (const group of groups.values()) {
     group.sessions.sort(
