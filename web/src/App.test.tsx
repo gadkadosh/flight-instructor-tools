@@ -343,7 +343,7 @@ test('shows network errors', async () => {
   expect((await screen.findByRole('alert')).textContent).toBe('Connection lost');
 });
 
-test('invoice controls require a selection and retain entered details when cancelled', async () => {
+test('the invoice form can close without a selection and retains entered details', async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-12-31T23:30:00Z'));
   respond({ timeZone: 'Europe/Berlin', sessions: [session] });
@@ -370,10 +370,14 @@ test('invoice controls require a selection and retain entered details when cance
   fireEvent.click(trigger);
   expect(screen.getByLabelText<HTMLInputElement>('Invoice number').value).toBe('2027-12');
   fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
-  expect(trigger.disabled).toBe(true);
+  expect(trigger.disabled).toBe(false);
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Download PDF' }).disabled).toBe(
     true,
   );
+  await userEvent.click(trigger);
+  expect(screen.queryByRole('form', { name: 'Generate invoice' })).toBeNull();
+  expect(trigger.disabled).toBe(true);
+  expect(document.activeElement).toBe(screen.getByRole('status'));
 });
 
 test('downloads the generated PDF for exactly the sessions selected across months', async () => {

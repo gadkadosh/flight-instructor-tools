@@ -21,10 +21,13 @@ export default function SessionToolbar({
   const selectionStatus = useRef<HTMLParagraphElement>(null);
   const invoiceTrigger = useRef<HTMLButtonElement>(null);
   const reportTrigger = useRef<HTMLButtonElement>(null);
+  const hasSelection = selectedSessionIds.size > 0;
+  const invoiceOpen = expanded === 'invoice';
 
   function close() {
     setExpanded(null);
-    (expanded === 'invoice' ? invoiceTrigger : reportTrigger).current?.focus();
+    if (invoiceOpen && !hasSelection) selectionStatus.current?.focus();
+    else (invoiceOpen ? invoiceTrigger : reportTrigger).current?.focus();
   }
 
   function toggle(kind: DocumentKind) {
@@ -39,7 +42,7 @@ export default function SessionToolbar({
           {selectedSessionIds.size} of {sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}{' '}
           selected
         </p>
-        {selectedSessionIds.size > 0 && (
+        {hasSelection && (
           <button
             type="button"
             className="action-button text"
@@ -57,8 +60,8 @@ export default function SessionToolbar({
           ref={invoiceTrigger}
           type="button"
           className="action-button secondary"
-          disabled={selectedSessionIds.size === 0 || generating}
-          aria-expanded={expanded === 'invoice'}
+          disabled={generating || (!invoiceOpen && !hasSelection)}
+          aria-expanded={invoiceOpen}
           aria-controls={`${formId}-invoice`}
           onClick={() => toggle('invoice')}
         >
@@ -78,7 +81,7 @@ export default function SessionToolbar({
       </div>
       <InvoiceForm
         id={`${formId}-invoice`}
-        open={expanded === 'invoice'}
+        open={invoiceOpen}
         selectedSessionIds={selectedSessionIds}
         timeZone={timeZone}
         onClose={close}
