@@ -21,7 +21,8 @@ export default function InvoiceForm({
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const firstInput = useRef<HTMLInputElement>(null);
-  const hasSelection = selectedSessionIds.size > 0;
+  const selectedCount = selectedSessionIds.size;
+  const hasSelection = selectedCount > 0;
 
   useEffect(() => {
     if (open) firstInput.current?.focus();
@@ -87,13 +88,23 @@ export default function InvoiceForm({
             onChange={(event) => setIssueDate(event.target.value)}
           />
         </label>
-        <div className="document-form-actions">
-          <button type="submit" className="action-button" disabled={!hasSelection || generating}>
-            {generating ? 'Generating…' : 'Download PDF'}
-          </button>
-          <button type="button" className="action-button text" onClick={onClose}>
-            Cancel
-          </button>
+        <div className="document-form-footer">
+          <p id={`${id}-scope`} className="document-scope">
+            Includes {selectedCount} selected {selectedCount === 1 ? 'session' : 'sessions'}
+          </p>
+          <div className="document-form-actions">
+            <button type="button" className="action-button text" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="action-button"
+              aria-describedby={`${id}-scope`}
+              disabled={!hasSelection || generating}
+            >
+              {generating ? 'Generating…' : 'Download PDF'}
+            </button>
+          </div>
         </div>
       </fieldset>
       {error && (
