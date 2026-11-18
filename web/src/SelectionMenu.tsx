@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from 'react';
-import type { Session } from './sessions';
+import { monthIndexFormatter, type Session } from './sessions';
 
 const presets = {
   thisMonth: 'Select this month',
@@ -18,16 +18,7 @@ function selectSessions<T extends { dutyStart: string }>(
   if (preset === 'all') return sessions;
   if (preset === 'none') return [];
 
-  const formatter = new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    year: 'numeric',
-    month: 'numeric',
-  });
-  function monthIndex(date: Date) {
-    const parts = formatter.formatToParts(date);
-    const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-    return value('year') * 12 + value('month');
-  }
+  const monthIndex = monthIndexFormatter(timeZone);
   const month = monthIndex(new Date()) - (preset === 'lastMonth' ? 1 : 0);
   return sessions.filter((session) => monthIndex(new Date(session.dutyStart)) === month);
 }
