@@ -40,9 +40,26 @@ async function fillBasics() {
   await userEvent.fill(screen.getByLabelText('Duty end'), '1230');
 }
 
+function flightColumns(table: HTMLElement) {
+  return within(table)
+    .getAllByRole('columnheader')
+    .slice(0, 2)
+    .map((header) => {
+      const { x, width } = header.getBoundingClientRect();
+      return { x, width, align: getComputedStyle(header).textAlign };
+    });
+}
+
 test('enters a session by keyboard, calculates totals, and saves individual flights', async () => {
   const { entries } = sessionAPI();
   await openEntry();
+  const editor = screen.getByRole('table', { name: 'New session flights' });
+  expect(
+    within(editor)
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent),
+  ).toEqual(['Type', 'Duration', 'Actions']);
+  const editorColumns = flightColumns(editor);
   expect(document.activeElement).toBe(screen.getByLabelText('Session date'));
   await userEvent.fill(screen.getByLabelText('Session date'), '2026-05-03');
   await userEvent.fill(screen.getByLabelText('Student'), 'New Student');
@@ -79,6 +96,7 @@ test('enters a session by keyboard, calculates totals, and saves individual flig
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add session' }));
   await userEvent.click(screen.getByRole('button', { name: /Show flights for New Student/ }));
   const flights = screen.getByRole('table', { name: /Flights for New Student/ });
+  expect(flightColumns(flights)).toEqual(editorColumns);
   expect(within(flights).getAllByRole('row')).toHaveLength(4);
   expect(within(flights).getByText('1:15')).toBeTruthy();
 });

@@ -280,10 +280,9 @@ export default function SessionEntry({
               <table className="flight-table flight-entry-table" aria-label="New session flights">
                 <thead>
                   <tr>
-                    <th scope="col">Flight</th>
                     <th scope="col">Type</th>
                     <th scope="col" className="numeric">
-                      Block
+                      Duration
                     </th>
                     <th scope="col">
                       <span className="visually-hidden">Actions</span>
@@ -293,9 +292,6 @@ export default function SessionEntry({
                 <tbody>
                   {flights.map((flight, index) => (
                     <tr key={flight.id}>
-                      <th scope="row" className="flight-number">
-                        {index + 1}
-                      </th>
                       <td>
                         <select
                           aria-label={`Flight ${index + 1} type`}

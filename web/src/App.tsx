@@ -109,21 +109,20 @@ function SessionRow({
       </tr>
       <tr id={detailsId} hidden={!expanded} className="activity-details">
         <td colSpan={9}>
-          <table
-            className="flight-table flight-summary"
-            aria-label={`Flights for ${subject} on ${startDate}`}
-          >
+          <table className="flight-table" aria-label={`Flights for ${subject} on ${startDate}`}>
             <thead>
               <tr>
                 <th scope="col">Type</th>
-                <th scope="col">Duration</th>
+                <th scope="col" className="numeric">
+                  Duration
+                </th>
               </tr>
             </thead>
             <tbody>
               {flights.map((activity, index) => (
                 <tr key={index}>
                   <th scope="row">{activityKinds[activity.type].label}</th>
-                  <td>{formatDuration(activity.minutes)}</td>
+                  <td className="numeric">{formatDuration(activity.minutes)}</td>
                 </tr>
               ))}
             </tbody>
