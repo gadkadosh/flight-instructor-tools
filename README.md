@@ -4,11 +4,7 @@ A local session manager and Go CLI for my work as a flight instructor. Session
 records and billing configuration drive monthly invoices and duty reports, with
 JSON snapshots, HTML, and PDF output.
 
-<a href="invoice-screenshot.png">
-    <img src="invoice-screenshot.png"
-        alt="Example invoice generated from anonymized data"
-        width="300">
-</a>
+[![Sessions grouped by month with an expanded flight type and duration summary and buttons to generate invoices and duty reports](sessions-screenshot.png)](sessions-screenshot.png)
 
 ## Getting started
 
