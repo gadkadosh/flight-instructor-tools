@@ -98,19 +98,17 @@ test('loads sessions in file order and expands flights by clicking a data cell',
     within(flights)
       .getAllByRole('columnheader')
       .map((header) => header.textContent),
-  ).toEqual(['Flight', 'Type', 'Block']);
+  ).toEqual(['Type', 'Duration']);
   const flightRows = within(flights).getAllByRole('row').slice(1);
   expect(
     flightRows.map((row) => [
       within(row).getByRole('rowheader').textContent,
-      ...within(row)
-        .getAllByRole('cell')
-        .map((cell) => cell.textContent),
+      within(row).getByRole('cell').textContent,
     ]),
   ).toEqual([
-    ['1', 'Dual', '0:35'],
-    ['2', 'Dual', '0:30'],
-    ['3', 'Solo supervision', '0:05'],
+    ['Dual', '0:35'],
+    ['Dual', '0:30'],
+    ['Solo supervision', '0:05'],
   ]);
   expect(within(flights).queryByText('Preparation')).toBeNull();
   expect(within(flights).queryByText('flight-1')).toBeNull();
@@ -169,7 +167,7 @@ test('special flights count as own block time and retain their types in flight r
       .getAllByRole('row')
       .slice(1)
       .map((row) => row.textContent),
-  ).toEqual(['1Rundflug0:15', '2Rundflug0:20', '3Schnupperflug0:10']);
+  ).toEqual(['Rundflug0:15', 'Rundflug0:20', 'Schnupperflug0:10']);
   fireEvent.click(
     screen.getByRole('checkbox', {
       name: 'Select session for Rundflug / Schnupperflug on 03.05.2026',

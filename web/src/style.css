@@ -426,8 +426,13 @@ td {
   padding: 0.5rem 1rem 0.75rem 4.25rem;
 }
 
-.flight-table {
-  max-width: 24rem;
+.flight-summary {
+  max-width: 12rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.flight-summary thead th {
+  border-bottom: 1px solid #e5e9ef;
 }
 
 .flight-table th,
@@ -436,18 +441,20 @@ td {
   border-bottom: 0;
 }
 
+.flight-table th {
+  font-weight: 400;
+}
+
 .flight-table thead th {
   color: #566478;
   font-size: 0.75rem;
-  font-weight: 400;
 }
 
 .flight-number {
   color: #566478;
-  font-weight: 400;
 }
 
-.flight-table tbody tr + tr {
+.flight-entry-table tbody tr + tr {
   border-top: 1px solid #e5e9ef;
 }
 
