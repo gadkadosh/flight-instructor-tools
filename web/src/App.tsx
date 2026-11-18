@@ -172,6 +172,18 @@ function SessionTable({
     });
   }
 
+  function toggleMonth(sessions: Session[], allSelected: boolean) {
+    if (!allSelected) {
+      setSelectedSessionIds(new Set(sessions.map((session) => session.id)));
+      return;
+    }
+    setSelectedSessionIds((previous) => {
+      const next = new Set(previous);
+      for (const session of sessions) next.delete(session.id);
+      return next;
+    });
+  }
+
   return (
     <>
       <SessionToolbar
@@ -225,10 +237,8 @@ function SessionTable({
               </tbody>
             )}
             {monthGroups.map(([month, { label, sessions }]) => {
-              const selectionLabel = `Select ${sessions.length} ${sessions.length === 1 ? 'session' : 'sessions'}`;
-              const isSelected =
-                sessions.length === selectedSessionIds.size &&
-                sessions.every((session) => selectedSessionIds.has(session.id));
+              const allSelected = sessions.every((session) => selectedSessionIds.has(session.id));
+              const selectionLabel = `${allSelected ? 'Deselect' : 'Select'} ${sessions.length} ${sessions.length === 1 ? 'session' : 'sessions'}`;
               return (
                 <tbody key={month}>
                   <tr className="month-heading">
@@ -239,10 +249,8 @@ function SessionTable({
                           type="button"
                           className="action-button secondary"
                           aria-label={`${selectionLabel} in ${label}`}
-                          aria-current={isSelected || undefined}
-                          onClick={() =>
-                            setSelectedSessionIds(new Set(sessions.map((session) => session.id)))
-                          }
+                          data-selected={allSelected}
+                          onClick={() => toggleMonth(sessions, allSelected)}
                         >
                           {selectionLabel}
                         </button>

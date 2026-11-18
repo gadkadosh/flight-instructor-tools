@@ -278,7 +278,7 @@ test.each([
   }
 });
 
-test('groups sessions newest first by local month and replaces selection from a month heading', async () => {
+test('groups sessions newest first by local month and toggles selection from a month heading', async () => {
   await page.viewport(568, 720);
   const dates = [
     ['Last January', '2025-01-11T12:00:00Z'],
@@ -310,21 +310,30 @@ test('groups sessions newest first by local month and replaces selection from a 
     'Select 1 session in December 2025',
     'Select 1 session in January 2025',
   ]);
-  const groupButton = within(table).getByRole('button', {
-    name: 'Select 2 sessions in January 2026',
-  });
-  expect(groupButton.getBoundingClientRect().right).toBeLessThanOrEqual(568);
-  selectPreset('Select all');
-  await userEvent.click(groupButton);
-  await userEvent.click(groupButton);
+  const monthButton = (action: 'Select' | 'Deselect') =>
+    within(table).getByRole('button', { name: `${action} 2 sessions in January 2026` });
   const selected = () =>
     within(table)
-      .getAllByRole('checkbox', { checked: true })
+      .queryAllByRole('checkbox', { checked: true })
       .map((checkbox) => within(checkbox.closest('tr')!).getByRole('rowheader').textContent);
+
+  expect(monthButton('Select').getBoundingClientRect().right).toBeLessThanOrEqual(568);
+  selectPreset('Select all');
+  expect(monthButton('Deselect').textContent).toBe('Deselect 2 sessions');
+  await userEvent.click(monthButton('Deselect'));
+  expect(selected()).toEqual(['December lesson', 'Last January']);
+
+  await userEvent.click(monthButton('Select'));
   expect(selected()).toEqual(['January lesson', 'New Year lesson']);
   expect(screen.getByRole('status').textContent).toBe('2 of 4 sessions selected');
+  await userEvent.click(monthButton('Deselect'));
+  expect(selected()).toEqual([]);
+
+  await userEvent.click(monthButton('Select'));
   await userEvent.click(within(table).getByRole('checkbox', { name: /New Year lesson/ }));
   expect(selected()).toEqual(['January lesson']);
+  await userEvent.click(monthButton('Select'));
+  expect(selected()).toEqual(['January lesson', 'New Year lesson']);
 });
 
 test('last month includes December of the previous year and clears a selection when empty', async () => {

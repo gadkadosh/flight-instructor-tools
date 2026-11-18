@@ -147,7 +147,7 @@ table {
 }
 
 .document-buttons .action-button.secondary[aria-expanded='true'],
-.month-heading .action-button.secondary[aria-current='true'] {
+.month-heading .action-button.secondary[data-selected='true'] {
   border-color: #93b4f7;
   background: #eaf2ff;
   color: #1d4ed8;
