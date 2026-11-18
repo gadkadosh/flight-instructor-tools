@@ -545,6 +545,12 @@ test.each([
     expect(carryInput.checkValidity()).toBe(false);
     fireEvent.change(carryInput, { target: { value: '123:45' } });
     expect(carryInput.checkValidity()).toBe(true);
+    fireEvent.change(carryInput, { target: { value: '12360' } });
+    expect(carryInput.checkValidity()).toBe(false);
+    fireEvent.change(carryInput, { target: { value: '045' } });
+    expect(carryInput.checkValidity()).toBe(true);
+    fireEvent.blur(carryInput);
+    expect(carryInput.value).toBe('0:45');
     fireEvent.change(monthInput, { target: { value: '2027-01' } });
     expect(carryInput.value).toBe('0:00');
     fireEvent.change(monthInput, { target: { value: '2027-02' } });
@@ -666,7 +672,7 @@ test('duty report download ignores table selection and preserves details after a
   fireEvent.change(month, { target: { value: '2026-05' } });
   await expect.element(page.getByText('Includes 2 sessions in May 2026')).toBeVisible();
   fireEvent.change(screen.getByLabelText('Flight-duty total before this month'), {
-    target: { value: '120:00' },
+    target: { value: '12045' },
   });
   fireEvent.change(screen.getByLabelText('Issue date'), { target: { value: '2026-06-09' } });
   fetch.mockResolvedValueOnce(
@@ -685,7 +691,7 @@ test('duty report download ignores table selection and preserves details after a
   expect(trigger.disabled).toBe(false);
   expect(screen.getByLabelText<HTMLInputElement>('Month').value).toBe('2026-05');
   expect(screen.getByLabelText<HTMLInputElement>('Flight-duty total before this month').value).toBe(
-    '120:00',
+    '12045',
   );
   fetch.mockResolvedValueOnce(
     new Response('%PDF-1.7\nduty report', { headers: { 'Content-Type': 'application/pdf' } }),
@@ -702,7 +708,7 @@ test('duty report download ignores table selection and preserves details after a
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       month: '2026-05',
-      carryOverFlightDuty: '120:00',
+      carryOverFlightDuty: '120:45',
       issueDate: '2026-06-09',
     }),
   });
