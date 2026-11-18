@@ -583,7 +583,7 @@ td {
 }
 
 .entry-next-day:not(:empty) + input {
-  padding-inline-end: 3.75rem;
+  padding-inline-end: 4.25rem;
 }
 
 .entry-details fieldset {
