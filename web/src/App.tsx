@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
+import SessionDelete from './SessionDelete';
 import {
   activityKinds,
   dateInZone,
@@ -15,18 +16,26 @@ type LoadState =
   | { status: 'ready'; view: SessionView }
   | { status: 'error'; message: string };
 
+type DeleteTarget = {
+  session: Session;
+  description: string;
+  trigger: HTMLButtonElement;
+};
+
 function SessionRow({
   session,
   dateFormat,
   timeFormat,
   selected,
   onSelect,
+  onDelete,
 }: {
   session: Session;
   dateFormat: Intl.DateTimeFormat;
   timeFormat: Intl.DateTimeFormat;
   selected: boolean;
   onSelect: () => void;
+  onDelete: (target: DeleteTarget) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
@@ -46,6 +55,8 @@ function SessionRow({
   const subject =
     session.student?.trim() ||
     [...new Set(flights.map((activity) => activityKinds[activity.type].label))].sort().join(' / ');
+  const startTime = timeFormat.format(start);
+  const description = `${subject} · ${startDate}, ${startTime} ${timeSuffix}`;
   const totals = { preparation: 0, block: 0, soloSupervision: 0 };
   for (const activity of session.activities) {
     totals[activityKinds[activity.type].summary] += activity.minutes;
@@ -102,7 +113,7 @@ function SessionRow({
         </th>
         <td className="numeric">
           <time dateTime={session.dutyStart}>
-            {timeFormat.format(start)} <span className="time-zone">{timeSuffix}</span>
+            {startTime} <span className="time-zone">{timeSuffix}</span>
           </time>
         </td>
         <td className="numeric">
@@ -139,9 +150,38 @@ function SessionRow({
         <td className="numeric">{formatDuration(totals.preparation)}</td>
         <td className="numeric">{formatDuration(totals.block)}</td>
         <td className="numeric">{formatDuration(totals.soloSupervision)}</td>
+        <td className="row-actions" onClick={(event) => event.stopPropagation()}>
+          <button
+            className="action-button icon danger"
+            type="button"
+            aria-label={`Delete session for ${description}`}
+            aria-haspopup="dialog"
+            title="Delete session"
+            onClick={(event) => onDelete({ session, description, trigger: event.currentTarget })}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+              <path d="M3 6h18" />
+              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+          </button>
+        </td>
       </tr>
       <tr id={detailsId} hidden={!expanded} className="activity-details">
-        <td colSpan={9}>
+        <td colSpan={10}>
           <table className="flight-table" aria-label={`Flights for ${subject} on ${startDate}`}>
             <thead>
               <tr>
@@ -170,13 +210,18 @@ function SessionTable({
   view: initialView,
   adding,
   onCloseEntry,
+  onFocusAdd,
 }: {
   view: SessionView;
   adding: boolean;
   onCloseEntry: () => void;
+  onFocusAdd: () => void;
 }) {
   const [view, setView] = useState(initialView);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [deleteNotice, setDeleteNotice] = useState('');
+  const tableRegion = useRef<HTMLDivElement>(null);
   const monthGroups = useMemo(
     () => groupSessionsByMonth(view.sessions, view.timeZone),
     [view.sessions, view.timeZone],
@@ -206,6 +251,13 @@ function SessionTable({
     });
   }
 
+  function updateView(nextView: SessionView) {
+    setView(nextView);
+    setSelectedSessionIds(
+      (previous) => new Set(nextView.sessions.map(({ id }) => id).filter((id) => previous.has(id))),
+    );
+  }
+
   return (
     <>
       <SessionToolbar
@@ -217,9 +269,18 @@ function SessionTable({
         timeZone={view.timeZone}
         onClearSelection={() => setSelectedSessionIds(new Set())}
       />
+      <div aria-live="polite">
+        {deleteNotice && <p className="session-notice">{deleteNotice}</p>}
+      </div>
       {view.sessions.length === 0 && <p role="status">No sessions yet.</p>}
       {(view.sessions.length > 0 || adding) && (
-        <div className="table-scroll" role="region" aria-label="Sessions table" tabIndex={0}>
+        <div
+          className="table-scroll"
+          role="region"
+          aria-label="Sessions table"
+          tabIndex={0}
+          ref={tableRegion}
+        >
           <table className="sessions-table">
             <colgroup>
               <col className="select-column" />
@@ -227,6 +288,7 @@ function SessionTable({
               <col className="date-column" />
               <col />
               <col className="time-column" span={5} />
+              <col className="actions-column" />
             </colgroup>
             <caption className="visually-hidden">Sessions by month</caption>
             <thead>
@@ -254,11 +316,14 @@ function SessionTable({
                 <th scope="col" className="numeric">
                   Solo supervision
                 </th>
+                <th scope="col">
+                  <span className="visually-hidden">Actions</span>
+                </th>
               </tr>
             </thead>
             {adding && (
               <tbody>
-                <SessionEntry view={view} onSaved={setView} onClose={onCloseEntry} />
+                <SessionEntry view={view} onSaved={updateView} onClose={onCloseEntry} />
               </tbody>
             )}
             {monthGroups.map(([month, { label, sessions }]) => {
@@ -267,7 +332,7 @@ function SessionTable({
               return (
                 <tbody key={month}>
                   <tr className="month-heading">
-                    <th scope="rowgroup" colSpan={9} aria-label={label}>
+                    <th scope="rowgroup" colSpan={10} aria-label={label}>
                       <div className="month-heading-content">
                         {label}
                         <button
@@ -290,6 +355,10 @@ function SessionTable({
                       timeFormat={timeFormat}
                       selected={selectedSessionIds.has(session.id)}
                       onSelect={() => toggleSessions([session])}
+                      onDelete={(target) => {
+                        setDeleteNotice('');
+                        setDeleteTarget(target);
+                      }}
                     />
                   ))}
                 </tbody>
@@ -301,6 +370,24 @@ function SessionTable({
       <p className="time-note">
         Duty times: <span>{view.timeZone}</span> · Durations H:MM
       </p>
+      {deleteTarget && (
+        <SessionDelete
+          sessionId={deleteTarget.session.id}
+          etag={deleteTarget.session.etag}
+          description={deleteTarget.description}
+          onCancel={() => {
+            setDeleteTarget(null);
+            deleteTarget.trigger.focus();
+          }}
+          onDeleted={(nextView) => {
+            setDeleteTarget(null);
+            updateView(nextView);
+            setDeleteNotice('Session deleted.');
+            if (nextView.sessions.length > 0) tableRegion.current?.focus({ preventScroll: true });
+            else onFocusAdd();
+          }}
+        />
+      )}
     </>
   );
 }
@@ -378,6 +465,7 @@ export default function App() {
         <SessionTable
           view={state.view}
           adding={adding}
+          onFocusAdd={() => addButtonRef.current?.focus()}
           onCloseEntry={() => {
             setAdding(false);
             addButtonRef.current?.focus();

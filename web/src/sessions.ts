@@ -13,6 +13,7 @@ export interface Activity {
 
 export interface Session {
   id: string;
+  etag: string;
   dutyStart: string;
   dutyEnd: string;
   student?: string;

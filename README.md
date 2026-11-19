@@ -17,9 +17,10 @@ make build
 ./fitools --input examples/sessions.json --config examples/config.json
 ```
 
-This opens the session UI with the example data in your browser. Adding a session
-writes to the file selected by `--input`, including the example file when using
-the command above. Press Ctrl+C in the terminal to stop the server.
+This opens the session UI with the example data in your browser. Adding or
+deleting a session writes to the file selected by `--input`, including the
+example file when using the command above. Press Ctrl+C in the terminal to stop
+the server.
 
 
 Without path overrides, the tools use `sessions.json` and `config.json` in the

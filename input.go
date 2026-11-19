@@ -170,6 +170,10 @@ func validateSessionRecords(input SessionFile) error {
 		if strings.TrimSpace(session.ID) == "" {
 			return fmt.Errorf("%s.id: must not be empty", path)
 		}
+		// Browsers resolve these as path segments, so the UI could not address the session.
+		if session.ID == "." || session.ID == ".." {
+			return fmt.Errorf("%s.id: must not be %q", path, session.ID)
+		}
 		if firstIndex, exists := sessionIDs[session.ID]; exists {
 			return fmt.Errorf("%s.id: duplicate %q (first used at sessions[%d].id)", path, session.ID, firstIndex)
 		}

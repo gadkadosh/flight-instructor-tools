@@ -75,7 +75,7 @@ func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request
 				fail(http.StatusConflict, fmt.Errorf("session ID already exists with different values; reload before trying again"))
 				return
 			}
-			json.NewEncoder(w).Encode(view)
+			writeSessionView(w, http.StatusOK, view)
 			return
 		}
 	}
@@ -89,8 +89,7 @@ func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request
 		fail(http.StatusInternalServerError, fmt.Errorf("save sessions: %w", err))
 		return
 	}
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(view)
+	writeSessionView(w, http.StatusCreated, view)
 }
 
 func parseSessionTime(value string, location *time.Location) (time.Time, error) {

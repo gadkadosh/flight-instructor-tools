@@ -6,6 +6,7 @@ import './style.css';
 
 const session = {
   id: 'session-1',
+  etag: '"session-1-version"',
   dutyStart: '2026-05-03T22:30:00Z',
   dutyEnd: '2026-05-03T23:55:00Z',
   student: 'Alex Beispiel',
@@ -65,7 +66,7 @@ test('loads sessions and expands flights by clicking a data cell', async () => {
   const row = within(toggle.closest('tr')!);
   const cells = row.getAllByRole('cell');
   expect(cells[1].contains(toggle)).toBe(true);
-  expect(cells.slice(2).map((cell) => cell.textContent)).toEqual([
+  expect(cells.slice(2, -1).map((cell) => cell.textContent)).toEqual([
     '04.05.2026',
     '00:30 LT',
     '01:55 LT',
@@ -223,7 +224,7 @@ test('special flights count as own block time and retain their types in flight r
   const totals = (header: HTMLElement) =>
     within(header.closest('tr')!)
       .getAllByRole('cell')
-      .slice(-3)
+      .slice(-4, -1)
       .map((cell) => cell.textContent);
   expect(totals(alex)).toEqual(['0:15', '1:35', '0:05']);
   const unnamed = screen.getByRole('rowheader', { name: 'Rundflug / Schnupperflug' });
@@ -368,6 +369,85 @@ test('preparation-only sessions have no flight expansion', async () => {
   expect(screen.queryByRole('button', { name: /flights for/ })).toBeNull();
   fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
   expect(screen.getByRole('status').textContent).toBe('1 of 1 session selected');
+});
+
+test('confirms the row being deleted and preserves other selected sessions', async () => {
+  const target = { ...session, id: 'session/1' };
+  const other = { ...session, id: 'session-2', student: 'Sam Beispiel' };
+  const fetch = respond({ timeZone: 'UTC', sessions: [target, other] });
+  render(<App />);
+  const trigger = await screen.findByRole('button', { name: /Delete session for Alex/ });
+  const heading = page.getByRole('heading', { name: 'Sessions' });
+  await heading.hover();
+  expect(getComputedStyle(trigger).opacity).toBe('0');
+  await page.getByRole('rowheader', { name: session.student }).hover();
+  expect(getComputedStyle(trigger).opacity).toBe('1');
+  const otherTrigger = screen.getByRole('button', { name: /Delete session for Sam/ });
+  expect(getComputedStyle(otherTrigger).opacity).toBe('0');
+  const mutedColor = getComputedStyle(trigger).color;
+  await page.getByRole('button', { name: /Delete session for Alex/ }).hover();
+  expect(getComputedStyle(trigger).color).not.toBe(mutedColor);
+  expect(getComputedStyle(trigger).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+
+  await userEvent.click(screen.getByRole('checkbox', { name: /Select session for Alex/ }));
+  await userEvent.click(screen.getByRole('checkbox', { name: /Select session for Sam/ }));
+  const expand = screen.getByRole('button', { name: /Show flights for Alex/ });
+  expand.focus();
+  await userEvent.keyboard('{Tab}');
+  expect(document.activeElement).toBe(trigger);
+  expect(getComputedStyle(trigger).opacity).toBe('1');
+  await userEvent.keyboard('{Enter}');
+  const dialog = screen.getByRole('dialog', { name: 'Delete session?' });
+  expect(within(dialog).getByText('Alex Beispiel · 03.05.2026, 22:30 Z')).toBeTruthy();
+  expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Cancel' }));
+  await userEvent.keyboard('{Escape}');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(trigger);
+  expect(expand.getAttribute('aria-expanded')).toBe('false');
+  expect(fetch).toHaveBeenCalledTimes(1);
+
+  fetch.mockResolvedValueOnce(new Response(JSON.stringify({ timeZone: 'UTC', sessions: [other] })));
+  await userEvent.click(trigger);
+  await userEvent.click(
+    within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete session' }),
+  );
+  await screen.findByText('Session deleted.');
+  expect(fetch).toHaveBeenLastCalledWith('/api/sessions/session%2F1', {
+    method: 'DELETE',
+    headers: { 'If-Match': target.etag },
+  });
+  expect(screen.queryByRole('rowheader', { name: session.student })).toBeNull();
+  expect(
+    screen.getByRole<HTMLInputElement>('checkbox', { name: /Select session for Sam/ }).checked,
+  ).toBe(true);
+  expect(screen.getByRole('status').textContent).toBe('1 of 1 session selected');
+});
+
+test('keeps the session on a failed deletion and shows the empty state after a retry', async () => {
+  const fetch = respond({ timeZone: 'UTC', sessions: [{ ...session, id: 'a/b' }] });
+  render(<App />);
+  const trigger = await screen.findByRole('button', { name: /Delete session for Alex/ });
+  await page.getByRole('rowheader', { name: session.student }).hover();
+  await userEvent.click(trigger);
+  const dialog = within(screen.getByRole('dialog'));
+  const confirm = dialog.getByRole('button', { name: 'Delete session' });
+
+  fetch.mockResolvedValueOnce(
+    new Response(JSON.stringify({ error: 'Could not save sessions.' }), { status: 500 }),
+  );
+  await userEvent.click(confirm);
+  expect((await dialog.findByRole('alert')).textContent).toBe('Could not save sessions.');
+  expect(fetch).toHaveBeenLastCalledWith('/api/sessions/a%2Fb', {
+    method: 'DELETE',
+    headers: { 'If-Match': session.etag },
+  });
+  expect(screen.getByText(session.student)).toBeTruthy();
+
+  fetch.mockResolvedValueOnce(new Response(JSON.stringify({ timeZone: 'UTC', sessions: [] })));
+  await userEvent.click(confirm);
+  await screen.findByText('No sessions yet.');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add session' }));
 });
 
 test('shows the next-day marker with UTC duty times', async () => {

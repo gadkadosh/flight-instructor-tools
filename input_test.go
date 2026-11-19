@@ -48,6 +48,8 @@ func TestReadSessionFileRejectsInvalidInput(t *testing.T) {
 		{"future schema", `"schemaVersion":3`, `"schemaVersion":4`, "schemaVersion: got 4, want 3"},
 		{"no sessions", `[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","activities":[{"id":"activity-1","type":"dual","minutes":60}]}]`, `[]`, "sessions: must contain at least one session"},
 		{"missing session ID", `"id":"session-1",`, ``, "sessions[0].id"},
+		{"dot session ID", `"id":"session-1"`, `"id":"."`, `sessions[0].id: must not be "."`},
+		{"dot-dot session ID", `"id":"session-1"`, `"id":".."`, `sessions[0].id: must not be ".."`},
 		{"dutyStart date is null", `"dutyStart":"2026-05-03T10:00:00Z"`, `"dutyStart":null`, "sessions[0].dutyStart: missing or zero"},
 		{"missing dutyStart date", `"dutyStart":"2026-05-03T10:00:00Z",`, ``, "sessions[0].dutyStart: missing or zero"},
 		{"dutyEnd date is null", `"dutyEnd":"2026-05-03T12:00:00Z"`, `"dutyEnd":null`, "sessions[0].dutyEnd: missing or zero"},
