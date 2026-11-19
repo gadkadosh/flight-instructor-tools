@@ -1,8 +1,10 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import InvoiceForm from './InvoiceForm';
 import DutyReportForm from './DutyReportForm';
+import DeleteSessionsForm from './DeleteSessionsForm';
+import type { SessionView } from './sessions';
 
-type DocumentKind = 'invoice' | 'dutyReport';
+type DocumentKind = 'invoice' | 'dutyReport' | 'delete';
 
 export default function SessionToolbar({
   selectedSessionIds,
@@ -10,12 +12,14 @@ export default function SessionToolbar({
   countSessionsInMonth,
   timeZone,
   onClearSelection,
+  onDeleted,
 }: {
   selectedSessionIds: ReadonlySet<string>;
   sessionCount: number;
   countSessionsInMonth: (month: string) => number;
   timeZone: string;
   onClearSelection: () => void;
+  onDeleted: (view: SessionView) => void;
 }) {
   const [expanded, setExpanded] = useState<DocumentKind | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -23,13 +27,16 @@ export default function SessionToolbar({
   const selectionStatus = useRef<HTMLParagraphElement>(null);
   const invoiceTrigger = useRef<HTMLButtonElement>(null);
   const reportTrigger = useRef<HTMLButtonElement>(null);
+  const deleteTrigger = useRef<HTMLButtonElement>(null);
   const hasSelection = selectedSessionIds.size > 0;
   const invoiceOpen = expanded === 'invoice';
+  const deleteOpen = expanded === 'delete';
 
   function close() {
     setExpanded(null);
-    if (invoiceOpen && !hasSelection) selectionStatus.current?.focus();
-    else (invoiceOpen ? invoiceTrigger : reportTrigger).current?.focus();
+    if (expanded === 'dutyReport') reportTrigger.current?.focus();
+    else if (!hasSelection) selectionStatus.current?.focus();
+    else (invoiceOpen ? invoiceTrigger : deleteTrigger).current?.focus();
   }
 
   function toggle(kind: DocumentKind) {
@@ -75,6 +82,19 @@ export default function SessionToolbar({
             Clear selection
           </button>
         )}
+        {(hasSelection || deleteOpen) && (
+          <button
+            ref={deleteTrigger}
+            type="button"
+            className="action-button text danger"
+            disabled={generating}
+            aria-expanded={deleteOpen}
+            aria-controls={`${formId}-delete`}
+            onClick={() => toggle('delete')}
+          >
+            Delete…
+          </button>
+        )}
       </div>
       <div className="document-buttons">
         <button
@@ -115,6 +135,18 @@ export default function SessionToolbar({
         timeZone={timeZone}
         onClose={close}
         onGeneratingChange={setGenerating}
+      />
+      <DeleteSessionsForm
+        id={`${formId}-delete`}
+        open={deleteOpen}
+        selectedSessionIds={selectedSessionIds}
+        onClose={close}
+        onDeleted={(view) => {
+          setExpanded(null);
+          onDeleted(view);
+          selectionStatus.current?.focus();
+        }}
+        onDeletingChange={setGenerating}
       />
     </div>
   );

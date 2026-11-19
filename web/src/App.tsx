@@ -216,6 +216,10 @@ function SessionTable({
         }
         timeZone={view.timeZone}
         onClearSelection={() => setSelectedSessionIds(new Set())}
+        onDeleted={(view) => {
+          setView(view);
+          setSelectedSessionIds(new Set());
+        }}
       />
       {view.sessions.length === 0 && <p role="status">No sessions yet.</p>}
       {(view.sessions.length > 0 || adding) && (

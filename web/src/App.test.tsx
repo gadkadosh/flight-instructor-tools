@@ -817,3 +817,79 @@ test('duty report download ignores table selection and preserves details after a
   expect(juneSession.checked).toBe(true);
   expect(screen.getByRole('status').textContent).toBe('1 of 3 sessions selected');
 });
+
+test('deletes the selected sessions after confirmation', async () => {
+  const sam = {
+    ...session,
+    id: 'session-2',
+    student: 'Sam Beispiel',
+    dutyStart: '2026-04-03T22:30:00Z',
+    dutyEnd: '2026-04-03T23:55:00Z',
+  };
+  const fetch = respond({ timeZone: 'UTC', sessions: [session, sam] });
+  render(<App />);
+  const alex = await screen.findByRole('checkbox', {
+    name: 'Select session for Alex Beispiel on 03.05.2026',
+  });
+  expect(screen.queryByRole('button', { name: 'Delete…' })).toBeNull();
+  await userEvent.click(alex);
+  const trigger = screen.getByRole('button', { name: 'Delete…' });
+  await userEvent.click(trigger);
+  const form = screen.getByRole('form', { name: 'Delete sessions' });
+  expect(trigger.getAttribute('aria-expanded')).toBe('true');
+  expect(document.getElementById(trigger.getAttribute('aria-controls')!)).toBe(form);
+  expect(within(form).getByText(/Delete 1 selected session\?/)).toBeTruthy();
+  expect(document.activeElement).toBe(within(form).getByRole('button', { name: 'Cancel' }));
+
+  fetch.mockResolvedValueOnce(
+    new Response(JSON.stringify({ timeZone: 'UTC', sessions: [sam] }), { status: 200 }),
+  );
+  await userEvent.click(within(form).getByRole('button', { name: 'Delete' }));
+  expect(fetch).toHaveBeenLastCalledWith('/api/sessions', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionIds: ['session-1'] }),
+  });
+  await waitFor(() => expect(screen.queryByRole('form', { name: 'Delete sessions' })).toBeNull());
+  expect(screen.queryByRole('rowheader', { name: 'Alex Beispiel' })).toBeNull();
+  expect(screen.getByRole('rowheader', { name: 'Sam Beispiel' })).toBeTruthy();
+  const count = screen.getByRole('status');
+  expect(count.textContent).toBe('0 of 1 session selected');
+  expect(document.activeElement).toBe(count);
+  expect(screen.queryByRole('button', { name: 'Delete…' })).toBeNull();
+});
+
+test('deletion can be cancelled and keeps the selection after an error', async () => {
+  const fetch = respond({ timeZone: 'UTC', sessions: [session] });
+  render(<App />);
+  const selection = await screen.findByRole<HTMLInputElement>('checkbox', {
+    name: /Select session for/,
+  });
+  await userEvent.click(selection);
+  const trigger = screen.getByRole('button', { name: 'Delete…' });
+  await userEvent.click(trigger);
+  await userEvent.keyboard('{Escape}');
+  expect(screen.queryByRole('form', { name: 'Delete sessions' })).toBeNull();
+  expect(document.activeElement).toBe(trigger);
+  expect(fetch).toHaveBeenCalledTimes(1);
+
+  await userEvent.click(trigger);
+  fetch.mockResolvedValueOnce(
+    new Response(JSON.stringify({ error: 'save sessions: read-only file system' }), {
+      status: 500,
+    }),
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'save sessions: read-only file system',
+  );
+  expect(selection.checked).toBe(true);
+  expect(screen.getByRole('rowheader', { name: 'Alex Beispiel' })).toBeTruthy();
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Delete' }).disabled).toBe(false);
+
+  await userEvent.click(selection);
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Delete' }).disabled).toBe(true);
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('form', { name: 'Delete sessions' })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('status'));
+});
