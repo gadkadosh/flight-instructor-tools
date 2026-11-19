@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -23,26 +21,10 @@ type sessionEntry struct {
 }
 
 func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
-	fail := func(status int, err error) {
-		w.WriteHeader(status)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-	}
-	contentType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if contentType != "application/json" {
-		fail(http.StatusUnsupportedMediaType, fmt.Errorf("Content-Type must be application/json"))
-		return
-	}
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
-	decoder.DisallowUnknownFields()
+	fail := func(status int, err error) { writeJSONError(w, status, err) }
 	var entry sessionEntry
-	if err := decoder.Decode(&entry); err != nil {
-		fail(http.StatusBadRequest, fmt.Errorf("invalid session: %w", err))
-		return
-	}
-	if err := decoder.Decode(new(any)); err != io.EOF {
-		fail(http.StatusBadRequest, fmt.Errorf("expected a single session"))
+	if !decodeJSONRequest(w, r, &entry, "session") {
 		return
 	}
 	view, err := source.read()

@@ -346,14 +346,15 @@ table {
   color: var(--color-danger);
 }
 
-@media (hover: hover) {
+/* Touchscreens, including hybrid laptops, cannot hover to reveal the button. */
+@media (hover: hover) and (not (any-pointer: coarse)) {
   .row-actions .action-button {
     opacity: 0;
     pointer-events: none;
   }
 
   tr:hover .row-actions .action-button,
-  .row-actions .action-button:focus-visible {
+  .row-actions .action-button:focus {
     opacity: 1;
     pointer-events: auto;
   }

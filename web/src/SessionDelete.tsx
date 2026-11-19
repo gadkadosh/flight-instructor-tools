@@ -19,16 +19,13 @@ export default function SessionDelete({
   const cancelButton = useRef<HTMLButtonElement>(null);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const deleted = useRef(false);
 
   useEffect(() => {
-    dialog.current?.showModal();
+    // StrictMode runs this twice, and older browsers throw if the dialog is already open.
+    if (!dialog.current?.open) dialog.current?.showModal();
     cancelButton.current?.focus();
   }, []);
-
-  function cancel() {
-    dialog.current?.close();
-    onCancel();
-  }
 
   async function remove() {
     if (deleting) return;
@@ -39,8 +36,10 @@ export default function SessionDelete({
         method: 'DELETE',
         headers: { 'If-Match': etag },
       });
-      const body = await response.json();
+      // The host check and the router can answer with plain text.
+      const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'Could not delete session.');
+      deleted.current = true;
       dialog.current?.close();
       onDeleted(body);
     } catch (error) {
@@ -57,7 +56,11 @@ export default function SessionDelete({
       aria-describedby={`${id}-session ${id}-effect`}
       onCancel={(event) => {
         event.preventDefault();
-        if (!deleting) cancel();
+        if (!deleting) dialog.current?.close();
+      }}
+      // The browser can close the dialog without a cancel event, so treat any close as Cancel.
+      onClose={() => {
+        if (!deleted.current) onCancel();
       }}
     >
       <form
@@ -84,7 +87,7 @@ export default function SessionDelete({
             ref={cancelButton}
             type="button"
             className="action-button secondary"
-            onClick={cancel}
+            onClick={() => dialog.current?.close()}
             disabled={deleting}
           >
             Cancel

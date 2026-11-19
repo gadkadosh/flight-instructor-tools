@@ -443,8 +443,20 @@ test('keeps the session on a failed deletion and shows the empty state after a r
   });
   expect(screen.getByText(session.student)).toBeTruthy();
 
-  fetch.mockResolvedValueOnce(new Response(JSON.stringify({ timeZone: 'UTC', sessions: [] })));
+  fetch.mockResolvedValueOnce(new Response('Forbidden', { status: 403 }));
   await userEvent.click(confirm);
+  await expect.poll(() => dialog.getByRole('alert').textContent).toBe('Could not delete session.');
+
+  // A close the dialog did not start, such as a forced Escape, must still allow reopening it.
+  screen.getByRole<HTMLDialogElement>('dialog').close();
+  await expect.poll(() => document.querySelector('dialog')).toBeNull();
+  await page.getByRole('rowheader', { name: session.student }).hover();
+  await userEvent.click(trigger);
+  const reopened = within(screen.getByRole('dialog'));
+  expect(reopened.queryByRole('alert')).toBeNull();
+
+  fetch.mockResolvedValueOnce(new Response(JSON.stringify({ timeZone: 'UTC', sessions: [] })));
+  await userEvent.click(reopened.getByRole('button', { name: 'Delete session' }));
   await screen.findByText('No sessions yet.');
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add session' }));

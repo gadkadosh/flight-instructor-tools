@@ -253,6 +253,7 @@ function SessionTable({
 
   function updateView(nextView: SessionView) {
     setView(nextView);
+    setDeleteNotice('');
     setSelectedSessionIds(
       (previous) => new Set(nextView.sessions.map(({ id }) => id).filter((id) => previous.has(id))),
     );
