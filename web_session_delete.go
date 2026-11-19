@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strings"
 )
 
 func (source sessionSource) deleteSession(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +26,7 @@ func (source sessionSource) deleteSession(w http.ResponseWriter, r *http.Request
 			writeJSONError(w, http.StatusPreconditionRequired, fmt.Errorf("reload the page and review the session before deleting"))
 			return
 		}
-		if len(matches) != 1 || strings.TrimSpace(matches[0]) != tag {
+		if len(matches) != 1 || matches[0] != tag {
 			writeJSONError(w, http.StatusPreconditionFailed, fmt.Errorf("this session changed; reload the page and review it before deleting"))
 			return
 		}

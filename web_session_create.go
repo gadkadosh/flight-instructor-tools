@@ -1,11 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -97,38 +94,4 @@ func parseSessionTime(value string, location *time.Location) (time.Time, error) 
 		}
 	}
 	return parsed, nil
-}
-
-func writeSessionFile(path string, input SessionFile) error {
-	// Follow a configured symlink instead of replacing the link itself.
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return err
-	}
-	info, err := os.Stat(resolved)
-	if err != nil {
-		return err
-	}
-	file, err := os.CreateTemp(filepath.Dir(resolved), ".sessions-*.json")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(file.Name())
-	defer file.Close()
-	if err := file.Chmod(info.Mode().Perm()); err != nil {
-		return err
-	}
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	encoder.SetEscapeHTML(false)
-	if err := encoder.Encode(input); err != nil {
-		return err
-	}
-	if err := file.Sync(); err != nil {
-		return err
-	}
-	if err := file.Close(); err != nil {
-		return err
-	}
-	return os.Rename(file.Name(), resolved)
 }
