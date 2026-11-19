@@ -62,7 +62,7 @@ func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request
 	}
 	view.Sessions = append(view.Sessions, session)
 	input := SessionFile{SchemaVersion: supportedSessionSchemaVersion, Sessions: view.Sessions}
-	if err := validateSessionRecords(input); err != nil {
+	if err := validateSessionFile(input); err != nil {
 		writeJSONError(w, http.StatusBadRequest, err)
 		return
 	}

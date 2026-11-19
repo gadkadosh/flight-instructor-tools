@@ -60,7 +60,7 @@ func (source sessionSource) read() (sessionView, error) {
 	if err := readJSONFile(source.inputPath, &input); err != nil {
 		return sessionView{}, fmt.Errorf("read sessions (use --input to choose another file): %w", err)
 	}
-	if err := validateSessionRecords(input); err != nil {
+	if err := validateSessionFile(input); err != nil {
 		return sessionView{}, fmt.Errorf("validate sessions %q: %w", source.inputPath, err)
 	}
 	var config Config

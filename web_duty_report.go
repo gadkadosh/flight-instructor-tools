@@ -40,13 +40,9 @@ func (source sessionSource) serveDutyReport(w http.ResponseWriter, r *http.Reque
 		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("month must use YYYY-MM format: %q", request.Month))
 		return
 	}
-	var input SessionFile
-	if err := readJSONFile(source.inputPath, &input); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("read sessions: %w", err))
-		return
-	}
-	if err := validateSessionRecords(input); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("validate sessions: %w", err))
+	input, err := readSessionFile(source.inputPath)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
 	report, err := buildDutyReport(input.Sessions, config, request.Month, issueDate, carryOver)

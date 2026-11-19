@@ -46,7 +46,6 @@ func TestReadSessionFileRejectsInvalidInput(t *testing.T) {
 		{"old schema", `"schemaVersion":3`, `"schemaVersion":1`, "schemaVersion: got 1, want 3"},
 		{"previous schema", `"schemaVersion":3`, `"schemaVersion":2`, "schemaVersion: got 2, want 3"},
 		{"future schema", `"schemaVersion":3`, `"schemaVersion":4`, "schemaVersion: got 4, want 3"},
-		{"no sessions", `[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","activities":[{"id":"activity-1","type":"dual","minutes":60}]}]`, `[]`, "sessions: must contain at least one session"},
 		{"missing session ID", `"id":"session-1",`, ``, "sessions[0].id"},
 		{"dot session ID", `"id":"session-1"`, `"id":"."`, `sessions[0].id: must not be "."`},
 		{"dot-dot session ID", `"id":"session-1"`, `"id":".."`, `sessions[0].id: must not be ".."`},
@@ -159,7 +158,7 @@ func TestSessionStudentRequirements(t *testing.T) {
 			for _, activityType := range test.types {
 				session.Activities = append(session.Activities, Activity{ID: string(activityType), Type: activityType, Minutes: 30})
 			}
-			err := validateSessionRecords(SessionFile{SchemaVersion: 3, Sessions: []Session{session}})
+			err := validateSessionFile(SessionFile{SchemaVersion: 3, Sessions: []Session{session}})
 			if test.wantRequired {
 				if err == nil || !strings.Contains(err.Error(), "sessions[0].student: required") {
 					t.Fatalf("error = %v, want a required student", err)

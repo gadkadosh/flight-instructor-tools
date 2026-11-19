@@ -28,7 +28,7 @@ func (source sessionSource) deleteSession(w http.ResponseWriter, r *http.Request
 			return
 		}
 		if len(matches) != 1 || strings.TrimSpace(matches[0]) != tag {
-			writeJSONError(w, http.StatusPreconditionFailed, fmt.Errorf("this session changed. Reload the page and review it before deleting"))
+			writeJSONError(w, http.StatusPreconditionFailed, fmt.Errorf("this session changed; reload the page and review it before deleting"))
 			return
 		}
 		view.Sessions = slices.Delete(view.Sessions, index, index+1)
