@@ -146,12 +146,9 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 			return fmt.Errorf("issue date must use YYYY-MM-DD format: %q", *issueDateValue)
 		}
 	}
-	var input SessionFile
-	if err := readJSONFile(*inputPath, &input); err != nil {
-		return fmt.Errorf("read sessions: %w", err)
-	}
-	if err := validateSessionRecords(input); err != nil {
-		return fmt.Errorf("validate sessions: %w", err)
+	input, err := readSessionFile(*inputPath)
+	if err != nil {
+		return err
 	}
 	report, err := buildDutyReport(input.Sessions, config, *month, issueDate, carryOver)
 	if err != nil {

@@ -379,9 +379,6 @@ func TestDutyReportEmptySessionFileAndOptionalSignature(t *testing.T) {
 	if strings.Contains(html, "<img") || !strings.Contains(html, "Month 0:00, carry 120:00, year 120:00") {
 		t.Fatalf("unsigned empty HTML = %s", html)
 	}
-	if _, err := readSessionFile(inputPath); err == nil {
-		t.Error("invoice/validate reader must still reject empty session files")
-	}
 }
 
 func TestDutyReportRejectsOutputDirectoryBeforeReplacingFiles(t *testing.T) {

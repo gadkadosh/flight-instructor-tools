@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -27,11 +29,15 @@ func webHandler(assets fs.FS, source sessionSource) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/sessions", source.serveSessions)
 	var saveMu sync.Mutex
-	mux.HandleFunc("POST /api/sessions", func(w http.ResponseWriter, r *http.Request) {
-		saveMu.Lock()
-		defer saveMu.Unlock()
-		source.createSession(w, r)
-	})
+	sessionWrite := func(handler http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			saveMu.Lock()
+			defer saveMu.Unlock()
+			handler(w, r)
+		}
+	}
+	mux.HandleFunc("POST /api/sessions", sessionWrite(source.createSession))
+	mux.HandleFunc("DELETE /api/sessions/{id}", sessionWrite(source.deleteSession))
 	mux.HandleFunc("POST /api/invoice", source.serveInvoice)
 	mux.HandleFunc("POST /api/duty-report", source.serveDutyReport)
 	mux.Handle("GET /", http.FileServerFS(assets))
@@ -55,7 +61,7 @@ func (source sessionSource) read() (sessionView, error) {
 	if err := readJSONFile(source.inputPath, &input); err != nil {
 		return sessionView{}, fmt.Errorf("read sessions (use --input to choose another file): %w", err)
 	}
-	if err := validateSessionRecords(input); err != nil {
+	if err := validateSessionFile(input); err != nil {
 		return sessionView{}, fmt.Errorf("validate sessions %q: %w", source.inputPath, err)
 	}
 	var config Config
@@ -74,14 +80,76 @@ func (source sessionSource) read() (sessionView, error) {
 	return sessionView{Sessions: input.Sessions, TimeZone: location.String()}, nil
 }
 
+func writeSessionFile(path string, input SessionFile) error {
+	// Follow a configured symlink instead of replacing the link itself.
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return err
+	}
+	file, err := os.CreateTemp(filepath.Dir(resolved), ".sessions-*.json")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file.Name())
+	defer file.Close()
+	if err := file.Chmod(info.Mode().Perm()); err != nil {
+		return err
+	}
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(input); err != nil {
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(file.Name(), resolved)
+}
+
 func (source sessionSource) serveSessions(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	view, err := source.read()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
-	json.NewEncoder(w).Encode(view)
+	writeSessionView(w, http.StatusOK, view)
+}
+
+func sessionETag(session Session) (string, error) {
+	data, err := json.Marshal(session)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`"%x"`, sha256.Sum256(data)), nil
+}
+
+func writeSessionView(w http.ResponseWriter, status int, view sessionView) {
+	type taggedSession struct {
+		Session
+		ETag string `json:"etag"`
+	}
+	response := struct {
+		Sessions []taggedSession `json:"sessions"`
+		TimeZone string          `json:"timeZone"`
+	}{Sessions: make([]taggedSession, 0, len(view.Sessions)), TimeZone: view.TimeZone}
+	for _, session := range view.Sessions {
+		tag, err := sessionETag(session)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("encode session: %w", err))
+			return
+		}
+		response.Sessions = append(response.Sessions, taggedSession{Session: session, ETag: tag})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(response)
 }

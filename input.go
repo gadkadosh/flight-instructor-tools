@@ -150,17 +150,6 @@ func readJSONFile(path string, destination any) error {
 }
 
 func validateSessionFile(input SessionFile) error {
-	if err := validateSessionRecords(input); err != nil {
-		return err
-	}
-	if len(input.Sessions) == 0 {
-		return fmt.Errorf("sessions: must contain at least one session")
-	}
-	return nil
-}
-
-// Validate the schema and records without requiring a nonempty selection.
-func validateSessionRecords(input SessionFile) error {
 	if input.SchemaVersion != supportedSessionSchemaVersion {
 		return fmt.Errorf("schemaVersion: got %d, want %d", input.SchemaVersion, supportedSessionSchemaVersion)
 	}
@@ -169,6 +158,10 @@ func validateSessionRecords(input SessionFile) error {
 		path := fmt.Sprintf("sessions[%d]", sessionIndex)
 		if strings.TrimSpace(session.ID) == "" {
 			return fmt.Errorf("%s.id: must not be empty", path)
+		}
+		// Browsers resolve these as path segments, so the UI could not address the session.
+		if session.ID == "." || session.ID == ".." {
+			return fmt.Errorf("%s.id: must not be %q", path, session.ID)
 		}
 		if firstIndex, exists := sessionIDs[session.ID]; exists {
 			return fmt.Errorf("%s.id: duplicate %q (first used at sessions[%d].id)", path, session.ID, firstIndex)

@@ -13,14 +13,19 @@ afterEach(async () => {
 });
 
 function sessionAPI(sessions: Session[] = []) {
-  const entries: Session[] = [];
+  const entries: Omit<Session, 'etag'>[] = [];
   const fetch = vi.fn(async (_url: string, options?: RequestInit) => {
     if (options?.method === 'POST') {
-      const entry = JSON.parse(options.body as string) as Session;
+      const entry = JSON.parse(options.body as string) as Omit<Session, 'etag'>;
       entries.push(entry);
       sessions = [
         ...sessions,
-        { ...entry, dutyStart: `${entry.dutyStart}:00Z`, dutyEnd: `${entry.dutyEnd}:00Z` },
+        {
+          ...entry,
+          etag: `"${entry.id}"`,
+          dutyStart: `${entry.dutyStart}:00Z`,
+          dutyEnd: `${entry.dutyEnd}:00Z`,
+        },
       ];
     }
     return Response.json({ sessions, timeZone: 'UTC' });

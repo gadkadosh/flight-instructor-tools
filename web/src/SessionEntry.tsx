@@ -289,9 +289,10 @@ export default function SessionEntry({
         <td className="numeric">
           <span aria-label="Solo supervision total">{formatDuration(totals.soloSupervision)}</span>
         </td>
+        <td />
       </tr>
       <tr className="activity-details entry-details" onKeyDown={shortcut}>
-        <td colSpan={9}>
+        <td colSpan={10}>
           <form
             id={formId}
             ref={formRef}
