@@ -22,25 +22,24 @@ type sessionEntry struct {
 
 func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	fail := func(status int, err error) { writeJSONError(w, status, err) }
 	var entry sessionEntry
 	if !decodeJSONRequest(w, r, &entry, "session") {
 		return
 	}
 	view, err := source.read()
 	if err != nil {
-		fail(http.StatusInternalServerError, err)
+		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
 	location, _ := time.LoadLocation(view.TimeZone) // Already checked by read.
 	start, err := parseSessionTime(entry.DutyStart, location)
 	if err != nil {
-		fail(http.StatusBadRequest, fmt.Errorf("duty start: %w", err))
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("duty start: %w", err))
 		return
 	}
 	end, err := parseSessionTime(entry.DutyEnd, location)
 	if err != nil {
-		fail(http.StatusBadRequest, fmt.Errorf("duty end: %w", err))
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("duty end: %w", err))
 		return
 	}
 	session := Session{
@@ -54,7 +53,7 @@ func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request
 			if !existing.DutyStart.Equal(session.DutyStart) || !existing.DutyEnd.Equal(session.DutyEnd) ||
 				existing.Student != session.Student ||
 				!slices.Equal(existing.Activities, session.Activities) {
-				fail(http.StatusConflict, fmt.Errorf("session ID already exists with different values; reload before trying again"))
+				writeJSONError(w, http.StatusConflict, fmt.Errorf("session ID already exists with different values; reload before trying again"))
 				return
 			}
 			writeSessionView(w, http.StatusOK, view)
@@ -64,11 +63,11 @@ func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request
 	view.Sessions = append(view.Sessions, session)
 	input := SessionFile{SchemaVersion: supportedSessionSchemaVersion, Sessions: view.Sessions}
 	if err := validateSessionRecords(input); err != nil {
-		fail(http.StatusBadRequest, err)
+		writeJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 	if err := writeSessionFile(source.inputPath, input); err != nil {
-		fail(http.StatusInternalServerError, fmt.Errorf("save sessions: %w", err))
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("save sessions: %w", err))
 		return
 	}
 	writeSessionView(w, http.StatusCreated, view)

@@ -37,8 +37,8 @@ export default function SessionDelete({
         headers: { 'If-Match': etag },
       });
       // The host check and the router can answer with plain text.
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || 'Could not delete session.');
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body) throw new Error(body?.error || 'Could not delete session.');
       deleted.current = true;
       dialog.current?.close();
       onDeleted(body);
