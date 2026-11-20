@@ -580,8 +580,6 @@ td {
   overflow-wrap: anywhere;
 }
 
-/* Rows are captured one by one so a deleted row fades while the rows below slide up. The note
-   under the table slides with them. */
 .sessions-table > tbody > tr,
 .time-note {
   view-transition-name: match-element;
@@ -600,7 +598,7 @@ td {
   }
 }
 
-/* A deleted row only exists in the old snapshot. It leaves first, then the rest close the gap. */
+/* A deleted row only exists in the old snapshot. */
 ::view-transition-old(*):only-child {
   animation: 150ms ease-in both row-exit;
 }
