@@ -1,8 +1,11 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import {
   activityKinds,
+  clockPattern,
   dateInZone,
+  durationPattern,
   formatDuration,
+  normalizeDuration,
   parseClock,
   parseDuration,
   type Activity,
@@ -11,6 +14,8 @@ import {
 } from './sessions';
 
 type FlightDraft = { id: string; type: Exclude<ActivityType, 'preparation'>; duration: string };
+const clockHint = '24-hour time, for example 0930 or 9:30';
+const durationHint = 'Hours and two digits for minutes, for example 1:30 or 130';
 const newFlight = (): FlightDraft => ({ id: crypto.randomUUID(), type: 'dual', duration: '' });
 const endDateFormat = new Intl.DateTimeFormat('de-DE', {
   timeZone: 'UTC',
@@ -88,6 +93,12 @@ export default function SessionEntry({
     }
   }, [saving]);
 
+  function setDuration(id: string, duration: string) {
+    setFlights((previous) =>
+      previous.map((item) => (item.id === id ? { ...item, duration } : item)),
+    );
+  }
+
   function addFlight() {
     const flight = newFlight();
     setFlights((previous) => [...previous, flight]);
@@ -121,18 +132,20 @@ export default function SessionEntry({
     if (!endDate) {
       return invalid('Enter a valid session date and duty end within years 0001–9999.', 'date');
     }
-    if (!start) return invalid('Enter a duty start such as 0900 or 09:00.', 'start');
-    if (!end) return invalid('Enter a duty end such as 1730 or 17:30.', 'end');
+    // The inputs' pattern blocks submission before either can be missing.
+    if (!start || !end) return;
     if (start === end) return invalid('Duty end must differ from duty start.', 'end');
-    const prep = parseDuration(preparation);
-    if (prep === undefined) return invalid('Enter preparation in minutes or H:MM.', 'preparation');
+    const prep = preparation.trim() ? parseDuration(preparation) : 0;
+    if (prep === undefined) {
+      return invalid('Enter preparation as H:MM, such as 1:30 or 130.', 'preparation');
+    }
     const activities: Activity[] =
       prep > 0 ? [{ id: `${id}-prep`, type: 'preparation', minutes: prep }] : [];
     for (const flight of flights) {
       if (!flight.duration.trim()) continue;
       const minutes = parseDuration(flight.duration);
       if (minutes === undefined || minutes <= 0) {
-        return invalid('Enter a positive flight duration in minutes or H:MM.', flight.id);
+        return invalid('Enter a positive flight duration as H:MM, such as 1:30 or 130.', flight.id);
       }
       activities.push({ id: flight.id, type: flight.type, minutes });
     }
@@ -227,6 +240,8 @@ export default function SessionEntry({
             name="start"
             aria-label="Duty start"
             placeholder="0900"
+            pattern={clockPattern.source}
+            title={clockHint}
             inputMode="numeric"
             required
             value={startInput}
@@ -259,6 +274,8 @@ export default function SessionEntry({
               aria-label="Duty end"
               aria-describedby={overnightHintDate ? overnightHintId : undefined}
               placeholder="1730"
+              pattern={clockPattern.source}
+              title={clockHint}
               inputMode="numeric"
               required
               value={endInput}
@@ -276,10 +293,13 @@ export default function SessionEntry({
             form={formId}
             name="preparation"
             aria-label="Preparation duration"
-            placeholder="Minutes"
+            placeholder="H:MM"
+            pattern={durationPattern.source}
+            title={durationHint}
             inputMode="numeric"
             value={preparation}
             onChange={(event) => setPreparation(event.target.value)}
+            onBlur={() => setPreparation(normalizeDuration)}
             disabled={saving}
           />
         </td>
@@ -347,17 +367,13 @@ export default function SessionEntry({
                           id={flight.id}
                           name={flight.id}
                           aria-label={`Flight ${index + 1} duration`}
-                          placeholder="Minutes / H:MM"
+                          placeholder="H:MM"
+                          pattern={durationPattern.source}
+                          title={durationHint}
                           inputMode="numeric"
                           value={flight.duration}
-                          onChange={(event) => {
-                            const duration = event.target.value;
-                            setFlights((previous) =>
-                              previous.map((item) =>
-                                item.id === flight.id ? { ...item, duration } : item,
-                              ),
-                            );
-                          }}
+                          onChange={(event) => setDuration(flight.id, event.target.value)}
+                          onBlur={() => setDuration(flight.id, normalizeDuration(flight.duration))}
                         />
                       </td>
                       <td>
