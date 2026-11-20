@@ -113,8 +113,7 @@ p {
   background: #edf1f6;
 }
 
-.document-buttons .action-button.secondary[aria-expanded='true'],
-.month-heading .action-button.secondary[data-selected='true'] {
+.document-buttons .action-button.secondary[aria-expanded='true'] {
   border-color: #93b4f7;
   background: var(--color-active-bg);
   color: var(--color-accent-strong);
@@ -272,7 +271,6 @@ p {
 /* Session table */
 
 .table-scroll {
-  container-type: inline-size;
   overflow-x: auto;
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
@@ -314,6 +312,36 @@ table {
   margin: 0;
   accent-color: var(--color-accent);
   cursor: pointer;
+}
+
+/* Forced colors would hide the drawn tick, so high contrast modes keep native checkboxes. */
+@media not (forced-colors: active) {
+  .select-cell input {
+    appearance: none;
+    display: grid;
+    place-content: center;
+    box-sizing: border-box;
+    border: 1px solid var(--color-field-border);
+    border-radius: 0.25rem;
+    background: var(--color-surface);
+  }
+
+  .select-cell label:hover input {
+    border-color: #66788e;
+  }
+
+  .select-cell input:checked {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+  }
+
+  .select-cell input:checked::before {
+    content: '';
+    width: 0.625rem;
+    height: 0.625rem;
+    background: #fff;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0, 43% 62%);
+  }
 }
 
 .expand-column {
@@ -380,28 +408,17 @@ td {
 }
 
 .month-heading th {
-  padding: 0;
+  padding: 0.25rem 0.75rem 0.25rem 1.125rem;
   background: #f5f6f8;
-}
-
-.month-heading-content {
-  position: sticky;
-  left: 0;
-  box-sizing: border-box;
-  width: min(100%, 100cqi);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.25rem 0.75rem;
-  font-weight: 600;
 }
 
 .month-heading .action-button {
   height: 1.75rem;
+  margin-left: 0.5rem;
   padding: 0 0.5rem;
+  color: var(--color-accent-strong);
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .session-subject {
