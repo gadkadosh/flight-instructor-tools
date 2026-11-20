@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { downloadPDF, today } from './documents';
+import type { DocumentDownload } from './documents';
+import { dateInZone } from './sessions';
 
 export default function InvoiceForm({
   id,
@@ -7,19 +8,17 @@ export default function InvoiceForm({
   selectedSessionIds,
   timeZone,
   onClose,
-  onGeneratingChange,
+  pdf,
 }: {
   id: string;
   open: boolean;
   selectedSessionIds: ReadonlySet<string>;
   timeZone: string;
   onClose: () => void;
-  onGeneratingChange: (generating: boolean) => void;
+  pdf: DocumentDownload;
 }) {
   const [number, setNumber] = useState('');
-  const [issueDate, setIssueDate] = useState(() => today(timeZone));
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState('');
+  const [issueDate, setIssueDate] = useState(() => dateInZone(timeZone));
   const firstInput = useRef<HTMLInputElement>(null);
   const selectedCount = selectedSessionIds.size;
   const hasSelection = selectedCount > 0;
@@ -28,30 +27,7 @@ export default function InvoiceForm({
     if (open) firstInput.current?.focus();
   }, [open]);
 
-  async function generate() {
-    if (generating || !hasSelection) return;
-    setGenerating(true);
-    onGeneratingChange(true);
-    setError('');
-    try {
-      await downloadPDF(
-        '/api/invoice',
-        { sessionIds: [...selectedSessionIds], number: number.trim(), issueDate },
-        `Rechnung-${number.trim()}.pdf`,
-        'invoice',
-      );
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Could not generate invoice.');
-    } finally {
-      setGenerating(false);
-      onGeneratingChange(false);
-    }
-  }
-
-  if (!open) {
-    if (error) setError('');
-    return null;
-  }
+  if (!open) return null;
 
   return (
     <form
@@ -59,13 +35,19 @@ export default function InvoiceForm({
       className="document-form"
       data-kind="invoice"
       aria-label="Generate invoice"
-      aria-busy={generating}
+      aria-busy={pdf.generating}
       onSubmit={(event) => {
         event.preventDefault();
-        void generate();
+        if (!hasSelection) return;
+        void pdf.download(
+          '/api/invoice',
+          { sessionIds: [...selectedSessionIds], number: number.trim(), issueDate },
+          `Rechnung-${number.trim()}.pdf`,
+          'invoice',
+        );
       }}
     >
-      <fieldset disabled={generating}>
+      <fieldset disabled={pdf.generating}>
         <label>
           Invoice number
           <input
@@ -100,16 +82,16 @@ export default function InvoiceForm({
               type="submit"
               className="action-button"
               aria-describedby={`${id}-scope`}
-              disabled={!hasSelection || generating}
+              disabled={!hasSelection || pdf.generating}
             >
-              {generating ? 'Generating…' : 'Download PDF'}
+              {pdf.generating ? 'Generating…' : 'Download PDF'}
             </button>
           </div>
         </div>
       </fieldset>
-      {error && (
+      {pdf.error && (
         <p role="alert" className="error">
-          {error}
+          {pdf.error}
         </p>
       )}
     </form>

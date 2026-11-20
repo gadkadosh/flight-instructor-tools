@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { downloadPDF, today } from './documents';
-import { durationPattern, normalizeDuration } from './sessions';
+import type { DocumentDownload } from './documents';
+import { dateInZone, durationPattern, normalizeDuration } from './sessions';
 
 const monthPattern = /^[0-9]{4}-(0[1-9]|1[0-2])$/;
 const reportMonthFormat = new Intl.DateTimeFormat('en-GB', {
@@ -21,50 +21,25 @@ export default function DutyReportForm({
   countSessionsInMonth,
   timeZone,
   onClose,
-  onGeneratingChange,
+  pdf,
 }: {
   id: string;
   open: boolean;
   countSessionsInMonth: (month: string) => number;
   timeZone: string;
   onClose: () => void;
-  onGeneratingChange: (generating: boolean) => void;
+  pdf: DocumentDownload;
 }) {
-  const [issueDate, setIssueDate] = useState(() => today(timeZone));
-  const [month, setMonth] = useState(() => previousMonth(today(timeZone)));
+  const [issueDate, setIssueDate] = useState(() => dateInZone(timeZone));
+  const [month, setMonth] = useState(() => previousMonth(dateInZone(timeZone)));
   const [carryOver, setCarryOver] = useState(() => (month.endsWith('-01') ? '0:00' : ''));
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState('');
   const firstInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) firstInput.current?.focus();
   }, [open]);
 
-  async function generate() {
-    if (generating) return;
-    setGenerating(true);
-    onGeneratingChange(true);
-    setError('');
-    try {
-      await downloadPDF(
-        '/api/duty-report',
-        { month, carryOverFlightDuty: normalizeDuration(carryOver), issueDate },
-        `Dienstzeitnachweis-${month}.pdf`,
-        'duty report',
-      );
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Could not generate duty report.');
-    } finally {
-      setGenerating(false);
-      onGeneratingChange(false);
-    }
-  }
-
-  if (!open) {
-    if (error) setError('');
-    return null;
-  }
+  if (!open) return null;
 
   const monthLabel = monthPattern.test(month)
     ? reportMonthFormat.format(new Date(`${month}-01T00:00:00Z`))
@@ -77,13 +52,18 @@ export default function DutyReportForm({
       className="document-form"
       data-kind="dutyReport"
       aria-label="Generate duty report"
-      aria-busy={generating}
+      aria-busy={pdf.generating}
       onSubmit={(event) => {
         event.preventDefault();
-        void generate();
+        void pdf.download(
+          '/api/duty-report',
+          { month, carryOverFlightDuty: normalizeDuration(carryOver), issueDate },
+          `Dienstzeitnachweis-${month}.pdf`,
+          'duty report',
+        );
       }}
     >
-      <fieldset disabled={generating}>
+      <fieldset disabled={pdf.generating}>
         <label>
           Month
           <input
@@ -135,16 +115,16 @@ export default function DutyReportForm({
               type="submit"
               className="action-button"
               aria-describedby={monthLabel ? `${id}-scope` : undefined}
-              disabled={generating}
+              disabled={pdf.generating}
             >
-              {generating ? 'Generating…' : 'Download PDF'}
+              {pdf.generating ? 'Generating…' : 'Download PDF'}
             </button>
           </div>
         </div>
       </fieldset>
-      {error && (
+      {pdf.error && (
         <p role="alert" className="error">
-          {error}
+          {pdf.error}
         </p>
       )}
     </form>
