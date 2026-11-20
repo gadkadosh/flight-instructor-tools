@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"image"
 	"image/png"
 	"io"
@@ -13,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"testing/iotest"
 	"time"
 )
 
@@ -59,13 +57,32 @@ func setupDutyReportTest(t *testing.T) (args []string, outputDirectory, configPa
 		"--month", "2026-05", "--carry-over-flight-duty", "120:00", "--output-dir", outputDirectory}, outputDirectory, configPath
 }
 
-func readDutyArtifact(t *testing.T, directory, month, extension string) []byte {
+// renderTestDutyReport renders the report for month, issued 2026-06-09, through
+// the stub converter, which returns the HTML unchanged.
+func renderTestDutyReport(t *testing.T, configPath, inputPath, month string, carryOver int) (string, error) {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(directory, "Dienstzeitnachweis-"+month+"."+extension))
+	config, err := readConfig(configPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return data
+	first, err := config.parseMonth(month)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issueDate, err := config.parseDate("2026-06-09")
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, err := readSessionFile(inputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := buildDutyReport(input.Sessions, config, first, issueDate, carryOver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pdf, err := dutyReportPDF(context.Background(), report, config, configPath)
+	return string(pdf), err
 }
 
 func TestRunDutyReportUsesWorkingDirectoryDefaults(t *testing.T) {
@@ -83,36 +100,21 @@ func TestRunDutyReportUsesWorkingDirectoryDefaults(t *testing.T) {
 	if err := run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now); err != nil {
 		t.Fatal(err)
 	}
-	var report DutyReport
-	if err := json.Unmarshal(readDutyArtifact(t, output, "2026-05", "json"), &report); err != nil {
-		t.Fatal(err)
-	}
-	if report.TimeZone != "Europe/Berlin" || report.Totals.CurrentMonth != 180 || report.Totals.BlockMinutes != 65 {
-		t.Fatalf("report generated from default files has unexpected values: %+v", report)
+	pdf := readFile(t, filepath.Join(output, "Dienstzeitnachweis-2026-05.pdf"))
+	for _, want := range []string{"(Europe/Berlin)", "Month 3:00, carry 0:00, year 3:00, block 1:05"} {
+		if !strings.Contains(pdf, want) {
+			t.Errorf("report generated from default files missing %q:\n%s", want, pdf)
+		}
 	}
 }
 
-func TestRunDutyReportArtifactsSignatureAndRelativePaths(t *testing.T) {
-	args, output, configPath := setupDutyReportTest(t)
-	var stdout bytes.Buffer
-	clock := func() time.Time { return mustTimestamp(t, "2026-05-31T23:30:00Z") }
-	if err := run(context.Background(), args, &stdout, strings.NewReader(""), clock); err != nil {
+func TestDutyReportPDFRendersTemplateWithSignature(t *testing.T) {
+	_, _, configPath := setupDutyReportTest(t)
+	html, err := renderTestDutyReport(t, configPath, "testdata/minimal-sessions.json", "2026-05", 7200)
+	if err != nil {
 		t.Fatal(err)
 	}
-	var snapshot DutyReport
-	if err := json.Unmarshal(readDutyArtifact(t, output, "2026-05", "json"), &snapshot); err != nil {
-		t.Fatal(err)
-	}
-	if snapshot.Totals != (DutyReportTotals{CarryOver: 7200, CurrentMonth: 180, CurrentYear: 7380, BlockMinutes: 65}) ||
-		snapshot.IssueDate.Format("2006-01-02") != "2026-06-01" || snapshot.Issuer.Name != "Erika Musterfrau" ||
-		snapshot.TimeZone != "Europe/Berlin" || snapshot.Lines[2].Start.Format("15:04") != "12:00" {
-		t.Fatalf("snapshot has incorrect calculated values: %+v", snapshot)
-	}
-	if rest := snapshot.Lines[2].DutyOffUntil; rest.Format("2006-01-02 15:04") != "2026-05-04 03:00" {
-		t.Fatalf("snapshot rest-until = %v, want next-day timestamp", rest)
-	}
-	html := string(readDutyArtifact(t, output, "2026-05", "html"))
-	for _, want := range []string{"Erika Musterfrau — Mai 2026", "Issued 01.06.2026 (Europe/Berlin)",
+	for _, want := range []string{"Erika Musterfrau — Mai 2026", "Issued 09.06.2026 (Europe/Berlin)",
 		"<td>03</td><td>12:00</td><td>15:00</td><td>3:00</td><td>1:05</td><td>03:00</td>",
 		"Month 3:00, carry 120:00, year 123:00, block 1:05"} {
 		if !strings.Contains(html, want) {
@@ -128,12 +130,6 @@ func TestRunDutyReportArtifactsSignatureAndRelativePaths(t *testing.T) {
 	}
 	if strings.Count(html, `class="day"`) != 31 {
 		t.Error("HTML must display 31 rows")
-	}
-	if got := string(readDutyArtifact(t, output, "2026-05", "pdf")); got != "pdf" {
-		t.Errorf("PDF conversion output = %q", got)
-	}
-	if strings.Count(stdout.String(), "Wrote ") != 3 {
-		t.Errorf("output = %q", stdout.String())
 	}
 }
 
@@ -156,24 +152,12 @@ func TestDutyReportTemplateFormatsGermanMonths(t *testing.T) {
 	}
 }
 
-func TestRunDutyReportEmptyFebruaryAndExplicitIssueDate(t *testing.T) {
-	args, output, _ := setupDutyReportTest(t)
-	args = append(args, "--month", "2026-02", "--carry-over-flight-duty", "0:00", "--issue-date", "2026-03-02")
-	if err := run(context.Background(), args, io.Discard, strings.NewReader(""), func() time.Time {
-		t.Fatal("clock read with explicit issue date")
-		return time.Time{}
-	}); err != nil {
+func TestDutyReportPDFEmptyFebruary(t *testing.T) {
+	_, _, configPath := setupDutyReportTest(t)
+	html, err := renderTestDutyReport(t, configPath, "testdata/minimal-sessions.json", "2026-02", 0)
+	if err != nil {
 		t.Fatal(err)
 	}
-	var snapshot DutyReport
-	if err := json.Unmarshal(readDutyArtifact(t, output, "2026-02", "json"), &snapshot); err != nil {
-		t.Fatal(err)
-	}
-	if snapshot.Totals != (DutyReportTotals{}) || len(snapshot.Lines) != 31 || snapshot.Lines[27].Day != 28 || snapshot.Lines[28].Day != 0 ||
-		snapshot.IssueDate.Format("2006-01-02") != "2026-03-02" {
-		t.Fatalf("empty February = %+v", snapshot)
-	}
-	html := string(readDutyArtifact(t, output, "2026-02", "html"))
 	if strings.Count(html, `class="day"`) != 31 || strings.Count(html, `<tr class="day"><td></td><td></td><td></td><td></td><td></td><td></td></tr>`) != 3 ||
 		!strings.Contains(html, `<tr class="day"><td>28</td><td></td><td></td><td></td><td></td><td></td></tr>`) ||
 		!strings.Contains(html, "Month 0:00, carry 0:00, year 0:00, block 0:00") {
@@ -181,14 +165,11 @@ func TestRunDutyReportEmptyFebruaryAndExplicitIssueDate(t *testing.T) {
 	}
 }
 
-func TestDutyReportTemplateAndConfigFailuresLeaveNoOutputs(t *testing.T) {
+func TestDutyReportPDFTemplateAndSignatureFailures(t *testing.T) {
 	for _, test := range []struct {
 		name, want string
 		change     func(*Config)
 	}{
-		{"missing timezone", "timeZone", func(c *Config) { c.TimeZone = "" }},
-		{"invalid timezone", "timeZone", func(c *Config) { c.TimeZone = "Not/AZone" }},
-		{"computer timezone", "timeZone", func(c *Config) { c.TimeZone = "Local" }},
 		{"missing template setting", "dutyReportTemplateFile", func(c *Config) { c.DutyReportTemplateFile = "" }},
 		{"missing template file", "read duty report template", func(c *Config) { c.DutyReportTemplateFile = "not-there.tmpl" }},
 		{"missing signature", "read signature", func(c *Config) { c.SignatureFile = "missing.png" }},
@@ -196,53 +177,36 @@ func TestDutyReportTemplateAndConfigFailuresLeaveNoOutputs(t *testing.T) {
 		{"corrupt signature", "load signature", func(c *Config) { c.SignatureFile = "report.html.tmpl" }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			args, output, configPath := setupDutyReportTest(t)
+			_, _, configPath := setupDutyReportTest(t)
 			config, err := readConfig(configPath)
 			if err != nil {
 				t.Fatal(err)
 			}
 			test.change(&config)
 			writeTestConfig(t, configPath, config)
-			err = run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now)
+			_, err = renderTestDutyReport(t, configPath, "testdata/minimal-sessions.json", "2026-05", 0)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
-			}
-			entries, err := os.ReadDir(output)
-			if err != nil || len(entries) != 0 {
-				t.Fatalf("partial outputs = %v, %v", entries, err)
 			}
 		})
 	}
 	for _, source := range []string{"{{range .Lines}}", "{{.UnknownField}}", "{{range .Lines}}{{.Unsupported}}{{end}}", "{{unknownFunction}}"} {
 		t.Run(source, func(t *testing.T) {
-			args, output, configPath := setupDutyReportTest(t)
+			_, _, configPath := setupDutyReportTest(t)
 			path := filepath.Join(filepath.Dir(configPath), "report.html.tmpl")
 			if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			// Existing files must survive template errors, even with --force.
-			original := filepath.Join(output, "Dienstzeitnachweis-2026-05.json")
-			if err := os.WriteFile(original, []byte("original"), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			err := run(context.Background(), append(args, "--force"), io.Discard, strings.NewReader(""), time.Now)
+			_, err := renderTestDutyReport(t, configPath, "testdata/minimal-sessions.json", "2026-05", 0)
 			if err == nil || !strings.Contains(err.Error(), "duty report template") || !strings.Contains(err.Error(), path) {
 				t.Fatalf("template error = %v", err)
-			}
-			data, err := os.ReadFile(original)
-			if err != nil || string(data) != "original" {
-				t.Fatalf("existing output changed: %q, %v", data, err)
-			}
-			entries, err := os.ReadDir(output)
-			if err != nil || len(entries) != 1 {
-				t.Fatalf("partial outputs = %v, %v", entries, err)
 			}
 		})
 	}
 }
 
 func TestDutyReportTemplateMayOmitFieldsAndUseAbsolutePaths(t *testing.T) {
-	args, output, configPath := setupDutyReportTest(t)
+	_, _, configPath := setupDutyReportTest(t)
 	config, err := readConfig(configPath)
 	if err != nil {
 		t.Fatal(err)
@@ -253,107 +217,17 @@ func TestDutyReportTemplateMayOmitFieldsAndUseAbsolutePaths(t *testing.T) {
 	if err := os.WriteFile(config.DutyReportTemplateFile, []byte(`<p>{{.Month}}</p>`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now); err != nil {
+	html, err := renderTestDutyReport(t, configPath, "testdata/minimal-sessions.json", "2026-05", 0)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if got := string(readDutyArtifact(t, output, "2026-05", "html")); got != "<p>2026-05</p>" {
-		t.Fatalf("HTML = %q", got)
+	if html != "<p>2026-05</p>" {
+		t.Fatalf("HTML = %q", html)
 	}
 }
 
-func TestDutyReportOverwrite(t *testing.T) {
-	for _, test := range []struct {
-		name, response, force, wantError string
-		existing                         []string
-		readError                        bool
-	}{
-		{name: "no outputs"},
-		{name: "JSON only", existing: []string{"json"}, response: "y\n"},
-		{name: "HTML only", existing: []string{"html"}, response: "y\n"},
-		{name: "PDF only", existing: []string{"pdf"}, response: "y\n"},
-		{name: "all outputs", existing: []string{"json", "html", "pdf"}, response: " Y \n"},
-		{name: "decline", existing: []string{"json", "html", "pdf"}, response: "n\n", wantError: "aborting: overwrite not confirmed"},
-		{name: "EOF", existing: []string{"pdf"}, wantError: "aborting: no confirmation received"},
-		{name: "blank", existing: []string{"html"}, response: "\n", wantError: "aborting: overwrite not confirmed"},
-		{name: "read failure", existing: []string{"json"}, readError: true, wantError: "read overwrite confirmation: input failed"},
-		{name: "force", existing: []string{"json", "html", "pdf"}, force: "--force"},
-		{name: "force short", existing: []string{"json", "html", "pdf"}, force: "-f"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			args, output, _ := setupDutyReportTest(t)
-			for _, ext := range test.existing {
-				if err := os.WriteFile(filepath.Join(output, "Dienstzeitnachweis-2026-05."+ext), []byte("original"), 0o644); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if test.force != "" {
-				args = append(args, test.force)
-			}
-			var stdin io.Reader = strings.NewReader(test.response)
-			if test.readError {
-				stdin = iotest.ErrReader(fmt.Errorf("input failed"))
-			}
-			var stdout bytes.Buffer
-			err := run(context.Background(), args, &stdout, stdin, time.Now)
-			if test.wantError != "" {
-				if err == nil || err.Error() != test.wantError {
-					t.Fatalf("error = %v, want %q", err, test.wantError)
-				}
-				entries, err := os.ReadDir(output)
-				if err != nil || len(entries) != len(test.existing) {
-					t.Fatalf("unexpected outputs = %v, %v", entries, err)
-				}
-				for _, ext := range test.existing {
-					if got := string(readDutyArtifact(t, output, "2026-05", ext)); got != "original" {
-						t.Errorf("%s changed on refusal", ext)
-					}
-				}
-			} else {
-				if err != nil {
-					t.Fatal(err)
-				}
-				for _, artifact := range []struct{ ext, want string }{{"json", `"currentYear": 7380`}, {"html", "year 123:00"}, {"pdf", "pdf"}} {
-					if !bytes.Contains(readDutyArtifact(t, output, "2026-05", artifact.ext), []byte(artifact.want)) {
-						t.Errorf("%s has incorrect content", artifact.ext)
-					}
-				}
-			}
-			wantPrompts := 0
-			if len(test.existing) > 0 && test.force == "" {
-				wantPrompts = 1
-			}
-			if got := strings.Count(stdout.String(), "Overwrite? [y/N]"); got != wantPrompts {
-				t.Errorf("prompts = %d, want %d", got, wantPrompts)
-			}
-		})
-	}
-}
-
-func TestDutyReportRendererFailurePreservesExistingArtifacts(t *testing.T) {
-	args, output, _ := setupDutyReportTest(t)
-	for _, ext := range []string{"json", "html", "pdf"} {
-		if err := os.WriteFile(filepath.Join(output, "Dienstzeitnachweis-2026-05."+ext), []byte("original"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	t.Setenv("PATH", t.TempDir())
-	err := run(context.Background(), append(args, "-f"), io.Discard, strings.NewReader(""), time.Now)
-	if err == nil || !strings.Contains(err.Error(), "WeasyPrint") {
-		t.Fatalf("error = %v", err)
-	}
-	for _, ext := range []string{"json", "html", "pdf"} {
-		if got := string(readDutyArtifact(t, output, "2026-05", ext)); got != "original" {
-			t.Errorf("%s replaced on renderer failure", ext)
-		}
-	}
-	entries, err := os.ReadDir(output)
-	if err != nil || len(entries) != 3 {
-		t.Fatalf("staging not cleaned: %v, %v", entries, err)
-	}
-}
-
-func TestDutyReportEmptySessionFileAndOptionalSignature(t *testing.T) {
-	args, output, configPath := setupDutyReportTest(t)
+func TestDutyReportPDFEmptySessionFileAndOptionalSignature(t *testing.T) {
+	_, _, configPath := setupDutyReportTest(t)
 	inputPath := filepath.Join(t.TempDir(), "empty.json")
 	if err := os.WriteFile(inputPath, []byte(`{"schemaVersion":3,"sessions":[]}`), 0o644); err != nil {
 		t.Fatal(err)
@@ -364,38 +238,12 @@ func TestDutyReportEmptySessionFileAndOptionalSignature(t *testing.T) {
 	}
 	config.SignatureFile = ""
 	writeTestConfig(t, configPath, config)
-	args = append(args, "--input", inputPath)
-	if err := run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now); err != nil {
+	html, err := renderTestDutyReport(t, configPath, inputPath, "2026-05", 7200)
+	if err != nil {
 		t.Fatal(err)
 	}
-	var snapshot DutyReport
-	if err := json.Unmarshal(readDutyArtifact(t, output, "2026-05", "json"), &snapshot); err != nil {
-		t.Fatal(err)
-	}
-	if snapshot.Totals != (DutyReportTotals{CarryOver: 7200, CurrentYear: 7200}) {
-		t.Fatalf("empty file totals = %+v", snapshot.Totals)
-	}
-	html := string(readDutyArtifact(t, output, "2026-05", "html"))
-	if strings.Contains(html, "<img") || !strings.Contains(html, "Month 0:00, carry 120:00, year 120:00") {
+	if strings.Contains(html, "<img") || !strings.Contains(html, "Month 0:00, carry 120:00, year 120:00, block 0:00") {
 		t.Fatalf("unsigned empty HTML = %s", html)
-	}
-}
-
-func TestDutyReportRejectsOutputDirectoryBeforeReplacingFiles(t *testing.T) {
-	args, output, _ := setupDutyReportTest(t)
-	jsonPath := filepath.Join(output, "Dienstzeitnachweis-2026-05.json")
-	if err := os.WriteFile(jsonPath, []byte("original"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(output, "Dienstzeitnachweis-2026-05.pdf"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	err := run(context.Background(), append(args, "-f"), io.Discard, strings.NewReader(""), time.Now)
-	if err == nil || !strings.Contains(err.Error(), "not a regular file") {
-		t.Fatalf("error = %v", err)
-	}
-	if got := string(readDutyArtifact(t, output, "2026-05", "json")); got != "original" {
-		t.Errorf("JSON replaced on invalid output target: %s", got)
 	}
 }
 

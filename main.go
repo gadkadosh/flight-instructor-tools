@@ -31,8 +31,8 @@ current directory. Use --input and --config to override them.
 
 Commands:
     serve       Start the local web UI
-    generate    Generate invoice artifacts
-    duty-report Generate monthly duty-report artifacts
+    generate    Generate an invoice PDF
+    duty-report Generate a monthly duty report PDF
     validate    Validate a sessions file (JSON)
 
 Run fitools <command> --help for command options.

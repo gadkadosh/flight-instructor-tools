@@ -13,7 +13,7 @@ fitools
 /example.pdf
 /example.pages
 
-# Generated invoice artifacts.
+# Generated invoice and duty report PDFs.
 /output/
 
 .zed

@@ -29,6 +29,12 @@ func writeJSONError(w http.ResponseWriter, status int, err error) {
 	json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 }
 
+func servePDF(w http.ResponseWriter, pdf []byte, filename string) {
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	w.Write(pdf)
+}
+
 func decodeJSONRequest(w http.ResponseWriter, r *http.Request, request any, name string) bool {
 	contentType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || contentType != "application/json" {

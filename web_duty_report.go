@@ -45,10 +45,10 @@ func (source sessionSource) serveDutyReport(w http.ResponseWriter, r *http.Reque
 		writeJSONError(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	html, err := renderConfiguredDutyReport(report, config, source.configPath)
+	pdf, err := dutyReportPDF(r.Context(), report, config, source.configPath)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
-	serveDocumentPDF(w, r, html, "Dienstzeitnachweis-"+request.Month+".pdf")
+	servePDF(w, pdf, "Dienstzeitnachweis-"+request.Month+".pdf")
 }

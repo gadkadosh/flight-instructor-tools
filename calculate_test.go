@@ -146,11 +146,10 @@ func TestInvoiceDatesUseConfiguredTimeZone(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			snapshot := newInvoiceSnapshot(document)
-			if len(snapshot.Lines) != 1 {
-				t.Fatalf("lines = %+v, want one billed flight", snapshot.Lines)
+			if len(document.Lines) != 1 {
+				t.Fatalf("lines = %+v, want one billed flight", document.Lines)
 			}
-			if got := snapshot.Lines[0].Date; got != test.date {
+			if got := document.Lines[0].Date.Format("2006-01-02"); got != test.date {
 				t.Errorf("invoice date = %s, want %s", got, test.date)
 			}
 			var html bytes.Buffer

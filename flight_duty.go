@@ -10,28 +10,28 @@ import (
 // DutyReportLine is one calendar slot. A nonexistent date has Day zero;
 // a non-working day has zero Start/End and no durations.
 type DutyReportLine struct {
-	Day          int       `json:"day"`
-	Start        time.Time `json:"start,omitzero"`
-	End          time.Time `json:"end,omitzero"`
-	DutyMinutes  int       `json:"dutyMinutes"` // Both working time and flight-duty time.
-	BlockMinutes int       `json:"blockMinutes"`
-	DutyOffUntil time.Time `json:"dutyOffUntil,omitzero"`
+	Day          int
+	Start        time.Time
+	End          time.Time
+	DutyMinutes  int // Both working time and flight-duty time.
+	BlockMinutes int
+	DutyOffUntil time.Time
 }
 
 type DutyReportTotals struct {
-	CarryOver    int `json:"carryOver"`    // Flight-duty minutes before this month.
-	CurrentMonth int `json:"currentMonth"` // Flight-duty minutes in this month.
-	CurrentYear  int `json:"currentYear"`  // CarryOver + CurrentMonth, not inferred from input.
-	BlockMinutes int `json:"blockMinutes"` // Personal block minutes in this month only.
+	CarryOver    int // Flight-duty minutes before this month.
+	CurrentMonth int // Flight-duty minutes in this month.
+	CurrentYear  int // CarryOver + CurrentMonth, not inferred from input.
+	BlockMinutes int // Personal block minutes in this month only.
 }
 
 type DutyReport struct {
-	IssueDate time.Time          `json:"issueDate"`
-	Month     string             `json:"month"`
-	TimeZone  string             `json:"timeZone"`
-	Issuer    Party              `json:"issuer"`
-	Lines     [31]DutyReportLine `json:"lines"`
-	Totals    DutyReportTotals   `json:"totals"`
+	IssueDate time.Time
+	Month     string
+	TimeZone  string
+	Issuer    Party
+	Lines     [31]DutyReportLine
+	Totals    DutyReportTotals
 }
 
 // buildDutyReport reports on the local calendar month starting at first.

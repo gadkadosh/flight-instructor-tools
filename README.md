@@ -1,8 +1,7 @@
 # Flight Instructor Tools
 
 A local session manager and Go CLI for my work as a flight instructor. Session
-records and billing configuration drive monthly invoices and duty reports, with
-JSON snapshots, HTML, and PDF output.
+records and billing configuration drive monthly invoice and duty report PDFs.
 
 [![Sessions grouped by month with an expanded flight type and duration summary and buttons to generate invoices and duty reports](sessions-screenshot.png)](sessions-screenshot.png)
 
