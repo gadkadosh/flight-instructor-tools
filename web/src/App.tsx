@@ -335,18 +335,15 @@ function SessionTable({
                 <tbody key={month}>
                   <tr className="month-heading">
                     <th scope="rowgroup" colSpan={10} aria-label={label}>
-                      <div className="month-heading-content">
-                        {label}
-                        <button
-                          type="button"
-                          className="action-button secondary"
-                          aria-label={`${selectionLabel} in ${label}`}
-                          data-selected={allSelected}
-                          onClick={() => toggleSessions(sessions)}
-                        >
-                          {selectionLabel}
-                        </button>
-                      </div>
+                      {label}
+                      <button
+                        type="button"
+                        className="action-button text"
+                        aria-label={`${selectionLabel} in ${label}`}
+                        onClick={() => toggleSessions(sessions)}
+                      >
+                        {selectionLabel}
+                      </button>
                     </th>
                   </tr>
                   {sessions.map((session) => (
