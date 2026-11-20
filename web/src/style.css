@@ -129,6 +129,18 @@ p {
   color: var(--color-text);
 }
 
+/* Reads as a link, but keeps the button's padding and height as its click target. */
+.action-button.link {
+  background: transparent;
+  color: var(--color-accent-strong);
+}
+
+.action-button.link:hover:enabled {
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 .action-button.danger:enabled {
   background: var(--color-danger-bg);
   color: var(--color-danger);
@@ -164,10 +176,6 @@ p {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
-}
-
-.session-selection .action-button.text {
-  color: var(--color-accent-strong);
 }
 
 .session-toolbar {
@@ -412,11 +420,11 @@ td {
   background: #f5f6f8;
 }
 
+/* Same height as the row delete button, so it fits the row height. */
 .month-heading .action-button {
-  height: 1.75rem;
-  margin-left: 0.5rem;
-  padding: 0 0.5rem;
-  color: var(--color-accent-strong);
+  --control-height: 2rem;
+  margin-left: 0.25rem;
+  padding-inline: 0.5rem;
   font-size: 0.8125rem;
   font-weight: 400;
 }
@@ -440,7 +448,7 @@ td {
   background: #f3f6fa;
 }
 
-.sessions-table > tbody > tr[data-selected] {
+.sessions-table > tbody > tr:is([data-selected], .month-heading) {
   height: 2.625rem;
 }
 

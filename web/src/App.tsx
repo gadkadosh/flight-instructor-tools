@@ -338,7 +338,7 @@ function SessionTable({
                       {label}
                       <button
                         type="button"
-                        className="action-button text"
+                        className="action-button link"
                         aria-label={`${selectionLabel} in ${label}`}
                         onClick={() => toggleSessions(sessions)}
                       >

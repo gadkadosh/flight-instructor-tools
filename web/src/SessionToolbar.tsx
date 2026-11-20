@@ -66,7 +66,7 @@ export default function SessionToolbar({
         {hasSelection && (
           <button
             type="button"
-            className="action-button text"
+            className="action-button link"
             onClick={() => {
               onClearSelection();
               selectionStatus.current?.focus();
