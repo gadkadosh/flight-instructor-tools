@@ -72,6 +72,10 @@ p {
   font-size: 0.875rem;
 }
 
+.document-form input:user-invalid {
+  border-color: var(--color-danger);
+}
+
 .action-button {
   display: inline-flex;
   align-items: center;
@@ -644,6 +648,11 @@ td {
 :is(.entry-row, .flight-entry-table) :is(input, select):enabled:hover {
   border-bottom-color: #66788e;
   background: #ffffff80;
+}
+
+:is(.entry-row, .flight-entry-table) input:enabled:user-invalid {
+  border-bottom-color: var(--color-danger);
+  background: var(--color-danger-bg);
 }
 
 :is(.entry-row, .flight-entry-table) :is(input, select):enabled:focus-visible {

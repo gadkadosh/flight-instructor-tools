@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { downloadPDF, today } from './documents';
+import { durationPattern, normalizeDuration } from './sessions';
 
 const monthPattern = /^[0-9]{4}-(0[1-9]|1[0-2])$/;
-const carryOverPattern = /^([0-9]+):?([0-5][0-9])$/;
 const reportMonthFormat = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'UTC',
   month: 'long',
@@ -13,10 +13,6 @@ function previousMonth(date: string) {
   const year = Number(date.slice(0, 4));
   const month = Number(date.slice(5, 7));
   return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`;
-}
-
-function formatCarryOver(value: string) {
-  return value.replace(carryOverPattern, '$1:$2');
 }
 
 export default function DutyReportForm({
@@ -53,7 +49,7 @@ export default function DutyReportForm({
     try {
       await downloadPDF(
         '/api/duty-report',
-        { month, carryOverFlightDuty: formatCarryOver(carryOver.trim()), issueDate },
+        { month, carryOverFlightDuty: normalizeDuration(carryOver), issueDate },
         `Dienstzeitnachweis-${month}.pdf`,
         'duty report',
       );
@@ -109,12 +105,12 @@ export default function DutyReportForm({
           <input
             type="text"
             required
-            pattern={carryOverPattern.source}
+            pattern={durationPattern.source}
             title="Hours and two digits for minutes, for example 120:45 or 12045"
             placeholder="H:MM or HMM"
             value={carryOver}
             onChange={(event) => setCarryOver(event.target.value)}
-            onBlur={() => setCarryOver(formatCarryOver(carryOver))}
+            onBlur={() => setCarryOver(normalizeDuration)}
           />
         </label>
         <label>

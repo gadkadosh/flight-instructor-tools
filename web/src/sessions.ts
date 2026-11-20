@@ -66,27 +66,27 @@ export function formatDuration(minutes: number) {
   return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
+// H:MM, with or without the colon; one or two digits alone are minutes.
+export const durationPattern = /^(?:(\d*):?([0-5]\d)|(\d))$/;
+
 export function parseDuration(value: string): number | undefined {
-  const text = value.trim();
-  if (!text) return 0;
-  if (!/^\d+$|^\d+:[0-5]\d$/.test(text)) return;
-  const parts = text.split(':').map(Number);
-  const minutes = parts.length === 1 ? parts[0]! : parts[0]! * 60 + parts[1]!;
+  const match = durationPattern.exec(value.trim());
+  if (!match) return;
+  const minutes = Number(match[1] ?? 0) * 60 + Number(match[2] ?? match[3]);
   if (Number.isSafeInteger(minutes)) return minutes;
 }
 
+export function normalizeDuration(value: string) {
+  const minutes = parseDuration(value);
+  return minutes === undefined ? value : formatDuration(minutes);
+}
+
+// 24-hour H:MM, with or without the colon; one or two digits alone are hours.
+export const clockPattern = /^([01]?\d|2[0-3])(?::?([0-5]\d))?$/;
+
 export function parseClock(value: string): string | undefined {
-  const text = value.trim();
-  if (!/^\d{1,4}$|^\d{1,2}:\d{2}$/.test(text)) return;
-  const parts = text.includes(':')
-    ? text.split(':')
-    : text.length > 2
-      ? [text.slice(0, -2), text.slice(-2)]
-      : [text, '00'];
-  const [hours, minutes] = parts.map(Number);
-  if (hours! < 24 && minutes! < 60) {
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  }
+  const match = clockPattern.exec(value.trim());
+  if (match) return `${match[1]!.padStart(2, '0')}:${match[2] ?? '00'}`;
 }
 
 export function dateInZone(timeZone: string, date = new Date()) {

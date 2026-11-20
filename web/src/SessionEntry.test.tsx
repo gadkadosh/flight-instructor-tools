@@ -73,13 +73,15 @@ test('enters a session by keyboard, calculates totals, and saves individual flig
   expect(document.activeElement).toBe(screen.getByLabelText('Flight 1 type'));
   expect((screen.getByLabelText('Duty start') as HTMLInputElement).value).toBe('09:00');
   expect((screen.getByLabelText('Duty end') as HTMLInputElement).value).toBe('12:30');
+  expect((screen.getByLabelText('Preparation duration') as HTMLInputElement).value).toBe('0:30');
   await userEvent.keyboard('{Tab}45{Tab}{Tab}{Enter}');
   expect(document.activeElement).toBe(screen.getByLabelText('Flight 2 duration'));
-  await userEvent.keyboard('1:15');
+  await userEvent.keyboard('115');
   expect(screen.getByLabelText('Block time total').textContent).toBe('2:00');
   expect(screen.getByLabelText('Block time total').tagName).toBe('SPAN');
   await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
   await userEvent.selectOptions(screen.getByLabelText('Flight 3 type'), 'soloSupervision');
+  expect((screen.getByLabelText('Flight 2 duration') as HTMLInputElement).value).toBe('1:15');
   await userEvent.fill(screen.getByLabelText('Flight 3 duration'), '20');
   expect(screen.getByLabelText('Solo supervision total').textContent).toBe('0:20');
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
@@ -148,11 +150,14 @@ test('save-and-add shortcut retains the date, resets inputs, and focuses the stu
   await openEntry();
   await fillBasics();
   await userEvent.fill(screen.getByLabelText('Preparation duration'), '0:30');
-  await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '65');
+  await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '105');
   await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
   await userEvent.keyboard('{Control>}{Enter}{/Control}');
   await screen.findByRole('rowheader', { name: 'New Student' });
   expect(entries[0]).toMatchObject({ dutyEnd: '2026-05-04T01:00' });
+  expect(entries[0]!.activities).toContainEqual(
+    expect.objectContaining({ type: 'dual', minutes: 65 }),
+  );
   await expect.poll(() => document.activeElement).toBe(screen.getByLabelText('Student'));
   expect(screen.queryByText(/Duty ends the next day/)).toBeNull();
   expect((screen.getByLabelText('Session date') as HTMLInputElement).value).toBe('2026-05-03');
@@ -246,11 +251,16 @@ test('validates entries, infers overnight duty, and preserves data after errors'
   const { fetch, entries } = sessionAPI();
   await openEntry();
   await fillBasics();
-  await userEvent.fill(screen.getByLabelText('Duty start'), '2460');
+  const start = screen.getByLabelText<HTMLInputElement>('Duty start');
+  const validStart = getComputedStyle(start).backgroundColor;
+  await userEvent.fill(start, '2460');
+  await userEvent.keyboard('{Tab}');
+  expect(start.value).toBe('2460');
+  expect(getComputedStyle(start).backgroundColor).not.toBe(validStart);
+  const loads = fetch.mock.calls.length;
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
-  expect(screen.getByRole('alert').textContent).toContain('duty start');
-  expect(document.activeElement).toBe(screen.getByLabelText('Duty start'));
-  const start = screen.getByLabelText('Duty start');
+  expect(fetch).toHaveBeenCalledTimes(loads);
+  expect(document.activeElement).toBe(start);
   const end = screen.getByLabelText('Duty end');
   const entryRow = end.closest('tr')!;
   const save = screen.getByRole('button', { name: 'Save session' });
@@ -297,14 +307,21 @@ test('validates entries, infers overnight duty, and preserves data after errors'
   expect(within(entryRow).queryByText('+1 day')).toBeNull();
   expect(saveOffset()).toBe(savePosition);
   await userEvent.fill(end, '0100');
-  await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '1:99');
+  const duration = screen.getByLabelText<HTMLInputElement>('Flight 1 duration');
+  const { borderColor, backgroundColor } = getComputedStyle(duration);
+  await userEvent.fill(duration, '90');
+  await userEvent.keyboard('{Tab}');
+  expect(duration.value).toBe('90');
+  expect(getComputedStyle(duration).borderColor).not.toBe(borderColor);
+  expect(getComputedStyle(duration).backgroundColor).not.toBe(backgroundColor);
+  const requests = fetch.mock.calls.length;
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
-  expect(screen.getByRole('alert').textContent).toContain('flight duration');
+  expect(fetch).toHaveBeenCalledTimes(requests);
   await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '45');
   fetch.mockResolvedValueOnce(Response.json({ error: 'Disk is full' }, { status: 500 }));
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect((await screen.findByRole('alert')).textContent).toBe('Disk is full');
-  expect((screen.getByLabelText('Flight 1 duration') as HTMLInputElement).value).toBe('45');
+  expect((screen.getByLabelText('Flight 1 duration') as HTMLInputElement).value).toBe('0:45');
   const failedRequest = fetch.mock.calls.at(-1)![1]!.body;
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   await screen.findByRole('rowheader', { name: 'New Student' });
@@ -343,7 +360,7 @@ test.each(['20260-05-03', '9999-12-31'])(
     await userEvent.fill(screen.getByLabelText('Session date'), date);
 
     expect((screen.getByLabelText('Student') as HTMLInputElement).value).toBe('New Student');
-    expect((screen.getByLabelText('Flight 1 duration') as HTMLInputElement).value).toBe('45');
+    expect((screen.getByLabelText('Flight 1 duration') as HTMLInputElement).value).toBe('0:45');
     await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
     expect(screen.getByRole('alert').textContent).toContain('session date');
     expect(document.activeElement).toBe(screen.getByLabelText('Session date'));
