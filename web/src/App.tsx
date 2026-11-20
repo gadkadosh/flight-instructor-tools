@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
 import SessionDelete from './SessionDelete';
@@ -270,8 +271,8 @@ function SessionTable({
         timeZone={view.timeZone}
         onClearSelection={() => setSelectedSessionIds(new Set())}
       />
-      <div aria-live="polite">
-        {deleteNotice && <p className="session-notice">{deleteNotice}</p>}
+      <div className="visually-hidden" aria-live="polite">
+        {deleteNotice}
       </div>
       {view.sessions.length === 0 && <p role="status">No sessions yet.</p>}
       {(view.sessions.length > 0 || adding) && (
@@ -381,11 +382,25 @@ function SessionTable({
             deleteTarget.trigger.focus();
           }}
           onDeleted={(nextView) => {
-            setDeleteTarget(null);
-            updateView(nextView);
-            setDeleteNotice('Session deleted.');
+            // Closing the dialog returned focus to the deleted row, so move it before the update.
             if (nextView.sessions.length > 0) tableRegion.current?.focus({ preventScroll: true });
             else onFocusAdd();
+            const update = () =>
+              flushSync(() => {
+                setDeleteTarget(null);
+                updateView(nextView);
+                setDeleteNotice('Session deleted.');
+              });
+            // Firefox can't nest view transition groups yet. Once every browser can, drop this check
+            // and the @supports wrapper in style.css.
+            const region = tableRegion.current;
+            const rowsStayInFrame =
+              CSS.supports('view-transition-group', 'contain') ||
+              !region ||
+              region.scrollWidth <= region.clientWidth;
+            if (document.startViewTransition && rowsStayInFrame)
+              document.startViewTransition(update);
+            else update();
           }}
         />
       )}
