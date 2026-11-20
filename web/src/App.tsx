@@ -382,17 +382,17 @@ function SessionTable({
             deleteTarget.trigger.focus();
           }}
           onDeleted={(nextView) => {
+            // Closing the dialog returned focus to the deleted row, so move it before the update.
+            if (nextView.sessions.length > 0) tableRegion.current?.focus({ preventScroll: true });
+            else onFocusAdd();
             // The browser snapshots the table before and after the update and animates the
             // difference, so the update has to reach the DOM before the callback returns.
-            const update = () => {
+            const update = () =>
               flushSync(() => {
                 setDeleteTarget(null);
                 updateView(nextView);
                 setDeleteNotice('Session deleted.');
               });
-              if (nextView.sessions.length > 0) tableRegion.current?.focus({ preventScroll: true });
-              else onFocusAdd();
-            };
             // Without nested view transition groups, rows of a horizontally scrolled table would
             // animate outside its frame.
             const region = tableRegion.current;

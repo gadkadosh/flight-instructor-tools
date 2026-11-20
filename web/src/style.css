@@ -580,8 +580,10 @@ td {
   overflow-wrap: anywhere;
 }
 
-/* Rows are captured one by one so a deleted row fades while the rows below slide up. */
-.sessions-table > tbody > tr {
+/* Rows are captured one by one so a deleted row fades while the rows below slide up. The note
+   under the table slides with them. */
+.sessions-table > tbody > tr,
+.time-note {
   view-transition-name: match-element;
 }
 
