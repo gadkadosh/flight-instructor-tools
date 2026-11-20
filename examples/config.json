@@ -19,7 +19,7 @@
   "paymentText": "Bitte überweisen Sie den Rechnungsbetrag auf meinem Bankkonto.",
   "closingText": "Mit freundlichen Grüßen",
   "timeZone": "Europe/Berlin",
-  "rate": {
+  "rates": {
     "preparationCentsPerHour": 2500,
     "blockCentsPerHour": 3000
   }

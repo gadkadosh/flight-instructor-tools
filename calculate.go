@@ -16,7 +16,7 @@ func buildInvoiceDocument(sessions []Session, config Config, number string, issu
 	var lines []Line
 	for _, session := range orderedSessions {
 		sessionDate := session.DutyStart.In(config.location)
-		newLines, err := calculateSessionLines(session, sessionDate, config.Rate, config.VATRatePercent)
+		newLines, err := calculateSessionLines(session, sessionDate, config.Rates, config.VATRatePercent)
 		if err != nil {
 			return Document{}, fmt.Errorf("session %q: %w", session.ID, err)
 		}
@@ -63,7 +63,7 @@ func selectSessions(sessions []Session, month time.Time) ([]Session, error) {
 	return selected, nil
 }
 
-func calculateSessionLines(session Session, date time.Time, rate Rate, vatRatePercent int) ([]Line, error) {
+func calculateSessionLines(session Session, date time.Time, rates Rates, vatRatePercent int) ([]Line, error) {
 	preparationMinutes, blockMinutes := 0, 0
 	var blockLabels []string
 	for _, activity := range session.Activities {
@@ -85,11 +85,11 @@ func calculateSessionLines(session Session, date time.Time, rate Rate, vatRatePe
 	lines := make([]Line, 0, 2)
 	if preparationMinutes > 0 {
 		description := invoiceDescription(session.Student, activityKinds[ActivityPreparation].invoiceLabel)
-		lines = append(lines, newInvoiceLine(date, description, preparationMinutes, rate.PreparationCentsPerHour, vatRatePercent))
+		lines = append(lines, newInvoiceLine(date, description, preparationMinutes, rates.PreparationCentsPerHour, vatRatePercent))
 	}
 	if blockMinutes > 0 {
 		description := invoiceDescription(session.Student, strings.Join(blockLabels, " / "))
-		lines = append(lines, newInvoiceLine(date, description, blockMinutes, rate.BlockCentsPerHour, vatRatePercent))
+		lines = append(lines, newInvoiceLine(date, description, blockMinutes, rates.BlockCentsPerHour, vatRatePercent))
 	}
 
 	if len(lines) == 0 {

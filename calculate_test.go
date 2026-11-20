@@ -100,7 +100,7 @@ func TestBuildInvoiceDocumentOrdersSessionsByDutyStart(t *testing.T) {
 			Activities: []Activity{{ID: "alpha-flight", Type: ActivityDual, Minutes: 60}},
 		},
 	}
-	config := Config{Rate: Rate{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3000}, location: time.UTC}
+	config := Config{Rates: Rates{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3000}, location: time.UTC}
 
 	document, err := buildInvoiceDocument(sessions, config, "2026-05", time.Time{})
 	if err != nil {
@@ -235,7 +235,7 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndActivities(t *testing.T) {
 	}
 	config := Config{
 		Currency: "EUR",
-		Rate:     Rate{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3000},
+		Rates:    Rates{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3000},
 		location: time.UTC,
 	}
 	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, time.UTC)

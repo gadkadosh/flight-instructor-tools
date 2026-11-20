@@ -80,13 +80,13 @@ type Config struct {
 	SignatureFile          string      `json:"signatureFile,omitempty"`
 	DutyReportTemplateFile string      `json:"dutyReportTemplateFile,omitempty"`
 	TimeZone               string      `json:"timeZone"`
-	Rate                   Rate        `json:"rate"`
+	Rates                  Rates       `json:"rates"`
 	// location is TimeZone, resolved by validateConfig. Every date and month
 	// the app reads or defaults is in this zone.
 	location *time.Location
 }
 
-type Rate struct {
+type Rates struct {
 	PreparationCentsPerHour int `json:"preparationCentsPerHour"`
 	BlockCentsPerHour       int `json:"blockCentsPerHour"`
 }
@@ -226,11 +226,11 @@ func validateConfig(config *Config) error {
 	if strings.TrimSpace(config.ClosingText) == "" {
 		return fmt.Errorf("closingText: must not be empty")
 	}
-	if config.Rate.PreparationCentsPerHour <= 0 {
-		return fmt.Errorf("rate.preparationCentsPerHour: must be positive")
+	if config.Rates.PreparationCentsPerHour <= 0 {
+		return fmt.Errorf("rates.preparationCentsPerHour: must be positive")
 	}
-	if config.Rate.BlockCentsPerHour <= 0 {
-		return fmt.Errorf("rate.blockCentsPerHour: must be positive")
+	if config.Rates.BlockCentsPerHour <= 0 {
+		return fmt.Errorf("rates.blockCentsPerHour: must be positive")
 	}
 	location, err := loadTimeZone(config.TimeZone)
 	if err != nil {

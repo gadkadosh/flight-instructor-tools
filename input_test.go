@@ -177,13 +177,16 @@ func TestReadConfigValidatesRateAndTimeZone(t *testing.T) {
 		t.Fatalf("read valid config fixture: %v", err)
 	}
 	for _, test := range []struct{ name, find, replaceWith, wantError string }{
-		{"zero block rate", `"blockCentsPerHour": 3000`, `"blockCentsPerHour": 0`, "rate.blockCentsPerHour: must be positive"},
-		{"missing rate", `,
-  "rate": {
+		{"zero block rate", `"blockCentsPerHour": 3000`, `"blockCentsPerHour": 0`, "rates.blockCentsPerHour: must be positive"},
+		{"missing rates", `,
+  "rates": {
     "preparationCentsPerHour": 2500,
     "blockCentsPerHour": 3000
-  }`, ``, "rate.preparationCentsPerHour: must be positive"},
-		{"rate history", `"rate"`, `"rates"`, `unknown field "rates"`},
+  }`, ``, "rates.preparationCentsPerHour: must be positive"},
+		{"rate history", `{
+    "preparationCentsPerHour": 2500,
+    "blockCentsPerHour": 3000
+  }`, `[{"effectiveFrom": "2026-01-01", "preparationCentsPerHour": 2500, "blockCentsPerHour": 3000}]`, "cannot unmarshal array"},
 		{"missing timezone", `"timeZone": "Europe/Berlin",`, ``, "timeZone: required"},
 		{"computer timezone", `"Europe/Berlin"`, `"Local"`, "timeZone: required"},
 		{"invalid timezone", `"Europe/Berlin"`, `"Not/AZone"`, `timeZone "Not/AZone"`},
