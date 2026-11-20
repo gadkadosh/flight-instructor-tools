@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestWriteInvoicePDFInvokesWeasyPrintWithoutShellInterpolation(t *testing.T) {
+func TestConvertHTMLToPDFInvokesWeasyPrintWithoutShellInterpolation(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("test uses a POSIX test executable")
 	}
@@ -37,7 +37,7 @@ printf 'pdf' > "$2"
 		t.Fatalf("write HTML artifact: %v", err)
 	}
 
-	if err := writeInvoicePDF(context.Background(), htmlPath, pdfPath); err != nil {
+	if err := convertHTMLToPDF(context.Background(), htmlPath, pdfPath); err != nil {
 		t.Fatalf("write invoice PDF: %v", err)
 	}
 
@@ -57,10 +57,10 @@ printf 'pdf' > "$2"
 	}
 }
 
-func TestWriteInvoicePDFReportsMissingWeasyPrint(t *testing.T) {
+func TestConvertHTMLToPDFReportsMissingWeasyPrint(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
-	err := writeInvoicePDF(context.Background(), "invoice.html", "invoice.pdf")
+	err := convertHTMLToPDF(context.Background(), "invoice.html", "invoice.pdf")
 	if err == nil {
 		t.Fatal("write invoice PDF unexpectedly succeeded")
 	}
@@ -71,7 +71,7 @@ func TestWriteInvoicePDFReportsMissingWeasyPrint(t *testing.T) {
 	}
 }
 
-func TestWriteInvoicePDFIncludesRendererFailureOutput(t *testing.T) {
+func TestConvertHTMLToPDFIncludesRendererFailureOutput(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("test uses a POSIX test executable")
 	}
@@ -83,7 +83,7 @@ func TestWriteInvoicePDFIncludesRendererFailureOutput(t *testing.T) {
 	}
 	t.Setenv("PATH", binDirectory)
 
-	err := writeInvoicePDF(context.Background(), "invoice.html", "invoice.pdf")
+	err := convertHTMLToPDF(context.Background(), "invoice.html", "invoice.pdf")
 	if err == nil {
 		t.Fatal("write invoice PDF unexpectedly succeeded")
 	}

@@ -42,7 +42,7 @@ func TestSessionsAPI(t *testing.T) {
 	}{
 		{name: "configured timezone without billing fields", sessions: string(fixture), config: `{"timeZone":"Europe/Berlin"}`, wantZone: "Europe/Berlin"},
 		{name: "missing default config", sessions: string(fixture), wantZone: "UTC"},
-		{name: "missing timezone", sessions: string(fixture), config: `{}`, wantZone: "UTC"},
+		{name: "missing timezone", sessions: string(fixture), config: `{}`, wantError: "timeZone: required"},
 		{name: "empty sessions", sessions: `{"schemaVersion":3,"sessions":[]}`, wantZone: "UTC"},
 		{name: "null sessions", sessions: `{"schemaVersion":3,"sessions":null}`, wantZone: "UTC"},
 		{name: "missing explicit config", sessions: string(fixture), requireConfig: true, wantError: "read config"},

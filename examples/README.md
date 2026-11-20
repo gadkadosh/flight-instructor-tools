@@ -3,7 +3,9 @@
 These files model a small but realistic flight-instruction billing period without containing private data:
 
 - `sessions.json` contains sessions around May 2026.
-- `config.json` contains fictional issuer, customer, bank, and tax data.
+- `config.json` contains fictional issuer, customer, bank, and tax data, one
+  hourly rate for preparation and one for block time, and the `timeZone` used
+  for every date and month.
 
 ## Running it
 
@@ -42,9 +44,8 @@ The data deliberately exercises:
 - a preparation-only session;
 - a block-only session;
 - an unnamed Rundflug;
-- German characters;
-- an effective rate change on 2026-06-01; and
-- a June duration whose block amount requires cent rounding.
+- German characters; and
+- a June preparation duration whose amount requires cent rounding.
 
 ## Session format
 
@@ -77,7 +78,7 @@ Sessions use `schemaVersion: 3`. Each session has an `activities` array with at 
 }
 ```
 
-Types are required; unsupported values are rejected. Activities are grouped into one preparation charge and one combined block-time charge within each session before rounding, regardless of activity order or flight type. All flight types use the existing date-effective block rate. Preparation uses `Flugvorbereitung`; block labels come from the flight types: `Blockzeit` for Dual/solo supervision, `Rundflug`, or `Schnupperflug`. Mixed sessions join their distinct block labels with ` / ` in alphabetical order, retaining a single block charge. A student name prefixes either charge when present, for example `Alex - Schnupperflug`. No grouping occurs across sessions. Session `dutyStart` and `dutyEnd` remain independent of activity durations.
+Types are required; unsupported values are rejected. Activities are grouped into one preparation charge and one combined block-time charge within each session before rounding, regardless of activity order or flight type. All flight types use the block rate. Preparation uses `Flugvorbereitung`; block labels come from the flight types: `Blockzeit` for Dual/solo supervision, `Rundflug`, or `Schnupperflug`. Mixed sessions join their distinct block labels with ` / ` in alphabetical order, retaining a single block charge. A student name prefixes either charge when present, for example `Alex - Schnupperflug`. No grouping occurs across sessions. Session `dutyStart` and `dutyEnd` remain independent of activity durations.
 
 The viewer's **Block time** column includes Dual, Rundflug, and Schnupperflug; **Solo supervision** remains separate. The expanded flight rows show each activity's type.
 
@@ -124,7 +125,7 @@ Multiple sessions and multiple activities per session are supported. Grouping ac
 Open **Generate duty report…** in the session viewer, fill in the form, and click
 **Download PDF**. For CLI options, run `./fitools duty-report --help`.
 
-Set `dutyReportTemplateFile` and an explicit IANA `timeZone` in your config. Add
+Set `dutyReportTemplateFile` in your config. Add
 `signatureFile` for an optional PNG signature. See the fields and helpers in the
 [sample template](../testdata/duty-report.html.tmpl).
 

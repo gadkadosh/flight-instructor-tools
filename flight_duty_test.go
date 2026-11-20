@@ -36,7 +36,7 @@ func TestDutyReportDailySpansAndPersonalBlock(t *testing.T) {
 		},
 	}
 	issueDate := mustTimestamp(t, "2026-06-10T00:00:00+02:00")
-	report, err := buildDutyReport(sessions, Config{TimeZone: "Europe/Berlin"}, "2026-05", issueDate, 7200)
+	report, err := buildDutyReport(sessions, Config{}, mustMonth(t, "Europe/Berlin", "2026-05"), issueDate, 7200)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestDutyReportDoesNotCapOrDeduplicateOverlappingDual(t *testing.T) {
 		sessions = append(sessions, dutySession(t, id, "2026-05-01T09:00:00Z", "2026-05-01T10:00:00Z",
 			Activity{ID: id, Type: ActivityDual, Minutes: 90}))
 	}
-	report, err := buildDutyReport(sessions, Config{TimeZone: "UTC"}, "2026-05", time.Time{}, 0)
+	report, err := buildDutyReport(sessions, Config{}, mustMonth(t, "UTC", "2026-05"), time.Time{}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestDutyReportTimeZoneAndElapsedTime(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			session := dutySession(t, "test", test.start, test.end, Activity{ID: "dual", Type: ActivityDual, Minutes: 20})
-			report, err := buildDutyReport([]Session{session}, Config{TimeZone: "Europe/Berlin"}, test.month, time.Time{}, 0)
+			report, err := buildDutyReport([]Session{session}, Config{}, mustMonth(t, "Europe/Berlin", test.month), time.Time{}, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -116,11 +116,11 @@ func TestDutyReportTimeZoneAndElapsedTime(t *testing.T) {
 
 func TestDutyReportUsesLocalMonthInsteadOfTimestampMonth(t *testing.T) {
 	session := dutySession(t, "local-june", "2026-05-31T22:15:00Z", "2026-05-31T23:15:00Z", Activity{ID: "dual", Type: ActivityDual, Minutes: 45})
-	may, err := buildDutyReport([]Session{session}, Config{TimeZone: "Europe/Berlin"}, "2026-05", time.Time{}, 0)
+	may, err := buildDutyReport([]Session{session}, Config{}, mustMonth(t, "Europe/Berlin", "2026-05"), time.Time{}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	june, err := buildDutyReport([]Session{session}, Config{TimeZone: "Europe/Berlin"}, "2026-06", time.Time{}, 0)
+	june, err := buildDutyReport([]Session{session}, Config{}, mustMonth(t, "Europe/Berlin", "2026-06"), time.Time{}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestDutyReportEmptyMonthsAndCalendarSlots(t *testing.T) {
 		month string
 		days  int
 	}{{"2026-02", 28}, {"2028-02", 29}, {"2026-04", 30}, {"2026-05", 31}} {
-		report, err := buildDutyReport([]Session{unrelated}, Config{TimeZone: "UTC"}, test.month, time.Time{}, 123)
+		report, err := buildDutyReport([]Session{unrelated}, Config{}, mustMonth(t, "UTC", test.month), time.Time{}, 123)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -158,7 +158,7 @@ func TestDutyReportRejectsLocalMidnightButInvoiceDoesNot(t *testing.T) {
 	session := dutySession(t, "overnight", "2026-04-30T21:30:00Z", "2026-04-30T22:30:00Z",
 		Activity{ID: "dual", Type: ActivityDual, Minutes: 60})
 	for _, month := range []string{"2026-04", "2026-05"} {
-		_, err := buildDutyReport([]Session{session}, Config{TimeZone: "Europe/Berlin"}, month, time.Time{}, 0)
+		_, err := buildDutyReport([]Session{session}, Config{}, mustMonth(t, "Europe/Berlin", month), time.Time{}, 0)
 		if err == nil || !strings.Contains(err.Error(), `session "overnight" crosses local midnight in Europe/Berlin`) {
 			t.Fatalf("error = %v, want local-midnight error with session ID", err)
 		}
@@ -167,25 +167,12 @@ func TestDutyReportRejectsLocalMidnightButInvoiceDoesNot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	invoice, err := buildInvoiceDocument([]Session{session}, config, "test", time.Time{})
+	invoice, err := buildInvoiceDocument([]Session{session}, config, "2026-01", time.Time{})
 	if err != nil || invoice.Totals.GrossCents != 3000 {
 		t.Fatalf("overnight invoice = %+v, %v; want 3000 cents", invoice, err)
 	}
-	if _, err := selectSessions([]Session{session}, "2026-05", time.UTC); err == nil {
+	if _, err := selectSessions([]Session{session}, mustMonth(t, "UTC", "2026-05")); err == nil {
 		t.Fatal("invoice selection must still reject empty months")
-	}
-}
-
-func TestDutyReportRequiresExplicitTimeZoneAndValidMonth(t *testing.T) {
-	for _, zone := range []string{"", "Local", "Not/AZone"} {
-		if _, err := buildDutyReport(nil, Config{TimeZone: zone}, "2026-05", time.Time{}, 0); err == nil || !strings.Contains(err.Error(), "timeZone") {
-			t.Errorf("zone %q: error = %v", zone, err)
-		}
-	}
-	for _, month := range []string{"2026-5", "2026-13", "", "../2026-05"} {
-		if _, err := buildDutyReport(nil, Config{TimeZone: "UTC"}, month, time.Time{}, 0); err == nil {
-			t.Errorf("month %q unexpectedly accepted", month)
-		}
 	}
 }
 

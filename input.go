@@ -79,27 +79,25 @@ type Config struct {
 	ClosingText            string      `json:"closingText"`
 	SignatureFile          string      `json:"signatureFile,omitempty"`
 	DutyReportTemplateFile string      `json:"dutyReportTemplateFile,omitempty"`
-	TimeZone               string      `json:"timeZone,omitempty"`
-	Rates                  []Rate      `json:"rates"`
+	TimeZone               string      `json:"timeZone"`
+	Rates                  Rates       `json:"rates"`
+	// location is TimeZone, resolved by validateConfig. Every date and month
+	// the app reads or defaults is in this zone.
+	location *time.Location
 }
 
-type Rate struct {
-	EffectiveFrom           string `json:"effectiveFrom"`
-	PreparationCentsPerHour int    `json:"preparationCentsPerHour"`
-	BlockCentsPerHour       int    `json:"blockCentsPerHour"`
+type Rates struct {
+	PreparationCentsPerHour int `json:"preparationCentsPerHour"`
+	BlockCentsPerHour       int `json:"blockCentsPerHour"`
 }
 
-func (config Config) location() (*time.Location, error) {
-	timeZone := config.TimeZone
-	if timeZone == "" {
-		timeZone = "UTC"
+func loadTimeZone(name string) (*time.Location, error) {
+	if name == "" || name == "Local" {
+		return nil, fmt.Errorf("timeZone: required; use an explicit IANA timezone such as Europe/Berlin")
 	}
-	if timeZone == "Local" {
-		return nil, fmt.Errorf("timeZone: use an explicit IANA timezone such as Europe/Berlin; Local is not supported")
-	}
-	location, err := time.LoadLocation(timeZone)
+	location, err := time.LoadLocation(name)
 	if err != nil {
-		return nil, fmt.Errorf("timeZone %q: %w", timeZone, err)
+		return nil, fmt.Errorf("timeZone %q: %w", name, err)
 	}
 	return location, nil
 }
@@ -120,7 +118,7 @@ func readConfig(path string) (Config, error) {
 	if err := readJSONFile(path, &config); err != nil {
 		return Config{}, fmt.Errorf("read config: %w", err)
 	}
-	if err := validateConfig(config); err != nil {
+	if err := validateConfig(&config); err != nil {
 		return Config{}, fmt.Errorf("validate config: %w", err)
 	}
 	return config, nil
@@ -197,7 +195,7 @@ func validateSessionFile(input SessionFile) error {
 	return nil
 }
 
-func validateConfig(config Config) error {
+func validateConfig(config *Config) error {
 	if config.Currency != "EUR" {
 		return fmt.Errorf("currency: got %q, want %q", config.Currency, "EUR")
 	}
@@ -228,23 +226,17 @@ func validateConfig(config Config) error {
 	if strings.TrimSpace(config.ClosingText) == "" {
 		return fmt.Errorf("closingText: must not be empty")
 	}
-	if len(config.Rates) == 0 {
-		return fmt.Errorf("rates: must contain at least one rate")
+	if config.Rates.PreparationCentsPerHour <= 0 {
+		return fmt.Errorf("rates.preparationCentsPerHour: must be positive")
 	}
-
-	for rateIndex, rate := range config.Rates {
-		path := fmt.Sprintf("rates[%d]", rateIndex)
-		if err := validateDate(rate.EffectiveFrom); err != nil {
-			return fmt.Errorf("%s.effectiveFrom: %w", path, err)
-		}
-		if rate.PreparationCentsPerHour <= 0 {
-			return fmt.Errorf("%s.preparationCentsPerHour: must be positive", path)
-		}
-		if rate.BlockCentsPerHour <= 0 {
-			return fmt.Errorf("%s.blockCentsPerHour: must be positive", path)
-		}
+	if config.Rates.BlockCentsPerHour <= 0 {
+		return fmt.Errorf("rates.blockCentsPerHour: must be positive")
 	}
-
+	location, err := loadTimeZone(config.TimeZone)
+	if err != nil {
+		return err
+	}
+	config.location = location
 	return nil
 }
 
@@ -264,9 +256,4 @@ func validateParty(path string, party Party, requireEmail bool) error {
 		return fmt.Errorf("%s.email: must not be empty", path)
 	}
 	return nil
-}
-
-func validateDate(value string) error {
-	_, err := parseDate(value)
-	return err
 }

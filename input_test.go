@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestReadSessionFileRejectsDuplicateSessionIDs(t *testing.T) {
@@ -170,23 +171,69 @@ func TestSessionStudentRequirements(t *testing.T) {
 	}
 }
 
-func TestReadConfigValidatesRates(t *testing.T) {
-	contents, err := os.ReadFile(filepath.Join("testdata", "minimal-config.json"))
+func TestReadConfigValidatesRateAndTimeZone(t *testing.T) {
+	fixture, err := os.ReadFile(filepath.Join("testdata", "minimal-config.json"))
 	if err != nil {
 		t.Fatalf("read valid config fixture: %v", err)
 	}
-	contents = []byte(strings.Replace(string(contents), `"blockCentsPerHour": 3000`, `"blockCentsPerHour": 0`, 1))
-
-	path := filepath.Join(t.TempDir(), "config.json")
-	if err := os.WriteFile(path, contents, 0o644); err != nil {
-		t.Fatalf("write config: %v", err)
+	for _, test := range []struct{ name, find, replaceWith, wantError string }{
+		{"zero block rate", `"blockCentsPerHour": 3000`, `"blockCentsPerHour": 0`, "rates.blockCentsPerHour: must be positive"},
+		{"missing rates", `,
+  "rates": {
+    "preparationCentsPerHour": 2500,
+    "blockCentsPerHour": 3000
+  }`, ``, "rates.preparationCentsPerHour: must be positive"},
+		{"rate history", `{
+    "preparationCentsPerHour": 2500,
+    "blockCentsPerHour": 3000
+  }`, `[{"effectiveFrom": "2026-01-01", "preparationCentsPerHour": 2500, "blockCentsPerHour": 3000}]`, "cannot unmarshal array"},
+		{"missing timezone", `"timeZone": "Europe/Berlin",`, ``, "timeZone: required"},
+		{"computer timezone", `"Europe/Berlin"`, `"Local"`, "timeZone: required"},
+		{"invalid timezone", `"Europe/Berlin"`, `"Not/AZone"`, `timeZone "Not/AZone"`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if strings.Count(string(fixture), test.find) != 1 {
+				t.Fatal("test replacement must match exactly once")
+			}
+			path := filepath.Join(t.TempDir(), "config.json")
+			contents := strings.Replace(string(fixture), test.find, test.replaceWith, 1)
+			if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+				t.Fatalf("write config: %v", err)
+			}
+			_, err := readConfig(path)
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("error = %v, want containing %q", err, test.wantError)
+			}
+		})
 	}
+}
 
-	_, err = readConfig(path)
-	if err == nil {
-		t.Fatal("read config unexpectedly succeeded")
+func TestConfigParsesDatesAndMonthsInTimeZone(t *testing.T) {
+	config, err := readConfig(filepath.Join("testdata", "minimal-config.json"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(err.Error(), "rates[0].blockCentsPerHour") {
-		t.Fatalf("error %q does not identify the invalid rate", err)
+	month, err := config.parseMonth("2026-06")
+	if err != nil || month.Format(time.RFC3339) != "2026-06-01T00:00:00+02:00" {
+		t.Errorf("month = %v, %v; want midnight in Europe/Berlin", month, err)
+	}
+	date, err := config.parseDate("2026-06-09")
+	if err != nil || date.Format(time.RFC3339) != "2026-06-09T00:00:00+02:00" {
+		t.Errorf("date = %v, %v; want midnight in Europe/Berlin", date, err)
+	}
+	// 23:30 UTC is already the next day in Berlin.
+	today, err := config.issueDate("", func() time.Time { return mustTimestamp(t, "2026-05-31T23:30:00Z") })
+	if err != nil || today.Format(time.RFC3339) != "2026-06-01T00:00:00+02:00" {
+		t.Errorf("default issue date = %v, %v; want 2026-06-01 in Europe/Berlin", today, err)
+	}
+	for _, value := range []string{"2026-5", "2026-13", "", "../2026-05", "2026-05-01"} {
+		if _, err := config.parseMonth(value); err == nil {
+			t.Errorf("month %q unexpectedly accepted", value)
+		}
+	}
+	for _, value := range []string{"2026-02-30", "2026-6-09", "", "2026-06"} {
+		if _, err := config.parseDate(value); err == nil {
+			t.Errorf("date %q unexpectedly accepted", value)
+		}
 	}
 }

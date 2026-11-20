@@ -36,9 +36,9 @@ func buildMinimalDocumentForSnapshotTest(t *testing.T) Document {
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
-	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, time.Local)
+	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, config.location)
 
-	sessions, err := selectSessions(input.Sessions, "2026-05", time.UTC)
+	sessions, err := selectSessions(input.Sessions, mustMonth(t, "Europe/Berlin", "2026-05"))
 	if err != nil {
 		t.Fatalf("select sessions: %v", err)
 	}

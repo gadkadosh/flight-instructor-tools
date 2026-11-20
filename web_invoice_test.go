@@ -57,7 +57,7 @@ func TestInvoiceDownloadUsesSelectedSessionsAndCleansUp(t *testing.T) {
 			t.Fatalf("status = %d, headers = %v, body = %s", response.Code, response.Header(), response.Body)
 		}
 		body := response.Body.String()
-		for _, want := range []string{"Rechnung Nr. 2026-07", "01.07.2026", "Alex Beispiel - Flugvorbereitung", "Sam Beispiel - Blockzeit", "03.05.26", "03.06.26", "93,17 €"} {
+		for _, want := range []string{"Rechnung Nr. 2026-07", "01.07.2026", "Alex Beispiel - Flugvorbereitung", "Sam Beispiel - Blockzeit", "03.05.26", "03.06.26", "90,00 €"} {
 			if !strings.Contains(body, want) {
 				t.Errorf("invoice missing %q", want)
 			}
@@ -81,8 +81,8 @@ func TestInvoiceDownloadErrors(t *testing.T) {
 		{name: "empty selection", body: strings.Replace(valid, `["2026-05-03-alex"]`, `[]`, 1), status: 400, want: "select at least one session"},
 		{name: "unknown selection", body: strings.Replace(valid, "2026-05-03-alex", "missing", 1), status: 400, want: "no longer exist"},
 		{name: "partly stale selection", body: strings.Replace(valid, `["2026-05-03-alex"]`, `["2026-05-03-alex","missing"]`, 1), status: 400, want: "no longer exist"},
-		{name: "missing number", body: strings.Replace(valid, "2026-07", "", 1), status: 400, want: "invoice number"},
-		{name: "invalid number", body: strings.Replace(valid, "2026-07", "../other", 1), status: 400, want: "invoice number"},
+		{name: "missing number", body: strings.Replace(valid, "2026-07", "", 1), status: 422, want: "invoice number"},
+		{name: "invalid number", body: strings.Replace(valid, "2026-07", "../other", 1), status: 422, want: "invoice number"},
 		{name: "invalid date", body: strings.Replace(valid, "2026-06-09", "2026-02-30", 1), status: 400, want: "issue date"},
 		{name: "missing date", body: strings.Replace(valid, "2026-06-09", "", 1), status: 400, want: "issue date"},
 		{name: "malformed request", body: `{`, status: 400, want: "invalid invoice request"},

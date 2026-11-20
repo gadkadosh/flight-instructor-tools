@@ -3,8 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -48,7 +51,8 @@ func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
 	args, outputDirectory := setupGenerateTest(t)
 
 	var stdout bytes.Buffer
-	fixedNow := time.Date(2026, time.June, 9, 12, 34, 56, 0, time.UTC)
+	// Still June 9 in UTC, but already June 10 in the configured Europe/Berlin.
+	fixedNow := time.Date(2026, time.June, 9, 22, 34, 56, 0, time.UTC)
 	err := run(context.Background(), args, &stdout, strings.NewReader(""), func() time.Time { return fixedNow })
 	if err != nil {
 		t.Fatalf("run generate: %v", err)
@@ -69,9 +73,8 @@ func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read generated snapshot: %v", err)
 	}
-	resolvedDate := fixedNow.In(time.Local).Format("2006-01-02")
-	if expected := fmt.Sprintf(`"issueDate": %q`, resolvedDate); !bytes.Contains(snapshot, []byte(expected)) {
-		t.Errorf("snapshot does not contain resolved local issue date %q:\n%s", resolvedDate, snapshot)
+	if expected := `"issueDate": "2026-06-10"`; !bytes.Contains(snapshot, []byte(expected)) {
+		t.Errorf("snapshot does not contain issue date in configured timezone %s:\n%s", expected, snapshot)
 	}
 	if !bytes.Contains(snapshot, []byte(`"grossCents": 4500`)) {
 		t.Errorf("snapshot does not contain expected total:\n%s", snapshot)
@@ -124,7 +127,6 @@ func TestRunGenerateUsesConfiguredMonth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config.TimeZone = "Europe/Berlin"
 	directory := t.TempDir()
 	inputPath, configPath := filepath.Join(directory, "sessions.json"), filepath.Join(directory, "config.json")
 	for _, file := range []struct {
@@ -167,8 +169,12 @@ func TestRunGenerateUsesConfiguredMonth(t *testing.T) {
 }
 
 func TestRunGenerateSignature(t *testing.T) {
+	var signature bytes.Buffer
+	if err := png.Encode(&signature, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
 	signaturePath := filepath.Join(t.TempDir(), "signature.png")
-	if err := os.WriteFile(signaturePath, []byte("signature"), 0o644); err != nil {
+	if err := os.WriteFile(signaturePath, signature.Bytes(), 0o644); err != nil {
 		t.Fatalf("write signature: %v", err)
 	}
 	fixture, err := os.ReadFile(filepath.Join("testdata", "minimal-config.json"))
@@ -180,20 +186,24 @@ func TestRunGenerateSignature(t *testing.T) {
 		name              string
 		signatureFileJSON string
 		wantSignature     bool
-		wantError         bool
+		wantError         string
 	}{
 		{name: "omitted"},
 		{name: "empty", signatureFileJSON: `""`},
 		{name: "absolute path", signatureFileJSON: fmt.Sprintf("%q", signaturePath), wantSignature: true},
 		{name: "relative path", signatureFileJSON: `"signature.png"`, wantSignature: true},
-		{name: "missing file", signatureFileJSON: `"missing.png"`, wantError: true},
-		{name: "directory instead of file", signatureFileJSON: `"."`, wantError: true},
+		{name: "missing file", signatureFileJSON: `"missing.png"`, wantError: "read signature"},
+		{name: "directory instead of file", signatureFileJSON: `"."`, wantError: "read signature"},
+		{name: "not a PNG", signatureFileJSON: `"not-a-signature.png"`, wantError: "load signature"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			args, outputDirectory := setupGenerateTest(t)
 			configDirectory := t.TempDir()
-			if err := os.WriteFile(filepath.Join(configDirectory, "signature.png"), []byte("signature"), 0o644); err != nil {
+			if err := os.WriteFile(filepath.Join(configDirectory, "signature.png"), signature.Bytes(), 0o644); err != nil {
 				t.Fatalf("write relative signature: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(configDirectory, "not-a-signature.png"), []byte("signature"), 0o644); err != nil {
+				t.Fatalf("write invalid signature: %v", err)
 			}
 			var config map[string]json.RawMessage
 			if err := json.Unmarshal(fixture, &config); err != nil {
@@ -214,8 +224,8 @@ func TestRunGenerateSignature(t *testing.T) {
 
 			var stdout bytes.Buffer
 			err = run(context.Background(), args, &stdout, strings.NewReader(""), time.Now)
-			if test.wantError {
-				if err == nil || !strings.Contains(err.Error(), "read signature") || !strings.Contains(err.Error(), configDirectory) {
+			if test.wantError != "" {
+				if err == nil || !strings.Contains(err.Error(), test.wantError) || !strings.Contains(err.Error(), configDirectory) {
 					t.Fatalf("error = %v, want signature read error with resolved path", err)
 				}
 				entries, err := os.ReadDir(outputDirectory)
@@ -240,7 +250,7 @@ func TestRunGenerateSignature(t *testing.T) {
 			if got := bytes.Contains(html, []byte(`class="signature"`)); got != test.wantSignature {
 				t.Errorf("signature image present = %v, want %v", got, test.wantSignature)
 			}
-			if test.wantSignature && !bytes.Contains(html, []byte(`src="data:image/png;base64,c2lnbmF0dXJl"`)) {
+			if test.wantSignature && !bytes.Contains(html, []byte(`src="data:image/png;base64,`+base64.StdEncoding.EncodeToString(signature.Bytes())+`"`)) {
 				t.Error("generated HTML does not embed the supplied signature")
 			}
 		})
@@ -361,9 +371,13 @@ func TestRunGenerateOverwrite(t *testing.T) {
 	}
 }
 
-func TestResolveExplicitIssueDateDoesNotReadClock(t *testing.T) {
+func TestExplicitIssueDateDoesNotReadClock(t *testing.T) {
+	config, err := readConfig(filepath.Join("testdata", "minimal-config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	clockRead := false
-	date, err := resolveIssueDate("2026-06-10", func() time.Time {
+	date, err := config.issueDate("2026-06-10", func() time.Time {
 		clockRead = true
 		return time.Time{}
 	})
@@ -375,5 +389,40 @@ func TestResolveExplicitIssueDateDoesNotReadClock(t *testing.T) {
 	}
 	if got, want := date.Format("2006-01-02"), "2026-06-10"; got != want {
 		t.Errorf("issue date = %q, want %q", got, want)
+	}
+}
+
+func TestRunGenerateRendererFailurePreservesExistingFiles(t *testing.T) {
+	args, outputDirectory := setupGenerateTest(t)
+	for _, extension := range []string{"json", "html", "pdf"} {
+		path := filepath.Join(outputDirectory, "Rechnung-2026-05."+extension)
+		if err := os.WriteFile(path, []byte("original"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", t.TempDir())
+	err := run(context.Background(), append(args, "--force"), io.Discard, strings.NewReader(""), time.Now)
+	if err == nil || !strings.Contains(err.Error(), "WeasyPrint") {
+		t.Fatalf("error = %v, want WeasyPrint failure", err)
+	}
+	for _, extension := range []string{"json", "html", "pdf"} {
+		content, err := os.ReadFile(filepath.Join(outputDirectory, "Rechnung-2026-05."+extension))
+		if err != nil || string(content) != "original" {
+			t.Errorf("%s = %q, %v; want the original file", extension, content, err)
+		}
+	}
+	if entries, err := os.ReadDir(outputDirectory); err != nil || len(entries) != 3 {
+		t.Fatalf("output directory = %v, %v; want only the three original files", entries, err)
+	}
+}
+
+func TestRunGenerateRejectsInvalidNumber(t *testing.T) {
+	args, outputDirectory := setupGenerateTest(t)
+	err := run(context.Background(), append(args, "--number", "2026/05"), io.Discard, strings.NewReader(""), time.Now)
+	if err == nil || !strings.Contains(err.Error(), "invoice number") {
+		t.Fatalf("error = %v, want invalid invoice number", err)
+	}
+	if entries, err := os.ReadDir(outputDirectory); err != nil || len(entries) != 0 {
+		t.Fatalf("output directory = %v, %v; want it empty", entries, err)
 	}
 }

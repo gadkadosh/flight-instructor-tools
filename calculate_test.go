@@ -18,9 +18,9 @@ func TestBuildMinimalInvoiceDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
-	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, time.Local)
+	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, config.location)
 
-	sessions, err := selectSessions(input.Sessions, "2026-05", time.UTC)
+	sessions, err := selectSessions(input.Sessions, mustMonth(t, "Europe/Berlin", "2026-05"))
 	if err != nil {
 		t.Fatalf("select sessions: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestBuildInvoiceDocumentOrdersSessionsByDutyStart(t *testing.T) {
 			Activities: []Activity{{ID: "alpha-flight", Type: ActivityDual, Minutes: 60}},
 		},
 	}
-	config := Config{Rates: []Rate{{EffectiveFrom: "2026-01-01", PreparationCentsPerHour: 2500, BlockCentsPerHour: 3000}}}
+	config := Config{Rates: Rates{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3000}, location: time.UTC}
 
 	document, err := buildInvoiceDocument(sessions, config, "2026-05", time.Time{})
 	if err != nil {
@@ -132,11 +132,10 @@ func TestInvoiceDatesUseConfiguredTimeZone(t *testing.T) {
 	}{
 		{"east of UTC", "Europe/Berlin", "2026-05-31T22:30:00Z", "2026-06-01", "01.06.26"},
 		{"west of UTC", "America/New_York", "2026-06-01T00:30:00Z", "2026-05-31", "31.05.26"},
-		{"default UTC", "", "2026-06-01T00:30:00+02:00", "2026-05-31", "31.05.26"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := config
-			config.TimeZone = test.zone
+			config.location = mustMonth(t, test.zone, "2026-01").Location()
 			session := Session{
 				ID:         "boundary",
 				DutyStart:  mustTimestamp(t, test.start),
@@ -163,6 +162,19 @@ func TestInvoiceDatesUseConfiguredTimeZone(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustMonth(t *testing.T, zone, value string) time.Time {
+	t.Helper()
+	location, err := loadTimeZone(zone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	month, err := Config{location: location}.parseMonth(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return month
 }
 
 func mustTimestamp(t *testing.T, value string) time.Time {
@@ -223,16 +235,12 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndActivities(t *testing.T) {
 	}
 	config := Config{
 		Currency: "EUR",
-		Rates: []Rate{
-			{
-				EffectiveFrom:           "2026-01-01",
-				PreparationCentsPerHour: 2500,
-				BlockCentsPerHour:       3000,
-			}},
+		Rates:    Rates{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3000},
+		location: time.UTC,
 	}
-	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, time.Local)
+	issueDate := time.Date(2026, time.June, 9, 0, 0, 0, 0, time.UTC)
 
-	sessions, err := selectSessions(input.Sessions, "2026-05", time.UTC)
+	sessions, err := selectSessions(input.Sessions, mustMonth(t, "UTC", "2026-05"))
 	if err != nil {
 		t.Fatalf("select sessions: %v", err)
 	}
@@ -300,7 +308,7 @@ func TestSelectSessionsForMonth(t *testing.T) {
 		{ID: "june", DutyStart: mustTimestamp(t, "2026-06-01T12:00:00Z")},
 	}
 
-	selected, err := selectSessions(sessions, "2026-05", time.UTC)
+	selected, err := selectSessions(sessions, mustMonth(t, "UTC", "2026-05"))
 	if err != nil {
 		t.Fatalf("select session: %v", err)
 	}
@@ -321,28 +329,11 @@ func TestSelectSessionsForMonth(t *testing.T) {
 func TestSelectSessionsRejectsNoSessions(t *testing.T) {
 	sessions := []Session{{ID: "april", DutyStart: mustTimestamp(t, "2026-04-30T14:00:00Z")}}
 
-	_, err := selectSessions(sessions, "2026-05", time.UTC)
+	_, err := selectSessions(sessions, mustMonth(t, "UTC", "2026-05"))
 	if err == nil {
 		t.Fatal("select session unexpectedly succeeded")
 	}
 	if !strings.Contains(err.Error(), "no session") {
 		t.Fatalf("error %q does not contain no session", err)
-	}
-}
-
-func TestRateForDateUsesLatestApplicableRate(t *testing.T) {
-	rates := []Rate{
-		{EffectiveFrom: "2026-06-01", BlockCentsPerHour: 4000},
-		{EffectiveFrom: "2025-01-01", BlockCentsPerHour: 2000},
-		{EffectiveFrom: "2026-01-01", BlockCentsPerHour: 3000},
-	}
-	date := time.Date(2026, time.May, 3, 0, 0, 0, 0, time.Local)
-
-	rate, err := rateForDate(rates, date)
-	if err != nil {
-		t.Fatalf("select rate: %v", err)
-	}
-	if got, want := rate.BlockCentsPerHour, 3000; got != want {
-		t.Fatalf("block rate = %d, want %d", got, want)
 	}
 }

@@ -64,16 +64,3 @@ func run(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Rea
 		return fmt.Errorf("unknown command: %q", arguments[0])
 	}
 }
-
-func resolveIssueDate(value string, now func() time.Time) (time.Time, error) {
-	if value != "" {
-		date, err := parseDate(value)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("issue date: %w", err)
-		}
-		return date, nil
-	}
-
-	current := now().In(time.Local)
-	return time.Date(current.Year(), current.Month(), current.Day(), 0, 0, 0, 0, time.Local), nil
-}

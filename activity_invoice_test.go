@@ -23,7 +23,7 @@ func TestCalculateSessionLinesGroupsActivitiesBeforeRounding(t *testing.T) {
 			{ID: "prep-2", Type: ActivityPreparation, Minutes: 1},
 		},
 	}
-	rate := Rate{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3100}
+	rate := Rates{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3100}
 	lines, err := calculateSessionLines(session, date, rate, 0)
 	if err != nil {
 		t.Fatalf("calculate lines: %v", err)
@@ -59,7 +59,7 @@ func TestCalculateSessionLinesBillsSpecialFlights(t *testing.T) {
 					{ID: "flight-2", Type: test.activityType, Minutes: 60},
 				},
 			}
-			lines, err := calculateSessionLines(session, date, Rate{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3100}, 0)
+			lines, err := calculateSessionLines(session, date, Rates{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3100}, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -82,7 +82,7 @@ func TestCalculateSessionLinesBillsSpecialFlights(t *testing.T) {
 		}}
 		want := []Line{{Date: date, Description: "Alex - Blockzeit / Rundflug / Schnupperflug", Minutes: 4, HourlyRateCents: 3100, TotalCents: 207}}
 		for range 2 {
-			lines, err := calculateSessionLines(session, date, Rate{BlockCentsPerHour: 3100}, 0)
+			lines, err := calculateSessionLines(session, date, Rates{BlockCentsPerHour: 3100}, 0)
 			if err != nil || !slices.Equal(lines, want) {
 				t.Fatalf("lines = %+v, error = %v, want %+v", lines, err, want)
 			}
@@ -104,7 +104,7 @@ func TestCalculateSessionLinesRejectsInvalidActivities(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			session := Session{Student: "Alex", Activities: []Activity{test.activity}}
-			_, err := calculateSessionLines(session, time.Time{}, Rate{}, 0)
+			_, err := calculateSessionLines(session, time.Time{}, Rates{}, 0)
 			if err == nil || !strings.Contains(err.Error(), test.wantError) {
 				t.Fatalf("error = %v, want containing %q", err, test.wantError)
 			}

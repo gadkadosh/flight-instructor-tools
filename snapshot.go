@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 )
 
 type invoiceSnapshot struct {
@@ -75,22 +74,6 @@ func renderInvoiceSnapshot(writer io.Writer, document Document) error {
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(newInvoiceSnapshot(document)); err != nil {
 		return fmt.Errorf("encode JSON snapshot: %w", err)
-	}
-	return nil
-}
-
-func writeInvoiceSnapshot(path string, document Document) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("create JSON snapshot: %w", err)
-	}
-
-	if err := renderInvoiceSnapshot(file, document); err != nil {
-		_ = file.Close()
-		return err
-	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("close JSON snapshot: %w", err)
 	}
 	return nil
 }
