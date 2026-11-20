@@ -65,21 +65,29 @@ func configRelativePath(configPath, path string) string {
 	return filepath.Join(filepath.Dir(configPath), path)
 }
 
+// readSignature returns the configured signature PNG, or nil when none is set.
+func readSignature(config Config, configPath string) ([]byte, error) {
+	if config.SignatureFile == "" {
+		return nil, nil
+	}
+	path := configRelativePath(configPath, config.SignatureFile)
+	signaturePNG, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read signature %q: %w", path, err)
+	}
+	if _, err := png.Decode(bytes.NewReader(signaturePNG)); err != nil {
+		return nil, fmt.Errorf("load signature %q as PNG: %w", path, err)
+	}
+	return signaturePNG, nil
+}
+
 func renderConfiguredDutyReport(report DutyReport, config Config, configPath string) ([]byte, error) {
 	if config.DutyReportTemplateFile == "" {
 		return nil, fmt.Errorf("dutyReportTemplateFile: required for duty reports")
 	}
-	var signaturePNG []byte
-	if config.SignatureFile != "" {
-		path := configRelativePath(configPath, config.SignatureFile)
-		var err error
-		signaturePNG, err = os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("read signature %q: %w", path, err)
-		}
-		if _, err := png.Decode(bytes.NewReader(signaturePNG)); err != nil {
-			return nil, fmt.Errorf("load signature %q as PNG: %w", path, err)
-		}
+	signaturePNG, err := readSignature(config, configPath)
+	if err != nil {
+		return nil, err
 	}
 	var html bytes.Buffer
 	if err := renderDutyReportHTML(&html, report, configRelativePath(configPath, config.DutyReportTemplateFile), signaturePNG); err != nil {
@@ -129,28 +137,22 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 	if err != nil {
 		return err
 	}
-	location, err := dutyReportLocation(config)
-	if err != nil {
-		return err
-	}
 	if config.DutyReportTemplateFile == "" {
 		return fmt.Errorf("dutyReportTemplateFile: required for duty reports")
 	}
-	var issueDate time.Time
-	if *issueDateValue == "" {
-		current := now().In(location)
-		issueDate = time.Date(current.Year(), current.Month(), current.Day(), 0, 0, 0, 0, location)
-	} else {
-		issueDate, err = time.ParseInLocation("2006-01-02", *issueDateValue, location)
-		if err != nil || issueDate.Format("2006-01-02") != *issueDateValue {
-			return fmt.Errorf("issue date must use YYYY-MM-DD format: %q", *issueDateValue)
-		}
+	issueDate, err := config.issueDate(*issueDateValue, now)
+	if err != nil {
+		return err
+	}
+	reportMonth, err := config.parseMonth(*month)
+	if err != nil {
+		return err
 	}
 	input, err := readSessionFile(*inputPath)
 	if err != nil {
 		return err
 	}
-	report, err := buildDutyReport(input.Sessions, config, *month, issueDate, carryOver)
+	report, err := buildDutyReport(input.Sessions, config, reportMonth, issueDate, carryOver)
 	if err != nil {
 		return err
 	}
@@ -164,49 +166,12 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 		return fmt.Errorf("encode duty report JSON: %w", err)
 	}
 	snapshot = append(snapshot, '\n')
-	baseName := "Dienstzeitnachweis-" + *month
-	paths := make([]string, 0, 3)
-	for _, extension := range []string{"json", "html", "pdf"} {
-		path := filepath.Join(*outputDirectory, baseName+"."+extension)
-		info, err := os.Stat(path)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("stat duty report artifact %q: %w", path, err)
-		}
-		if err == nil && !info.Mode().IsRegular() {
-			return fmt.Errorf("duty report artifact %q is not a regular file", path)
-		}
-		paths = append(paths, path)
-	}
+	paths := documentPaths(*outputDirectory, "Dienstzeitnachweis-"+*month)
 	if err := confirmOverwrite(paths, "Duty report "+*month, force, stdout, stdin); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(*outputDirectory, 0o755); err != nil {
-		return fmt.Errorf("create output directory: %w", err)
-	}
-	// Stage conversion too: a renderer failure must not replace an existing report.
-	staging, err := os.MkdirTemp(*outputDirectory, ".duty-report-*")
-	if err != nil {
-		return fmt.Errorf("stage duty report: %w", err)
-	}
-	defer os.RemoveAll(staging)
-	stagedJSON := filepath.Join(staging, baseName+".json")
-	stagedHTML := filepath.Join(staging, baseName+".html")
-	stagedPDF := filepath.Join(staging, baseName+".pdf")
-	for _, artifact := range []struct {
-		path string
-		data []byte
-	}{{stagedJSON, snapshot}, {stagedHTML, html}} {
-		if err := os.WriteFile(artifact.path, artifact.data, 0o644); err != nil {
-			return fmt.Errorf("write duty report artifact: %w", err)
-		}
-	}
-	if err := writeInvoicePDF(ctx, stagedHTML, stagedPDF); err != nil {
+	if err := writeDocumentFiles(ctx, paths, snapshot, html); err != nil {
 		return err
-	}
-	for i, staged := range []string{stagedJSON, stagedHTML, stagedPDF} {
-		if err := os.Rename(staged, paths[i]); err != nil {
-			return fmt.Errorf("publish duty report artifact %q: %w", paths[i], err)
-		}
 	}
 	for _, path := range paths {
 		fmt.Fprintf(stdout, "Wrote %s\n", path)

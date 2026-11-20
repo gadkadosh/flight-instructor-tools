@@ -8,11 +8,6 @@ import (
 )
 
 func buildInvoiceDocument(sessions []Session, config Config, number string, issueDate time.Time) (Document, error) {
-	location, err := config.location()
-	if err != nil {
-		return Document{}, err
-	}
-
 	orderedSessions := slices.Clone(sessions)
 	slices.SortStableFunc(orderedSessions, func(a, b Session) int {
 		return a.DutyStart.Compare(b.DutyStart)
@@ -20,13 +15,8 @@ func buildInvoiceDocument(sessions []Session, config Config, number string, issu
 
 	var lines []Line
 	for _, session := range orderedSessions {
-		sessionDate := session.DutyStart.In(location)
-		rate, err := rateForDate(config.Rates, sessionDate)
-		if err != nil {
-			return Document{}, fmt.Errorf("session %q: %w", session.ID, err)
-		}
-
-		newLines, err := calculateSessionLines(session, sessionDate, rate, config.VATRatePercent)
+		sessionDate := session.DutyStart.In(config.location)
+		newLines, err := calculateSessionLines(session, sessionDate, config.Rate, config.VATRatePercent)
 		if err != nil {
 			return Document{}, fmt.Errorf("session %q: %w", session.ID, err)
 		}
@@ -55,50 +45,21 @@ func buildInvoiceDocument(sessions []Session, config Config, number string, issu
 	}, nil
 }
 
-func selectSessions(sessions []Session, month string, location *time.Location) ([]Session, error) {
-	requestedMonth, err := parseMonth(month)
-	if err != nil {
-		return []Session{}, err
-	}
-
+// selectSessions returns the sessions starting in month, the first instant of a
+// local calendar month.
+func selectSessions(sessions []Session, month time.Time) ([]Session, error) {
+	next := month.AddDate(0, 1, 0)
 	var selected []Session
 	for _, session := range sessions {
-		date := session.DutyStart.In(location)
-		if date.Year() == requestedMonth.Year() && date.Month() == requestedMonth.Month() {
+		if !session.DutyStart.Before(month) && session.DutyStart.Before(next) {
 			selected = append(selected, session)
 		}
 	}
 
 	if len(selected) == 0 {
-		return selected, fmt.Errorf("no session found for month %s", month)
+		return selected, fmt.Errorf("no session found for month %s", month.Format("2006-01"))
 	}
 
-	return selected, nil
-}
-
-func rateForDate(rates []Rate, date time.Time) (Rate, error) {
-	var selected Rate
-	var selectedDate time.Time
-	found := false
-
-	for _, rate := range rates {
-		effectiveFrom, err := parseDate(rate.EffectiveFrom)
-		if err != nil {
-			return Rate{}, fmt.Errorf("rate effectiveFrom %q: %w", rate.EffectiveFrom, err)
-		}
-		if effectiveFrom.After(date) {
-			continue
-		}
-		if !found || effectiveFrom.After(selectedDate) {
-			selected = rate
-			selectedDate = effectiveFrom
-			found = true
-		}
-	}
-
-	if !found {
-		return Rate{}, fmt.Errorf("no rate applies on %s", date.Format("2006-01-02"))
-	}
 	return selected, nil
 }
 
@@ -159,21 +120,31 @@ func roundHalfUp(numerator, denominator int) int {
 	return (numerator + denominator/2) / denominator
 }
 
-func parseMonth(value string) (time.Time, error) {
-	month, err := time.ParseInLocation("2006-01", value, time.Local)
+func (config Config) parseMonth(value string) (time.Time, error) {
+	month, err := time.ParseInLocation("2006-01", value, config.location)
 	if err != nil || month.Format("2006-01") != value {
 		return time.Time{}, fmt.Errorf("month must use YYYY-MM format: %q", value)
 	}
 	return month, nil
 }
 
-func parseDate(value string) (time.Time, error) {
-	date, err := time.ParseInLocation("2006-01-02", value, time.Local)
+func (config Config) parseDate(value string) (time.Time, error) {
+	date, err := time.ParseInLocation("2006-01-02", value, config.location)
 	if err != nil || date.Format("2006-01-02") != value {
-		if err != nil {
-			return time.Time{}, fmt.Errorf("must be a valid date in YYYY-MM-DD format: %w", err)
-		}
-		return time.Time{}, fmt.Errorf("must be a valid date in YYYY-MM-DD format")
+		return time.Time{}, fmt.Errorf("must be a valid date in YYYY-MM-DD format: %q", value)
+	}
+	return date, nil
+}
+
+// issueDate parses value, or defaults to today when value is empty.
+func (config Config) issueDate(value string, now func() time.Time) (time.Time, error) {
+	if value == "" {
+		today := now().In(config.location)
+		return time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, config.location), nil
+	}
+	date, err := config.parseDate(value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("issue date: %w", err)
 	}
 	return date, nil
 }

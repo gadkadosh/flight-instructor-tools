@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 type sessionSource struct {
@@ -64,15 +65,15 @@ func (source sessionSource) read() (sessionView, error) {
 	if err := validateSessionFile(input); err != nil {
 		return sessionView{}, fmt.Errorf("validate sessions %q: %w", source.inputPath, err)
 	}
+	// Without a config file there are no documents to date; show times in UTC.
+	location := time.UTC
 	var config Config
-	if err := readJSONFile(source.configPath, &config); err != nil {
-		if source.requireConfig || !errors.Is(err, os.ErrNotExist) {
-			return sessionView{}, fmt.Errorf("read config (use --config to choose another file): %w", err)
+	if err := readJSONFile(source.configPath, &config); err == nil {
+		if location, err = loadTimeZone(config.TimeZone); err != nil {
+			return sessionView{}, err
 		}
-	}
-	location, err := config.location()
-	if err != nil {
-		return sessionView{}, err
+	} else if source.requireConfig || !errors.Is(err, os.ErrNotExist) {
+		return sessionView{}, fmt.Errorf("read config (use --config to choose another file): %w", err)
 	}
 	if input.Sessions == nil {
 		input.Sessions = []Session{}

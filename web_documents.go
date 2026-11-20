@@ -24,7 +24,7 @@ func serveDocumentPDF(w http.ResponseWriter, r *http.Request, html []byte, filen
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), time.Minute)
 	defer cancel()
-	if err := writeInvoicePDF(ctx, htmlPath, pdfPath); err != nil {
+	if err := convertHTMLToPDF(ctx, htmlPath, pdfPath); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -24,7 +25,7 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 	configPath := flags.String("config", defaultConfigPath, "invoice configuration JSON file")
 	month := flags.String("month", "", "invoice month in YYYY-MM format")
 	number := flags.String("number", "", "invoice number")
-	issueDateValue := flags.String("issue-date", "", "invoice issue date in YYYY-MM-DD format")
+	issueDateValue := flags.String("issue-date", "", "invoice issue date in YYYY-MM-DD format (default: today in configured timeZone)")
 	outputDirectory := flags.String("output-dir", defaultOutputDirectory, "artifact output directory")
 	var force bool
 	flags.BoolVar(&force, "f", false, "force overwrite existing files")
@@ -54,10 +55,6 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 		}
 	}
 
-	issueDate, err := resolveIssueDate(*issueDateValue, now)
-	if err != nil {
-		return err
-	}
 	input, err := readSessionFile(*inputPath)
 	if err != nil {
 		return err
@@ -66,71 +63,64 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 	if err != nil {
 		return err
 	}
-
-	location, err := config.location()
+	issueDate, err := config.issueDate(*issueDateValue, now)
 	if err != nil {
 		return err
 	}
-	sessions, err := selectSessions(input.Sessions, *month, location)
+	invoiceMonth, err := config.parseMonth(*month)
+	if err != nil {
+		return err
+	}
+	sessions, err := selectSessions(input.Sessions, invoiceMonth)
 	if err != nil {
 		return err
 	}
 
 	document, err := buildInvoiceDocument(sessions, config, *number, issueDate)
 	if err != nil {
-		return fmt.Errorf("build fitools: %w", err)
+		return fmt.Errorf("build invoice: %w", err)
 	}
-	var signaturePNG []byte
-	if config.SignatureFile != "" {
-		signaturePath := configRelativePath(*configPath, config.SignatureFile)
-		signaturePNG, err = os.ReadFile(signaturePath)
-		if err != nil {
-			return fmt.Errorf("read signature %q: %w", signaturePath, err)
-		}
-	}
-
-	if err := os.MkdirAll(*outputDirectory, 0o755); err != nil {
-		return fmt.Errorf("create output directory: %w", err)
-	}
-	baseName := "Rechnung-" + *number
-	jsonPath := filepath.Join(*outputDirectory, baseName+".json")
-	htmlPath := filepath.Join(*outputDirectory, baseName+".html")
-	pdfPath := filepath.Join(*outputDirectory, baseName+".pdf")
-
-	if err := confirmOverwrite([]string{jsonPath, htmlPath, pdfPath}, "Invoice "+*number, force, stdout, stdin); err != nil {
+	signaturePNG, err := readSignature(config, *configPath)
+	if err != nil {
 		return err
 	}
-
-	if err := writeInvoiceSnapshot(jsonPath, document); err != nil {
+	var snapshot, html bytes.Buffer
+	if err := renderInvoiceSnapshot(&snapshot, document); err != nil {
 		return err
 	}
-	if err := writeInvoiceHTML(htmlPath, document, signaturePNG); err != nil {
-		return err
-	}
-	if err := writeInvoicePDF(ctx, htmlPath, pdfPath); err != nil {
-		return err
+	if err := renderInvoiceHTML(&html, document, signaturePNG); err != nil {
+		return fmt.Errorf("render invoice HTML: %w", err)
 	}
 
-	fmt.Fprintf(stdout, "Wrote %s\nWrote %s\nWrote %s\n", jsonPath, htmlPath, pdfPath)
+	paths := documentPaths(*outputDirectory, "Rechnung-"+*number)
+	if err := confirmOverwrite(paths, "Invoice "+*number, force, stdout, stdin); err != nil {
+		return err
+	}
+	if err := writeDocumentFiles(ctx, paths, snapshot.Bytes(), html.Bytes()); err != nil {
+		return err
+	}
+	for _, path := range paths {
+		fmt.Fprintf(stdout, "Wrote %s\n", path)
+	}
 	return nil
 }
 
 func confirmOverwrite(paths []string, label string, force bool, stdout io.Writer, stdin io.Reader) error {
-	if force {
-		return nil
-	}
 	hasExistingOutputs := false
 	for _, path := range paths {
-		_, err := os.Stat(path)
+		info, err := os.Stat(path)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("file stat %s error: %w", path, err)
+			return fmt.Errorf("stat output file: %w", err)
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("output %q is not a regular file", path)
 		}
 		hasExistingOutputs = true
 	}
-	if !hasExistingOutputs {
+	if !hasExistingOutputs || force {
 		return nil
 	}
 	fmt.Fprintf(stdout, "%s has existing output files. Overwrite? [y/N] ", label)
@@ -143,6 +133,50 @@ func confirmOverwrite(paths []string, label string, force bool, stdout io.Writer
 	}
 	if !strings.EqualFold(strings.TrimSpace(scanner.Text()), "y") {
 		return fmt.Errorf("aborting: overwrite not confirmed")
+	}
+	return nil
+}
+
+// documentPaths returns the JSON snapshot, HTML, and PDF paths of a document.
+func documentPaths(directory, baseName string) []string {
+	return []string{
+		filepath.Join(directory, baseName+".json"),
+		filepath.Join(directory, baseName+".html"),
+		filepath.Join(directory, baseName+".pdf"),
+	}
+}
+
+// writeDocumentFiles writes snapshot, html, and the PDF converted from html to
+// paths from documentPaths. The files are staged next to their destination and
+// moved into place only after the PDF conversion succeeds, so a failure leaves
+// existing files untouched.
+func writeDocumentFiles(ctx context.Context, paths []string, snapshot, html []byte) error {
+	directory := filepath.Dir(paths[0])
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		return fmt.Errorf("create output directory: %w", err)
+	}
+	staging, err := os.MkdirTemp(directory, ".fitools-*")
+	if err != nil {
+		return fmt.Errorf("stage output files: %w", err)
+	}
+	defer os.RemoveAll(staging)
+	staged := make([]string, len(paths))
+	for i, path := range paths {
+		staged[i] = filepath.Join(staging, filepath.Base(path))
+	}
+	if err := os.WriteFile(staged[0], snapshot, 0o644); err != nil {
+		return fmt.Errorf("write JSON snapshot: %w", err)
+	}
+	if err := os.WriteFile(staged[1], html, 0o644); err != nil {
+		return fmt.Errorf("write HTML: %w", err)
+	}
+	if err := convertHTMLToPDF(ctx, staged[1], staged[2]); err != nil {
+		return err
+	}
+	for i, path := range paths {
+		if err := os.Rename(staged[i], path); err != nil {
+			return fmt.Errorf("move output file into place: %w", err)
+		}
 	}
 	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 )
@@ -24,11 +23,6 @@ func (source sessionSource) serveInvoice(w http.ResponseWriter, r *http.Request)
 	request.Number = strings.TrimSpace(request.Number)
 	if !invoiceNumberPattern.MatchString(request.Number) {
 		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("invoice number must use year-running number, for example 2026-01"))
-		return
-	}
-	issueDate, err := parseDate(request.IssueDate)
-	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("issue date: %w", err))
 		return
 	}
 	if len(request.SessionIDs) == 0 {
@@ -60,18 +54,20 @@ func (source sessionSource) serveInvoice(w http.ResponseWriter, r *http.Request)
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
+	issueDate, err := config.parseDate(request.IssueDate)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("issue date: %w", err))
+		return
+	}
 	document, err := buildInvoiceDocument(selected, config, request.Number, issueDate)
 	if err != nil {
 		writeJSONError(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	var signaturePNG []byte
-	if config.SignatureFile != "" {
-		signaturePNG, err = os.ReadFile(configRelativePath(source.configPath, config.SignatureFile))
-		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("read signature: %w", err))
-			return
-		}
+	signaturePNG, err := readSignature(config, source.configPath)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return
 	}
 	var html bytes.Buffer
 	if err := renderInvoiceHTML(&html, document, signaturePNG); err != nil {

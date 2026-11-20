@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"time"
 )
 
 func (source sessionSource) serveDutyReport(w http.ResponseWriter, r *http.Request) {
@@ -26,18 +25,14 @@ func (source sessionSource) serveDutyReport(w http.ResponseWriter, r *http.Reque
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
-	location, err := dutyReportLocation(config)
+	issueDate, err := config.parseDate(request.IssueDate)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err)
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("issue date: %w", err))
 		return
 	}
-	issueDate, err := time.ParseInLocation("2006-01-02", request.IssueDate, location)
-	if err != nil || issueDate.Format("2006-01-02") != request.IssueDate {
-		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("issue date must use YYYY-MM-DD format: %q", request.IssueDate))
-		return
-	}
-	if month, err := time.ParseInLocation("2006-01", request.Month, location); err != nil || month.Format("2006-01") != request.Month {
-		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("month must use YYYY-MM format: %q", request.Month))
+	month, err := config.parseMonth(request.Month)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 	input, err := readSessionFile(source.inputPath)
@@ -45,7 +40,7 @@ func (source sessionSource) serveDutyReport(w http.ResponseWriter, r *http.Reque
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
-	report, err := buildDutyReport(input.Sessions, config, request.Month, issueDate, carryOver)
+	report, err := buildDutyReport(input.Sessions, config, month, issueDate, carryOver)
 	if err != nil {
 		writeJSONError(w, http.StatusUnprocessableEntity, err)
 		return

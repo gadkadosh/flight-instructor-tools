@@ -39,12 +39,13 @@ directory (`~/go/bin` by default) on your `PATH`.
 Select sessions and click **Generate invoice…** above the table to open the
 invoice form. Enter an invoice number, confirm the issue date (which defaults to
 today in the configured timezone), and click **Download PDF**. The invoice uses
-the configured billing details and rates and includes only the selected sessions.
+the configured billing details and rate and includes only the selected sessions.
 No invoice artifacts are kept on the server; invoice numbers and billing status
 are not tracked.
 
-Invoice session dates and CLI month selection use the configured `timeZone`,
-falling back to UTC when omitted.
+The config's `timeZone` (an IANA name such as `Europe/Berlin`) is required.
+Session dates, months, and issue dates all use it. Without a config file, the
+session UI shows times in UTC.
 
 Run `./fitools <command> --help` for command options. PDF generation requires
 [WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) on `PATH`.

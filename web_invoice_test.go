@@ -57,7 +57,7 @@ func TestInvoiceDownloadUsesSelectedSessionsAndCleansUp(t *testing.T) {
 			t.Fatalf("status = %d, headers = %v, body = %s", response.Code, response.Header(), response.Body)
 		}
 		body := response.Body.String()
-		for _, want := range []string{"Rechnung Nr. 2026-07", "01.07.2026", "Alex Beispiel - Flugvorbereitung", "Sam Beispiel - Blockzeit", "03.05.26", "03.06.26", "93,17 €"} {
+		for _, want := range []string{"Rechnung Nr. 2026-07", "01.07.2026", "Alex Beispiel - Flugvorbereitung", "Sam Beispiel - Blockzeit", "03.05.26", "03.06.26", "90,00 €"} {
 			if !strings.Contains(body, want) {
 				t.Errorf("invoice missing %q", want)
 			}

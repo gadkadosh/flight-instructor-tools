@@ -18,16 +18,9 @@
   "vatStatement": "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.",
   "paymentText": "Bitte überweisen Sie den Rechnungsbetrag auf meinem Bankkonto.",
   "closingText": "Mit freundlichen Grüßen",
-  "rates": [
-    {
-      "effectiveFrom": "2026-01-01",
-      "preparationCentsPerHour": 2500,
-      "blockCentsPerHour": 3000
-    },
-    {
-      "effectiveFrom": "2026-06-01",
-      "preparationCentsPerHour": 2700,
-      "blockCentsPerHour": 3200
-    }
-  ]
+  "timeZone": "Europe/Berlin",
+  "rate": {
+    "preparationCentsPerHour": 2500,
+    "blockCentsPerHour": 3000
+  }
 }

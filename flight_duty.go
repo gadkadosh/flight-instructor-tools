@@ -34,30 +34,13 @@ type DutyReport struct {
 	Totals    DutyReportTotals   `json:"totals"`
 }
 
-func dutyReportLocation(config Config) (*time.Location, error) {
-	if config.TimeZone == "" || config.TimeZone == "Local" {
-		return nil, fmt.Errorf("timeZone: duty reports require an explicit IANA timezone (for example Europe/Berlin); Local is not supported")
-	}
-	location, err := time.LoadLocation(config.TimeZone)
-	if err != nil {
-		return nil, fmt.Errorf("timeZone %q: %w", config.TimeZone, err)
-	}
-	return location, nil
-}
-
-func buildDutyReport(sessions []Session, config Config, month string, issueDate time.Time, carryOver int) (DutyReport, error) {
-	location, err := dutyReportLocation(config)
-	if err != nil {
-		return DutyReport{}, err
-	}
-	first, err := time.ParseInLocation("2006-01", month, location)
-	if err != nil || first.Format("2006-01") != month {
-		return DutyReport{}, fmt.Errorf("month must use YYYY-MM format: %q", month)
-	}
+// buildDutyReport reports on the local calendar month starting at first.
+func buildDutyReport(sessions []Session, config Config, first time.Time, issueDate time.Time, carryOver int) (DutyReport, error) {
+	location := first.Location()
 	if carryOver < 0 {
 		return DutyReport{}, fmt.Errorf("flight-duty carry-over must not be negative")
 	}
-	report := DutyReport{IssueDate: issueDate, Month: month, TimeZone: config.TimeZone, Issuer: config.Issuer}
+	report := DutyReport{IssueDate: issueDate, Month: first.Format("2006-01"), TimeZone: location.String(), Issuer: config.Issuer}
 	next := first.AddDate(0, 1, 0)
 	for i := range report.Lines {
 		if first.AddDate(0, 0, i).Before(next) {
@@ -71,7 +54,7 @@ func buildDutyReport(sessions []Session, config Config, month string, issueDate 
 			continue
 		}
 		if start.Format("2006-01-02") != end.Format("2006-01-02") {
-			return DutyReport{}, fmt.Errorf("session %q crosses local midnight in %s (%s to %s); duty reports require same-day sessions", session.ID, config.TimeZone, start.Format(time.RFC3339), end.Format(time.RFC3339))
+			return DutyReport{}, fmt.Errorf("session %q crosses local midnight in %s (%s to %s); duty reports require same-day sessions", session.ID, location, start.Format(time.RFC3339), end.Format(time.RFC3339))
 		}
 		if start.Before(first) {
 			continue
