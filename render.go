@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"os"
 	"strconv"
 	"time"
 )
@@ -32,23 +31,6 @@ func renderInvoiceHTML(writer io.Writer, document Document, signaturePNG []byte)
 		SignatureBase64: base64.StdEncoding.EncodeToString(signaturePNG),
 	}
 	return invoiceTemplate.Execute(writer, data)
-}
-
-func writeInvoiceHTML(path string, document Document, signaturePNG []byte) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("create HTML artifact: %w", err)
-	}
-
-	if err := renderInvoiceHTML(file, document, signaturePNG); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("render HTML artifact: %w", err)
-	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("close HTML artifact: %w", err)
-	}
-
-	return nil
 }
 
 func formatDuration(minutes int) string {

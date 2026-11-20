@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -147,10 +149,14 @@ func documentPaths(directory, baseName string) []string {
 }
 
 // writeDocumentFiles writes snapshot, html, and the PDF converted from html to
-// paths from documentPaths. The files are staged next to their destination and
-// moved into place only after the PDF conversion succeeds, so a failure leaves
+// paths from documentPaths. Files are staged and moved into place only after
+// the PDF conversion succeeds, so a failed render or conversion leaves
 // existing files untouched.
 func writeDocumentFiles(ctx context.Context, paths []string, snapshot, html []byte) error {
+	// Ctrl-C stops the conversion instead of the process, so the staging folder
+	// is still removed.
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	directory := filepath.Dir(paths[0])
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return fmt.Errorf("create output directory: %w", err)

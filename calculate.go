@@ -2,12 +2,18 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
 )
 
+var invoiceNumberPattern = regexp.MustCompile(`^[0-9]{4}-[0-9]+$`)
+
 func buildInvoiceDocument(sessions []Session, config Config, number string, issueDate time.Time) (Document, error) {
+	if !invoiceNumberPattern.MatchString(number) {
+		return Document{}, fmt.Errorf("invoice number must use year-running number, for example 2026-01")
+	}
 	orderedSessions := slices.Clone(sessions)
 	slices.SortStableFunc(orderedSessions, func(a, b Session) int {
 		return a.DutyStart.Compare(b.DutyStart)
@@ -136,7 +142,6 @@ func (config Config) parseDate(value string) (time.Time, error) {
 	return date, nil
 }
 
-// issueDate parses value, or defaults to today when value is empty.
 func (config Config) issueDate(value string, now func() time.Time) (time.Time, error) {
 	if value == "" {
 		today := now().In(config.location)

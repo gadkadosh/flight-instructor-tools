@@ -167,7 +167,7 @@ func TestDutyReportRejectsLocalMidnightButInvoiceDoesNot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	invoice, err := buildInvoiceDocument([]Session{session}, config, "test", time.Time{})
+	invoice, err := buildInvoiceDocument([]Session{session}, config, "2026-01", time.Time{})
 	if err != nil || invoice.Totals.GrossCents != 3000 {
 		t.Fatalf("overnight invoice = %+v, %v; want 3000 cents", invoice, err)
 	}

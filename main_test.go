@@ -415,3 +415,14 @@ func TestRunGenerateRendererFailurePreservesExistingFiles(t *testing.T) {
 		t.Fatalf("output directory = %v, %v; want only the three original files", entries, err)
 	}
 }
+
+func TestRunGenerateRejectsInvalidNumber(t *testing.T) {
+	args, outputDirectory := setupGenerateTest(t)
+	err := run(context.Background(), append(args, "--number", "2026/05"), io.Discard, strings.NewReader(""), time.Now)
+	if err == nil || !strings.Contains(err.Error(), "invoice number") {
+		t.Fatalf("error = %v, want invalid invoice number", err)
+	}
+	if entries, err := os.ReadDir(outputDirectory); err != nil || len(entries) != 0 {
+		t.Fatalf("output directory = %v, %v; want it empty", entries, err)
+	}
+}

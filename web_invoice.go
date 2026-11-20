@@ -4,11 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 )
-
-var invoiceNumberPattern = regexp.MustCompile(`^[0-9]{4}-[0-9]+$`)
 
 func (source sessionSource) serveInvoice(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
@@ -21,10 +18,6 @@ func (source sessionSource) serveInvoice(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	request.Number = strings.TrimSpace(request.Number)
-	if !invoiceNumberPattern.MatchString(request.Number) {
-		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("invoice number must use year-running number, for example 2026-01"))
-		return
-	}
 	if len(request.SessionIDs) == 0 {
 		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("select at least one session"))
 		return
