@@ -580,9 +580,49 @@ td {
   overflow-wrap: anywhere;
 }
 
-.session-notice {
-  margin: 0.5rem 0;
-  font-size: 0.875rem;
+/* Rows are captured one by one so a deleted row fades while the rows below slide up. */
+.sessions-table > tbody > tr {
+  view-transition-name: match-element;
+}
+
+/* Nesting the rows in the table's group clips them to its horizontal scroll. */
+@supports (view-transition-group: contain) {
+  .table-scroll {
+    view-transition-name: sessions-table;
+    view-transition-group: contain;
+  }
+
+  ::view-transition-group(sessions-table) {
+    overflow: clip;
+    border-radius: 0.5rem;
+  }
+}
+
+/* A deleted row only exists in the old snapshot. It leaves first, then the rest close the gap. */
+::view-transition-old(*):only-child {
+  animation: 150ms ease-in both row-exit;
+}
+
+::view-transition-group(*) {
+  animation-duration: 250ms;
+  animation-delay: 150ms;
+  animation-timing-function: ease-out;
+}
+
+@keyframes row-exit {
+  to {
+    opacity: 0;
+    transform: translateX(-1rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-old(*):only-child,
+  ::view-transition-new(*) {
+    animation: none;
+  }
 }
 
 .delete-dialog {

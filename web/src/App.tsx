@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
 import SessionDelete from './SessionDelete';
@@ -270,8 +271,8 @@ function SessionTable({
         timeZone={view.timeZone}
         onClearSelection={() => setSelectedSessionIds(new Set())}
       />
-      <div aria-live="polite">
-        {deleteNotice && <p className="session-notice">{deleteNotice}</p>}
+      <div className="visually-hidden" aria-live="polite">
+        {deleteNotice}
       </div>
       {view.sessions.length === 0 && <p role="status">No sessions yet.</p>}
       {(view.sessions.length > 0 || adding) && (
@@ -381,11 +382,27 @@ function SessionTable({
             deleteTarget.trigger.focus();
           }}
           onDeleted={(nextView) => {
-            setDeleteTarget(null);
-            updateView(nextView);
-            setDeleteNotice('Session deleted.');
-            if (nextView.sessions.length > 0) tableRegion.current?.focus({ preventScroll: true });
-            else onFocusAdd();
+            // The browser snapshots the table before and after the update and animates the
+            // difference, so the update has to reach the DOM before the callback returns.
+            const update = () => {
+              flushSync(() => {
+                setDeleteTarget(null);
+                updateView(nextView);
+                setDeleteNotice('Session deleted.');
+              });
+              if (nextView.sessions.length > 0) tableRegion.current?.focus({ preventScroll: true });
+              else onFocusAdd();
+            };
+            // Without nested view transition groups, rows of a horizontally scrolled table would
+            // animate outside its frame.
+            const region = tableRegion.current;
+            const rowsStayInFrame =
+              CSS.supports('view-transition-group', 'contain') ||
+              !region ||
+              region.scrollWidth <= region.clientWidth;
+            if (document.startViewTransition && rowsStayInFrame)
+              document.startViewTransition(update);
+            else update();
           }}
         />
       )}
