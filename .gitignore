@@ -17,3 +17,6 @@ fitools
 /output/
 
 .zed
+
+# make dev copy of the example sessions, reset on every start.
+/.dev-sessions.json

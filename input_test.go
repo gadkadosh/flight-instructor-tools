@@ -172,7 +172,7 @@ func TestSessionStudentRequirements(t *testing.T) {
 }
 
 func TestReadConfigValidatesRateAndTimeZone(t *testing.T) {
-	fixture, err := os.ReadFile(filepath.Join("testdata", "minimal-config.json"))
+	fixture, err := os.ReadFile(filepath.Join("examples", "config.json"))
 	if err != nil {
 		t.Fatalf("read valid config fixture: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestReadConfigValidatesRateAndTimeZone(t *testing.T) {
 }
 
 func TestConfigParsesDatesAndMonthsInTimeZone(t *testing.T) {
-	config, err := readConfig(filepath.Join("testdata", "minimal-config.json"))
+	config, err := readConfig(filepath.Join("examples", "config.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

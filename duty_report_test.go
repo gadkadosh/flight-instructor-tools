@@ -163,7 +163,7 @@ func TestDutyReportRejectsLocalMidnightButInvoiceDoesNot(t *testing.T) {
 			t.Fatalf("error = %v, want local-midnight error with session ID", err)
 		}
 	}
-	config, err := readConfig("testdata/minimal-config.json")
+	config, err := readConfig("examples/config.json")
 	if err != nil {
 		t.Fatal(err)
 	}

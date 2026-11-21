@@ -12,11 +12,38 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
-func TestRenderReferenceInvoiceHTML(t *testing.T) {
+// exampleInvoice builds the May 2026 invoice from the bundled example files.
+func exampleInvoice(t *testing.T) Document {
+	t.Helper()
+	input, err := readSessionFile(filepath.Join("examples", "sessions.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := readConfig(filepath.Join("examples", "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	month, err := config.parseMonth("2026-05")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessions, err := selectSessions(input.Sessions, month)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := buildInvoiceDocument(sessions, config, "2026-05", time.Date(2026, time.June, 9, 0, 0, 0, 0, config.location))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return document
+}
+
+func TestRenderExampleInvoiceHTML(t *testing.T) {
 	var output bytes.Buffer
-	if err := renderInvoiceHTML(&output, referenceDocument(), []byte("signature")); err != nil {
+	if err := renderInvoiceHTML(&output, exampleInvoice(t), []byte("signature")); err != nil {
 		t.Fatalf("render invoice HTML: %v", err)
 	}
 
@@ -25,8 +52,8 @@ func TestRenderReferenceInvoiceHTML(t *testing.T) {
 		"<!doctype html>",
 		"Rechnung Nr. 2026-05",
 		"Alex Beispiel - Blockzeit",
-		">2:15<",
-		">67,50 €<",
+		">1:05<",
+		">32,50 €<",
 		">485,00 €<",
 		"Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.",
 		`class="signature"`,
@@ -40,7 +67,7 @@ func TestRenderReferenceInvoiceHTML(t *testing.T) {
 }
 
 func TestRenderInvoiceHTMLEscapesDocumentText(t *testing.T) {
-	document := referenceDocument()
+	document := exampleInvoice(t)
 	document.Issuer.Name = `<script>alert("test")</script>`
 
 	var output bytes.Buffer
@@ -67,7 +94,7 @@ func TestInvoicePDFSignature(t *testing.T) {
 	if err := os.WriteFile(signaturePath, signature.Bytes(), 0o644); err != nil {
 		t.Fatalf("write signature: %v", err)
 	}
-	fixture, err := os.ReadFile(filepath.Join("testdata", "minimal-config.json"))
+	fixture, err := os.ReadFile(filepath.Join("examples", "config.json"))
 	if err != nil {
 		t.Fatalf("read config fixture: %v", err)
 	}
@@ -114,7 +141,7 @@ func TestInvoicePDFSignature(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			pdf, err := invoicePDF(context.Background(), referenceDocument(), parsed, configPath)
+			pdf, err := invoicePDF(context.Background(), exampleInvoice(t), parsed, configPath)
 			if test.wantError != "" {
 				if err == nil || !strings.Contains(err.Error(), test.wantError) || !strings.Contains(err.Error(), configDirectory) {
 					t.Fatalf("error = %v, want signature read error with resolved path", err)
