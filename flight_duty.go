@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -82,7 +83,7 @@ func buildDutyReport(sessions []Session, config Config, first time.Time, issueDa
 		report.Totals.CurrentMonth += line.DutyMinutes
 		report.Totals.BlockMinutes += line.BlockMinutes
 	}
-	if carryOver > int(^uint(0)>>1)-report.Totals.CurrentMonth {
+	if carryOver > math.MaxInt-report.Totals.CurrentMonth {
 		return DutyReport{}, fmt.Errorf("flight-duty carry-over plus current month is too large")
 	}
 	report.Totals.CarryOver = carryOver
@@ -98,7 +99,7 @@ func parseCarryOver(value string) (int, error) {
 	}
 	h, hErr := strconv.Atoi(hours)
 	m, mErr := strconv.Atoi(minutes)
-	if !valid || hErr != nil || mErr != nil || m > 59 || h > (int(^uint(0)>>1)-m)/60 {
+	if !valid || hErr != nil || mErr != nil || m > 59 || h > (math.MaxInt-m)/60 {
 		return 0, fmt.Errorf("--carry-over-flight-duty must use nonnegative hours:minutes (for example 120:00 or 0:00): %q", value)
 	}
 	return h*60 + m, nil

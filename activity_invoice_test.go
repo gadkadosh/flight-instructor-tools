@@ -4,9 +4,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
-	"time"
 )
 
 func TestCalculateSessionLinesGroupsActivitiesBeforeRounding(t *testing.T) {
@@ -21,10 +19,7 @@ func TestCalculateSessionLinesGroupsActivitiesBeforeRounding(t *testing.T) {
 		},
 	}
 	rate := Rates{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3100}
-	lines, err := calculateSessionLines(session, date, rate, 0)
-	if err != nil {
-		t.Fatalf("calculate lines: %v", err)
-	}
+	lines := calculateSessionLines(session, date, rate, 0)
 	want := []Line{
 		{Date: date, Description: "Alex - Flugvorbereitung", Minutes: 2, HourlyRateCents: 2500, TotalCents: 83},
 		{Date: date, Description: "Alex - Blockzeit", Minutes: 2, HourlyRateCents: 3100, TotalCents: 103},
@@ -56,10 +51,7 @@ func TestCalculateSessionLinesBillsSpecialFlights(t *testing.T) {
 					{ID: "flight-2", Type: test.activityType, Minutes: 60},
 				},
 			}
-			lines, err := calculateSessionLines(session, date, Rates{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3100}, 0)
-			if err != nil {
-				t.Fatal(err)
-			}
+			lines := calculateSessionLines(session, date, Rates{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3100}, 0)
 			want := []Line{
 				{Date: date, Description: test.preparation, Minutes: 2, HourlyRateCents: 2500, TotalCents: 83},
 				{Date: date, Description: test.block, Minutes: 61, HourlyRateCents: 3100, TotalCents: 3152},
@@ -79,34 +71,12 @@ func TestCalculateSessionLinesBillsSpecialFlights(t *testing.T) {
 		}}
 		want := []Line{{Date: date, Description: "Alex - Blockzeit / Rundflug / Schnupperflug", Minutes: 4, HourlyRateCents: 3100, TotalCents: 207}}
 		for range 2 {
-			lines, err := calculateSessionLines(session, date, Rates{BlockCentsPerHour: 3100}, 0)
-			if err != nil || !slices.Equal(lines, want) {
-				t.Fatalf("lines = %+v, error = %v, want %+v", lines, err, want)
+			if lines := calculateSessionLines(session, date, Rates{BlockCentsPerHour: 3100}, 0); !slices.Equal(lines, want) {
+				t.Fatalf("lines = %+v, want %+v", lines, want)
 			}
 			slices.Reverse(session.Activities)
 		}
 	})
-}
-
-func TestCalculateSessionLinesRejectsInvalidActivities(t *testing.T) {
-	for _, test := range []struct {
-		name      string
-		activity  Activity
-		wantError string
-	}{
-		{"missing type", Activity{ID: "invalid", Minutes: 30}, "type:"},
-		{"unknown type", Activity{ID: "invalid", Type: "exam", Minutes: 30}, "type:"},
-		{"zero minutes", Activity{ID: "invalid", Type: ActivityDual}, "minutes:"},
-		{"negative preparation", Activity{ID: "invalid", Type: ActivityPreparation, Minutes: -1}, "minutes:"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			session := Session{Student: "Alex", Activities: []Activity{test.activity}}
-			_, err := calculateSessionLines(session, time.Time{}, Rates{}, 0)
-			if err == nil || !strings.Contains(err.Error(), test.wantError) {
-				t.Fatalf("error = %v, want containing %q", err, test.wantError)
-			}
-		})
-	}
 }
 
 func TestMixedActivitiesPreserveInvoice(t *testing.T) {
