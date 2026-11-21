@@ -55,6 +55,9 @@ const flightFields: {
   edit?: (value: string) => string;
   tidy?: (value: string) => string;
 }[] = [
+  { name: 'registration', label: 'registration', input: { placeholder: 'D-EABC' }, edit: upper },
+  { name: 'departure', label: 'departure', input: airfieldInput, edit: upper },
+  { name: 'arrival', label: 'arrival', input: airfieldInput, edit: upper },
   {
     name: 'blockOff',
     label: 'block off',
@@ -88,9 +91,6 @@ const flightFields: {
       title: 'A positive whole number',
     },
   },
-  { name: 'departure', label: 'departure', input: airfieldInput, edit: upper },
-  { name: 'arrival', label: 'arrival', input: airfieldInput, edit: upper },
-  { name: 'registration', label: 'registration', input: { placeholder: 'D-EABC' }, edit: upper },
 ];
 
 // Airfield and aircraft carry over from the previous flight, which usually ends where the next starts.

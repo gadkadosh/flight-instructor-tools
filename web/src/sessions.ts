@@ -57,14 +57,14 @@ export function activityMinutes(activity: Activity) {
 // Shared by the flight entry and flight details tables so their columns line up.
 export const flightColumns = [
   { label: 'Type', className: 'type' },
+  { label: 'Aircraft', className: 'registration' },
+  { label: 'From', className: 'airfield' },
+  { label: 'To', className: 'airfield' },
   { label: 'Block off', className: 'numeric clock' },
   { label: 'Takeoff', className: 'numeric clock' },
   { label: 'Landing', className: 'numeric clock' },
   { label: 'Block on', className: 'numeric clock' },
   { label: 'Landings', className: 'numeric count' },
-  { label: 'From', className: 'airfield' },
-  { label: 'To', className: 'airfield' },
-  { label: 'Aircraft', className: 'registration' },
   { label: 'Block', className: 'numeric clock' },
 ] as const;
 

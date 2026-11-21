@@ -107,14 +107,14 @@ test('enters a session by keyboard, calculates block times, and saves individual
       .map((header) => header.textContent),
   ).toEqual([
     'Type',
+    'Aircraft',
+    'From',
+    'To',
     'Block off',
     'Takeoff',
     'Landing',
     'Block on',
     'Landings',
-    'From',
-    'To',
-    'Aircraft',
     'Block',
     'Actions',
   ]);
@@ -131,9 +131,9 @@ test('enters a session by keyboard, calculates block times, and saves individual
   expect(
     ['departure', 'arrival', 'registration', 'landings'].map((field) => value(`Flight 1 ${field}`)),
   ).toEqual(['EDFZ', 'EDFZ', 'D-EKLM', '1']);
-  // Takeoff and landing are optional; Tab past them.
-  await userEvent.keyboard('{Tab}945{Tab}{Tab}{Tab}1030{Tab}5{Tab}');
-  expect(document.activeElement).toBe(screen.getByLabelText('Flight 1 departure'));
+  // Tab past the prefilled aircraft and airfields, then the optional takeoff and landing.
+  await userEvent.keyboard('{Tab}{Tab}{Tab}{Tab}945{Tab}{Tab}{Tab}1030{Tab}5{Tab}');
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Remove flight 1' }));
   expect(value('Flight 1 block off')).toBe('09:45');
   expect(screen.getByLabelText('Flight 1 block time').textContent).toBe('0:45');
   await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));

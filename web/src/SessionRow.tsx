@@ -192,14 +192,14 @@ export default function SessionRow({
                 return (
                   <tr key={flight.id}>
                     <th scope="row">{activityKinds[flight.type].label}</th>
+                    <td>{flight.registration}</td>
+                    <td>{flight.departure}</td>
+                    <td>{flight.arrival}</td>
                     <td className="numeric">{time(flight.blockOff)}</td>
                     <td className="numeric">{time(flight.firstTakeoff)}</td>
                     <td className="numeric">{time(flight.lastLanding)}</td>
                     <td className="numeric">{time(flight.blockOn)}</td>
                     <td className="numeric">{flight.landings}</td>
-                    <td>{flight.departure}</td>
-                    <td>{flight.arrival}</td>
-                    <td>{flight.registration}</td>
                     <td className="numeric">{formatDuration(activityMinutes(flight))}</td>
                   </tr>
                 );
