@@ -22,12 +22,7 @@ func buildInvoiceDocument(sessions []Session, config Config, number string, issu
 	var lines []Line
 	for _, session := range orderedSessions {
 		sessionDate := session.DutyStart.In(config.location)
-		newLines, err := calculateSessionLines(session, sessionDate, config.Rates, config.VATRatePercent)
-		if err != nil {
-			return Document{}, fmt.Errorf("session %q: %w", session.ID, err)
-		}
-
-		lines = append(lines, newLines...)
+		lines = append(lines, calculateSessionLines(session, sessionDate, config.Rates, config.VATRatePercent)...)
 	}
 
 	netCents := 0
@@ -69,13 +64,10 @@ func selectSessions(sessions []Session, month time.Time) ([]Session, error) {
 	return selected, nil
 }
 
-func calculateSessionLines(session Session, date time.Time, rates Rates, vatRatePercent int) ([]Line, error) {
+func calculateSessionLines(session Session, date time.Time, rates Rates, vatRatePercent int) []Line {
 	preparationMinutes, blockMinutes := 0, 0
 	var blockLabels []string
 	for _, activity := range session.Activities {
-		if err := activity.validate(); err != nil {
-			return nil, fmt.Errorf("activity %q: %w", activity.ID, err)
-		}
 		if activity.Type == ActivityPreparation {
 			preparationMinutes += activity.Minutes
 		} else {
@@ -97,11 +89,7 @@ func calculateSessionLines(session Session, date time.Time, rates Rates, vatRate
 		description := invoiceDescription(session.Student, strings.Join(blockLabels, " / "))
 		lines = append(lines, newInvoiceLine(date, description, blockMinutes, rates.BlockCentsPerHour, vatRatePercent))
 	}
-
-	if len(lines) == 0 {
-		return nil, fmt.Errorf("has no billable duration")
-	}
-	return lines, nil
+	return lines
 }
 
 func invoiceDescription(student, label string) string {
