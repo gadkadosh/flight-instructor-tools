@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "sessions": [
     {
       "id": "2026-05-03-alex",
@@ -15,7 +15,14 @@
         {
           "id": "flight-1",
           "type": "dual",
-          "minutes": 65
+          "blockOff": "2026-05-03T10:30:00Z",
+          "blockOn": "2026-05-03T11:35:00Z",
+          "firstTakeoff": "2026-05-03T10:37:00Z",
+          "lastLanding": "2026-05-03T11:31:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 5
         }
       ]
     }

@@ -1,5 +1,12 @@
 import { useId, useState } from 'react';
-import { activityKinds, dateInZone, formatDuration, type Session } from './sessions';
+import {
+  activityKinds,
+  activityMinutes,
+  dateInZone,
+  flightColumns,
+  formatDuration,
+  type Session,
+} from './sessions';
 
 export type DeleteTarget = {
   session: Session;
@@ -36,7 +43,9 @@ export default function SessionRow({
     endDate !== startDate &&
     Date.parse(dateInZone(timeZone, end)) - Date.parse(dateInZone(timeZone, start)) ===
       24 * 60 * 60 * 1000;
-  const flights = session.activities.filter((activity) => activity.type !== 'preparation');
+  const flights = session.activities.flatMap((activity) =>
+    activity.type === 'preparation' ? [] : [activity],
+  );
   const subject =
     session.student?.trim() ||
     [...new Set(flights.map((activity) => activityKinds[activity.type].label))].sort().join(' / ');
@@ -44,7 +53,7 @@ export default function SessionRow({
   const description = `${subject} · ${startDate}, ${startTime} ${timeSuffix}`;
   const totals = { preparation: 0, block: 0, soloSupervision: 0 };
   for (const activity of session.activities) {
-    totals[activityKinds[activity.type].summary] += activity.minutes;
+    totals[activityKinds[activity.type].summary] += activityMinutes(activity);
   }
   return (
     <>
@@ -170,19 +179,31 @@ export default function SessionRow({
           <table className="flight-table" aria-label={`Flights for ${subject} on ${startDate}`}>
             <thead>
               <tr>
-                <th scope="col">Type</th>
-                <th scope="col" className="numeric">
-                  Duration
-                </th>
+                {flightColumns.map((column) => (
+                  <th key={column.label} scope="col" className={column.className}>
+                    {column.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {flights.map((activity, index) => (
-                <tr key={index}>
-                  <th scope="row">{activityKinds[activity.type].label}</th>
-                  <td className="numeric">{formatDuration(activity.minutes)}</td>
-                </tr>
-              ))}
+              {flights.map((flight) => {
+                const time = (value?: string) => (value ? timeFormat.format(new Date(value)) : '–');
+                return (
+                  <tr key={flight.id}>
+                    <th scope="row">{activityKinds[flight.type].label}</th>
+                    <td className="numeric">{time(flight.blockOff)}</td>
+                    <td className="numeric">{time(flight.blockOn)}</td>
+                    <td className="numeric">{flight.landings}</td>
+                    <td>{flight.departure}</td>
+                    <td>{flight.arrival}</td>
+                    <td>{flight.registration}</td>
+                    <td className="numeric">{time(flight.firstTakeoff)}</td>
+                    <td className="numeric">{time(flight.lastLanding)}</td>
+                    <td className="numeric">{formatDuration(activityMinutes(flight))}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </td>

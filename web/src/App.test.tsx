@@ -4,6 +4,21 @@ import { page, userEvent } from 'vite-plus/test/browser';
 import App from './App';
 import './style.css';
 
+function flight(id: string, type: string, blockOff: string, minutes: number, details = {}) {
+  const blockOn = new Date(Date.parse(blockOff) + minutes * 60_000).toISOString();
+  return {
+    id,
+    type,
+    blockOff,
+    blockOn,
+    departure: 'EDFE',
+    arrival: 'EDFE',
+    registration: 'D-EFTI',
+    landings: 1,
+    ...details,
+  };
+}
+
 const session = {
   id: 'session-1',
   etag: '"session-1-version"',
@@ -12,9 +27,12 @@ const session = {
   student: 'Alex Beispiel',
   activities: [
     { id: 'briefing', type: 'preparation', minutes: 15 },
-    { id: 'flight-1', type: 'dual', minutes: 35 },
-    { id: 'flight-2', type: 'dual', minutes: 30 },
-    { id: 'solo', type: 'soloSupervision', minutes: 5 },
+    flight('flight-1', 'dual', '2026-05-03T22:45:00Z', 35, {
+      firstTakeoff: '2026-05-03T22:50:00Z',
+      lastLanding: '2026-05-03T23:15:00Z',
+    }),
+    flight('flight-2', 'dual', '2026-05-03T23:25:00Z', 30, { arrival: 'EDFZ', landings: 4 }),
+    flight('solo', 'soloSupervision', '2026-05-03T23:40:00Z', 5),
   ],
 };
 
@@ -46,7 +64,7 @@ test('loads sessions and expands flights by clicking a data cell', async () => {
         ...session,
         id: 'session-2',
         student: undefined,
-        activities: [{ id: 'sightseeing', type: 'rundflug', minutes: 45 }],
+        activities: [flight('sightseeing', 'rundflug', '2026-04-01T10:05:00Z', 45)],
         dutyStart: '2026-04-01T10:00:00Z',
         dutyEnd: '2026-04-01T11:00:00Z',
       },
@@ -89,17 +107,25 @@ test('loads sessions and expands flights by clicking a data cell', async () => {
     within(flights)
       .getAllByRole('columnheader')
       .map((header) => header.textContent),
-  ).toEqual(['Type', 'Duration']);
+  ).toEqual([
+    'Type',
+    'Block off',
+    'Block on',
+    'Landings',
+    'From',
+    'To',
+    'Aircraft',
+    'Takeoff',
+    'Landing',
+    'Block',
+  ]);
   const flightRows = within(flights).getAllByRole('row').slice(1);
   expect(
-    flightRows.map((row) => [
-      within(row).getByRole('rowheader').textContent,
-      within(row).getByRole('cell').textContent,
-    ]),
+    flightRows.map((row) => [...row.querySelectorAll('th, td')].map((cell) => cell.textContent)),
   ).toEqual([
-    ['Dual', '0:35'],
-    ['Dual', '0:30'],
-    ['Solo supervision', '0:05'],
+    ['Dual', '00:45', '01:20', '1', 'EDFE', 'EDFE', 'D-EFTI', '00:50', '01:15', '0:35'],
+    ['Dual', '01:25', '01:55', '4', 'EDFE', 'EDFZ', 'D-EFTI', '–', '–', '0:30'],
+    ['Solo supervision', '01:40', '01:45', '1', 'EDFE', 'EDFE', 'D-EFTI', '–', '–', '0:05'],
   ]);
   expect(within(flights).queryByText('Preparation')).toBeNull();
   expect(within(flights).queryByText('flight-1')).toBeNull();
@@ -201,8 +227,8 @@ test('special flights count as own block time and retain their types in flight r
         ...session,
         activities: [
           ...session.activities,
-          { id: 'rundflug', type: 'rundflug', minutes: 20 },
-          { id: 'schnupperflug', type: 'schnupperflug', minutes: 10 },
+          flight('rundflug', 'rundflug', '2026-05-03T23:00:00Z', 20),
+          flight('schnupperflug', 'schnupperflug', '2026-05-03T23:30:00Z', 10),
         ],
       },
       {
@@ -210,9 +236,9 @@ test('special flights count as own block time and retain their types in flight r
         id: 'unnamed',
         student: undefined,
         activities: [
-          { id: 'rundflug-1', type: 'rundflug', minutes: 15 },
-          { id: 'rundflug-2', type: 'rundflug', minutes: 20 },
-          { id: 'schnupperflug-1', type: 'schnupperflug', minutes: 10 },
+          flight('rundflug-1', 'rundflug', '2026-05-03T22:30:00Z', 15),
+          flight('rundflug-2', 'rundflug', '2026-05-03T23:00:00Z', 20),
+          flight('schnupperflug-1', 'schnupperflug', '2026-05-03T23:30:00Z', 10),
         ],
       },
     ],
@@ -237,8 +263,12 @@ test('special flights count as own block time and retain their types in flight r
     within(flights)
       .getAllByRole('row')
       .slice(1)
-      .map((row) => row.textContent),
-  ).toEqual(['Rundflug0:15', 'Rundflug0:20', 'Schnupperflug0:10']);
+      .map((row) => [row.querySelector('th')!.textContent, row.lastElementChild!.textContent]),
+  ).toEqual([
+    ['Rundflug', '0:15'],
+    ['Rundflug', '0:20'],
+    ['Schnupperflug', '0:10'],
+  ]);
   fireEvent.click(
     screen.getByRole('checkbox', {
       name: 'Select session for Rundflug / Schnupperflug on 03.05.2026',

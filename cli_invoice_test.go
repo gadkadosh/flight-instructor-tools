@@ -73,7 +73,7 @@ func TestRunInvoiceUsesConfiguredMonth(t *testing.T) {
 	}
 	may := input.Sessions[0]
 	may.Student = "May Student"
-	may.Activities = []Activity{{ID: "flight", Type: ActivityDual, Minutes: 60}}
+	may.Activities = []Activity{testFlight("flight", ActivityDual, 60)}
 	boundary := may
 	boundary.ID, boundary.Student = "boundary", "Boundary Student"
 	boundary.DutyStart = mustTimestamp(t, "2026-05-31T22:30:00Z")

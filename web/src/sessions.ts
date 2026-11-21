@@ -5,11 +5,23 @@ export type ActivityType =
   | 'rundflug'
   | 'schnupperflug';
 
-export interface Activity {
-  id: string;
-  type: ActivityType;
-  minutes: number;
+export type FlightType = Exclude<ActivityType, 'preparation'>;
+
+// One block as a pilot logbook records it. Times are absolute ISO timestamps.
+export interface Flight {
+  blockOff: string;
+  blockOn: string;
+  firstTakeoff?: string;
+  lastLanding?: string;
+  departure: string;
+  arrival: string;
+  registration: string;
+  landings: number;
 }
+
+export type Activity =
+  | { id: string; type: 'preparation'; minutes: number }
+  | ({ id: string; type: FlightType } & Flight);
 
 export interface Session {
   id: string;
@@ -35,6 +47,26 @@ export const activityKinds: Record<
   rundflug: { label: 'Rundflug', summary: 'block', studentRequired: false },
   schnupperflug: { label: 'Schnupperflug', summary: 'block', studentRequired: false },
 };
+
+// Block minutes are calculated from the block times, never stored.
+export function activityMinutes(activity: Activity) {
+  if (activity.type === 'preparation') return activity.minutes;
+  return Math.floor((Date.parse(activity.blockOn) - Date.parse(activity.blockOff)) / 60_000);
+}
+
+// Shared by the flight entry and flight details tables so their columns line up.
+export const flightColumns = [
+  { label: 'Type', className: 'type' },
+  { label: 'Block off', className: 'numeric clock' },
+  { label: 'Block on', className: 'numeric clock' },
+  { label: 'Landings', className: 'numeric count' },
+  { label: 'From', className: 'airfield' },
+  { label: 'To', className: 'airfield' },
+  { label: 'Aircraft', className: 'registration' },
+  { label: 'Takeoff', className: 'numeric clock' },
+  { label: 'Landing', className: 'numeric clock' },
+  { label: 'Block', className: 'numeric clock' },
+] as const;
 
 export function groupSessionsByMonth(sessions: Session[], timeZone: string) {
   const monthParts = new Intl.DateTimeFormat('en-GB', {

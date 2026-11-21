@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
 
-const supportedSessionSchemaVersion = 3
+const supportedSessionSchemaVersion = 4
 
 type SessionFile struct {
 	SchemaVersion int       `json:"schemaVersion"`
@@ -36,35 +37,122 @@ const (
 
 type activityKind struct {
 	invoiceLabel    string
+	flight          bool // Records block times and logbook details instead of minutes.
 	ownBlock        bool
 	studentRequired bool
 }
 
 var activityKinds = map[ActivityType]activityKind{
 	ActivityPreparation:     {invoiceLabel: "Flugvorbereitung"},
-	ActivityDual:            {invoiceLabel: "Blockzeit", ownBlock: true, studentRequired: true},
-	ActivitySoloSupervision: {invoiceLabel: "Blockzeit", studentRequired: true},
-	ActivityRundflug:        {invoiceLabel: "Rundflug", ownBlock: true},
-	ActivitySchnupperflug:   {invoiceLabel: "Schnupperflug", ownBlock: true},
+	ActivityDual:            {invoiceLabel: "Blockzeit", flight: true, ownBlock: true, studentRequired: true},
+	ActivitySoloSupervision: {invoiceLabel: "Blockzeit", flight: true, studentRequired: true},
+	ActivityRundflug:        {invoiceLabel: "Rundflug", flight: true, ownBlock: true},
+	ActivitySchnupperflug:   {invoiceLabel: "Schnupperflug", flight: true, ownBlock: true},
 }
 
+// Activity is preparation with Minutes, or a flight with Flight.
 type Activity struct {
 	ID      string       `json:"id"`
 	Type    ActivityType `json:"type"`
-	Minutes int          `json:"minutes"`
+	Minutes int          `json:"minutes,omitempty"`
+	*Flight
+}
+
+// Flight is one block as a pilot logbook records it.
+type Flight struct {
+	BlockOff time.Time `json:"blockOff"`
+	BlockOn  time.Time `json:"blockOn"`
+	// The block's first takeoff and final landing, recorded together or not at all.
+	FirstTakeoff time.Time `json:"firstTakeoff,omitzero"`
+	LastLanding  time.Time `json:"lastLanding,omitzero"`
+	Departure    string    `json:"departure"`
+	Arrival      string    `json:"arrival"`
+	Registration string    `json:"registration"`
+	Landings     int       `json:"landings"`
+}
+
+var airfieldPattern = regexp.MustCompile(`^[A-Z0-9]{4}$`)
+
+// durationMinutes is a flight's block time or the preparation minutes.
+func (activity Activity) durationMinutes() int {
+	if activity.Flight != nil {
+		return activity.Flight.blockMinutes()
+	}
+	return activity.Minutes
+}
+
+func (flight Flight) blockMinutes() int {
+	return int(flight.BlockOn.Sub(flight.BlockOff) / time.Minute)
 }
 
 func (activity Activity) validate() error {
 	if strings.TrimSpace(activity.ID) == "" {
 		return fmt.Errorf("id: must not be empty")
 	}
-	if _, supported := activityKinds[activity.Type]; !supported {
+	kind, supported := activityKinds[activity.Type]
+	if !supported {
 		return fmt.Errorf("type: got %q, want preparation, dual, soloSupervision, rundflug, or schnupperflug", activity.Type)
 	}
-	if activity.Minutes <= 0 {
-		return fmt.Errorf("minutes: must be positive")
+	if !kind.flight {
+		if activity.Flight != nil {
+			return fmt.Errorf("type: %s records minutes, not flight details", activity.Type)
+		}
+		if activity.Minutes <= 0 {
+			return fmt.Errorf("minutes: must be positive")
+		}
+		return nil
+	}
+	if activity.Minutes != 0 {
+		return fmt.Errorf("minutes: flights record blockOff and blockOn instead")
+	}
+	if activity.Flight == nil {
+		return fmt.Errorf("blockOff: missing or zero")
+	}
+	return activity.Flight.validate()
+}
+
+func (flight Flight) validate() error {
+	switch {
+	case flight.BlockOff.IsZero():
+		return fmt.Errorf("blockOff: missing or zero")
+	case flight.BlockOn.IsZero():
+		return fmt.Errorf("blockOn: missing or zero")
+	case flight.blockMinutes() <= 0:
+		return fmt.Errorf("blockOn: must be at least one minute after blockOff")
+	case flight.FirstTakeoff.IsZero() != flight.LastLanding.IsZero():
+		return fmt.Errorf("firstTakeoff, lastLanding: record both or neither")
+	case !flight.FirstTakeoff.IsZero() && flight.FirstTakeoff.Before(flight.BlockOff):
+		return fmt.Errorf("firstTakeoff: must not be before blockOff")
+	case !flight.FirstTakeoff.IsZero() && !flight.LastLanding.After(flight.FirstTakeoff):
+		return fmt.Errorf("lastLanding: must be after firstTakeoff")
+	case flight.LastLanding.After(flight.BlockOn):
+		return fmt.Errorf("lastLanding: must not be after blockOn")
+	case !airfieldPattern.MatchString(flight.Departure):
+		return fmt.Errorf("departure: got %q, want a four-character ICAO-style identifier such as EDFE", flight.Departure)
+	case !airfieldPattern.MatchString(flight.Arrival):
+		return fmt.Errorf("arrival: got %q, want a four-character ICAO-style identifier such as EDFE", flight.Arrival)
+	case strings.TrimSpace(flight.Registration) == "":
+		return fmt.Errorf("registration: must not be empty")
+	case flight.Landings <= 0:
+		return fmt.Errorf("landings: must be positive")
 	}
 	return nil
+}
+
+// equal compares instants, not the timezones they were read in.
+func (activity Activity) equal(other Activity) bool {
+	if activity.ID != other.ID || activity.Type != other.Type || activity.Minutes != other.Minutes ||
+		(activity.Flight == nil) != (other.Flight == nil) {
+		return false
+	}
+	if activity.Flight == nil {
+		return true
+	}
+	a, b := *activity.Flight, *other.Flight
+	return a.BlockOff.Equal(b.BlockOff) && a.BlockOn.Equal(b.BlockOn) &&
+		a.FirstTakeoff.Equal(b.FirstTakeoff) && a.LastLanding.Equal(b.LastLanding) &&
+		a.Departure == b.Departure && a.Arrival == b.Arrival &&
+		a.Registration == b.Registration && a.Landings == b.Landings
 }
 
 type Config struct {
@@ -195,8 +283,9 @@ func validateSessionFile(input SessionFile) error {
 			if err := activity.validate(); err != nil {
 				return fmt.Errorf("%s.activities[%d].%w", path, activityIndex, err)
 			}
-			hasFlight = hasFlight || activity.Type != ActivityPreparation
-			studentRequired = studentRequired || activityKinds[activity.Type].studentRequired
+			kind := activityKinds[activity.Type]
+			hasFlight = hasFlight || kind.flight
+			studentRequired = studentRequired || kind.studentRequired
 		}
 		if strings.TrimSpace(session.Student) == "" && (studentRequired || !hasFlight) {
 			return fmt.Errorf("%s.student: required for training and preparation-only sessions", path)

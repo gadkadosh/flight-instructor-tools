@@ -14,24 +14,24 @@ func dutySession(t *testing.T, id, start, end string, activities ...Activity) Se
 func TestDutyReportDailySpansAndPersonalBlock(t *testing.T) {
 	sessions := []Session{
 		dutySession(t, "afternoon", "2026-05-03T14:00:00+02:00", "2026-05-03T15:30:00+02:00",
-			Activity{ID: "dual-1", Type: ActivityDual, Minutes: 65}),
+			testFlight("dual-1", ActivityDual, 65)),
 		dutySession(t, "morning", "2026-05-03T09:00:00+02:00", "2026-05-03T10:00:00+02:00",
 			Activity{ID: "prep", Type: ActivityPreparation, Minutes: 30},
-			Activity{ID: "dual-2", Type: ActivityDual, Minutes: 30}),
+			testFlight("dual-2", ActivityDual, 30)),
 		dutySession(t, "solo", "2026-05-04T09:00:00+02:00", "2026-05-04T13:00:00+02:00",
-			Activity{ID: "supervision", Type: ActivitySoloSupervision, Minutes: 180}),
+			testFlight("supervision", ActivitySoloSupervision, 180)),
 		dutySession(t, "overlapping-dual", "2026-05-04T10:00:00+02:00", "2026-05-04T11:00:00+02:00",
-			Activity{ID: "dual-3", Type: ActivityDual, Minutes: 60}),
+			testFlight("dual-3", ActivityDual, 60)),
 		dutySession(t, "solo-only", "2026-05-05T11:00:00+02:00", "2026-05-05T14:00:00+02:00",
-			Activity{ID: "supervision-2", Type: ActivitySoloSupervision, Minutes: 120}),
+			testFlight("supervision-2", ActivitySoloSupervision, 120)),
 		{
 			ID:        "special-flights",
 			DutyStart: mustTimestamp(t, "2026-05-06T09:00:00+02:00"),
 			DutyEnd:   mustTimestamp(t, "2026-05-06T11:00:00+02:00"),
 			Activities: []Activity{
 				{ID: "prep-special", Type: ActivityPreparation, Minutes: 10},
-				{ID: "rundflug", Type: ActivityRundflug, Minutes: 30},
-				{ID: "schnupperflug", Type: ActivitySchnupperflug, Minutes: 45},
+				testFlight("rundflug", ActivityRundflug, 30),
+				testFlight("schnupperflug", ActivitySchnupperflug, 45),
 			},
 		},
 	}
@@ -76,7 +76,7 @@ func TestDutyReportDoesNotCapOrDeduplicateOverlappingDual(t *testing.T) {
 	var sessions []Session
 	for _, id := range []string{"a", "b"} {
 		sessions = append(sessions, dutySession(t, id, "2026-05-01T09:00:00Z", "2026-05-01T10:00:00Z",
-			Activity{ID: id, Type: ActivityDual, Minutes: 90}))
+			testFlight(id, ActivityDual, 90)))
 	}
 	report, err := buildDutyReport(sessions, Config{}, mustMonth(t, "UTC", "2026-05"), time.Time{}, 0)
 	if err != nil {
@@ -100,7 +100,7 @@ func TestDutyReportTimeZoneAndElapsedTime(t *testing.T) {
 		{"fall rest elapsed", "2026-10", "2026-10-24T19:00:00Z", "2026-10-24T20:00:00Z", "2026-10-25 09:00 +0100", 24, 60},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			session := dutySession(t, "test", test.start, test.end, Activity{ID: "dual", Type: ActivityDual, Minutes: 20})
+			session := dutySession(t, "test", test.start, test.end, testFlight("dual", ActivityDual, 20))
 			report, err := buildDutyReport([]Session{session}, Config{}, mustMonth(t, "Europe/Berlin", test.month), time.Time{}, 0)
 			if err != nil {
 				t.Fatal(err)
@@ -115,7 +115,7 @@ func TestDutyReportTimeZoneAndElapsedTime(t *testing.T) {
 }
 
 func TestDutyReportUsesLocalMonthInsteadOfTimestampMonth(t *testing.T) {
-	session := dutySession(t, "local-june", "2026-05-31T22:15:00Z", "2026-05-31T23:15:00Z", Activity{ID: "dual", Type: ActivityDual, Minutes: 45})
+	session := dutySession(t, "local-june", "2026-05-31T22:15:00Z", "2026-05-31T23:15:00Z", testFlight("dual", ActivityDual, 45))
 	may, err := buildDutyReport([]Session{session}, Config{}, mustMonth(t, "Europe/Berlin", "2026-05"), time.Time{}, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -156,7 +156,7 @@ func TestDutyReportEmptyMonthsAndCalendarSlots(t *testing.T) {
 
 func TestDutyReportRejectsLocalMidnightButInvoiceDoesNot(t *testing.T) {
 	session := dutySession(t, "overnight", "2026-04-30T21:30:00Z", "2026-04-30T22:30:00Z",
-		Activity{ID: "dual", Type: ActivityDual, Minutes: 60})
+		testFlight("dual", ActivityDual, 60))
 	for _, month := range []string{"2026-04", "2026-05"} {
 		_, err := buildDutyReport([]Session{session}, Config{}, mustMonth(t, "Europe/Berlin", month), time.Time{}, 0)
 		if err == nil || !strings.Contains(err.Error(), `session "overnight" crosses local midnight in Europe/Berlin`) {

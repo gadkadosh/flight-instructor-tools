@@ -23,7 +23,7 @@ func TestDutyReportDownloadIncludesWholeMonth(t *testing.T) {
 	second.ID = "second"
 	second.DutyStart = second.DutyStart.Add(4 * time.Hour)
 	second.DutyEnd = second.DutyEnd.Add(3 * time.Hour)
-	second.Activities = []Activity{{ID: "second-flight", Type: ActivityDual, Minutes: 30}}
+	second.Activities = []Activity{testFlight("second-flight", ActivityDual, 30)}
 	outside := second
 	outside.ID = "outside"
 	outside.DutyStart = outside.DutyStart.AddDate(0, 1, 0)
@@ -49,7 +49,7 @@ func TestDutyReportDownloadIncludesWholeMonth(t *testing.T) {
 			path := sessionsPath
 			if test.emptyFile {
 				path = filepath.Join(filepath.Dir(sessionsPath), "empty.json")
-				if err := os.WriteFile(path, []byte(`{"schemaVersion":3,"sessions":[]}`), 0o600); err != nil {
+				if err := os.WriteFile(path, []byte(`{"schemaVersion":4,"sessions":[]}`), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -106,7 +106,7 @@ func TestDutyReportDownloadErrors(t *testing.T) {
 		{name: "foreign origin", body: valid, origin: "https://attacker.example", status: 403, want: "cross-origin"},
 		{name: "missing config", body: valid, status: 500, want: "read config", missingConfig: true},
 		{name: "invalid sessions JSON", body: valid, status: 500, want: "read sessions", input: `{`},
-		{name: "invalid session records", body: valid, status: 500, want: "validate sessions", input: `{"schemaVersion":3,"sessions":[{}]}`},
+		{name: "invalid session records", body: valid, status: 500, want: "validate sessions", input: `{"schemaVersion":4,"sessions":[{}]}`},
 		{name: "session crosses midnight", body: valid, status: 422, want: "crosses local midnight", input: strings.Replace(string(fixture), "13:00:00Z", "23:00:00Z", 1)},
 		{name: "missing timezone", body: valid, status: 500, want: "explicit IANA timezone", change: func(c *Config) { c.TimeZone = "" }},
 		{name: "missing template", body: valid, status: 500, want: "required for duty reports", change: func(c *Config) { c.DutyReportTemplateFile = "" }},
