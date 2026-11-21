@@ -110,22 +110,22 @@ test('loads sessions and expands flights by clicking a data cell', async () => {
   ).toEqual([
     'Type',
     'Block off',
+    'Takeoff',
+    'Landing',
     'Block on',
     'Landings',
     'From',
     'To',
     'Aircraft',
-    'Takeoff',
-    'Landing',
     'Block',
   ]);
   const flightRows = within(flights).getAllByRole('row').slice(1);
   expect(
     flightRows.map((row) => [...row.querySelectorAll('th, td')].map((cell) => cell.textContent)),
   ).toEqual([
-    ['Dual', '00:45', '01:20', '1', 'EDFE', 'EDFE', 'D-EFTI', '00:50', '01:15', '0:35'],
-    ['Dual', '01:25', '01:55', '4', 'EDFE', 'EDFZ', 'D-EFTI', '–', '–', '0:30'],
-    ['Solo supervision', '01:40', '01:45', '1', 'EDFE', 'EDFE', 'D-EFTI', '–', '–', '0:05'],
+    ['Dual', '00:45', '00:50', '01:15', '01:20', '1', 'EDFE', 'EDFE', 'D-EFTI', '0:35'],
+    ['Dual', '01:25', '–', '–', '01:55', '4', 'EDFE', 'EDFZ', 'D-EFTI', '0:30'],
+    ['Solo supervision', '01:40', '–', '–', '01:45', '1', 'EDFE', 'EDFE', 'D-EFTI', '0:05'],
   ]);
   expect(within(flights).queryByText('Preparation')).toBeNull();
   expect(within(flights).queryByText('flight-1')).toBeNull();

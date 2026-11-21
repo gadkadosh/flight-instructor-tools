@@ -62,6 +62,18 @@ const flightFields: {
     tidy: clock,
   },
   {
+    name: 'takeoff',
+    label: 'takeoff time',
+    input: { ...clockInput, placeholder: 'Optional' },
+    tidy: clock,
+  },
+  {
+    name: 'landing',
+    label: 'landing time',
+    input: { ...clockInput, placeholder: 'Optional' },
+    tidy: clock,
+  },
+  {
     name: 'blockOn',
     label: 'block on',
     input: { ...clockInput, placeholder: '1030' },
@@ -79,18 +91,6 @@ const flightFields: {
   { name: 'departure', label: 'departure', input: airfieldInput, edit: upper },
   { name: 'arrival', label: 'arrival', input: airfieldInput, edit: upper },
   { name: 'registration', label: 'registration', input: { placeholder: 'D-EABC' }, edit: upper },
-  {
-    name: 'takeoff',
-    label: 'takeoff time',
-    input: { ...clockInput, placeholder: 'Optional' },
-    tidy: clock,
-  },
-  {
-    name: 'landing',
-    label: 'landing time',
-    input: { ...clockInput, placeholder: 'Optional' },
-    tidy: clock,
-  },
 ];
 
 // Airfield and aircraft carry over from the previous flight, which usually ends where the next starts.
