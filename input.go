@@ -257,3 +257,31 @@ func validateParty(path string, party Party, requireEmail bool) error {
 	}
 	return nil
 }
+
+func (config Config) parseMonth(value string) (time.Time, error) {
+	month, err := time.ParseInLocation("2006-01", value, config.location)
+	if err != nil || month.Format("2006-01") != value {
+		return time.Time{}, fmt.Errorf("month must use YYYY-MM format: %q", value)
+	}
+	return month, nil
+}
+
+func (config Config) parseDate(value string) (time.Time, error) {
+	date, err := time.ParseInLocation("2006-01-02", value, config.location)
+	if err != nil || date.Format("2006-01-02") != value {
+		return time.Time{}, fmt.Errorf("must be a valid date in YYYY-MM-DD format: %q", value)
+	}
+	return date, nil
+}
+
+func (config Config) issueDate(value string, now func() time.Time) (time.Time, error) {
+	if value == "" {
+		today := now().In(config.location)
+		return time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, config.location), nil
+	}
+	date, err := config.parseDate(value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("issue date: %w", err)
+	}
+	return date, nil
+}
