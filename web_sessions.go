@@ -16,7 +16,7 @@ import (
 )
 
 type sessionSource struct {
-	inputPath     string
+	sessionsPath  string
 	configPath    string
 	requireConfig bool
 }
@@ -59,11 +59,11 @@ func webHandler(assets fs.FS, source sessionSource) http.Handler {
 
 func (source sessionSource) read() (sessionView, error) {
 	var input SessionFile
-	if err := readJSONFile(source.inputPath, &input); err != nil {
-		return sessionView{}, fmt.Errorf("read sessions (use --input to choose another file): %w", err)
+	if err := readJSONFile(source.sessionsPath, &input); err != nil {
+		return sessionView{}, fmt.Errorf("read sessions (use --sessions to choose another file): %w", err)
 	}
 	if err := validateSessionFile(input); err != nil {
-		return sessionView{}, fmt.Errorf("validate sessions %q: %w", source.inputPath, err)
+		return sessionView{}, fmt.Errorf("validate sessions %q: %w", source.sessionsPath, err)
 	}
 	// Without a config file there are no documents to date; show times in UTC.
 	location := time.UTC

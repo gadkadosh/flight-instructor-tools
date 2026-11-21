@@ -28,8 +28,8 @@ var documentCommands = []struct {
 	name, pdf, content string
 	setup              func(t *testing.T) []string
 }{
-	{"generate", "Rechnung-2026-05.pdf", "Rechnung Nr. 2026-05", func(t *testing.T) []string {
-		args, _ := setupGenerateTest(t)
+	{"invoice", "Rechnung-2026-05.pdf", "Rechnung Nr. 2026-05", func(t *testing.T) []string {
+		args, _ := setupInvoiceTest(t)
 		return args
 	}},
 	{"duty-report", "Dienstzeitnachweis-2026-05.pdf", "Month 3:00, carry 120:00, year 123:00, block 1:05", func(t *testing.T) []string {

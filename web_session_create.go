@@ -63,7 +63,7 @@ func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request
 		writeJSONError(w, http.StatusBadRequest, err)
 		return
 	}
-	if err := writeSessionFile(source.inputPath, input); err != nil {
+	if err := writeSessionFile(source.sessionsPath, input); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("save sessions: %w", err))
 		return
 	}

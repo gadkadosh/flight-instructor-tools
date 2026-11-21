@@ -29,12 +29,12 @@ func TestDutyReportDownloadIncludesWholeMonth(t *testing.T) {
 	outside.DutyStart = outside.DutyStart.AddDate(0, 1, 0)
 	outside.DutyEnd = outside.DutyEnd.AddDate(0, 1, 0)
 	input.Sessions = append(input.Sessions, second, outside)
-	inputPath := filepath.Join(t.TempDir(), "sessions.json")
+	sessionsPath := filepath.Join(t.TempDir(), "sessions.json")
 	contents, err := json.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(inputPath, contents, 0o600); err != nil {
+	if err := os.WriteFile(sessionsPath, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for _, test := range []struct {
@@ -46,14 +46,14 @@ func TestDutyReportDownloadIncludesWholeMonth(t *testing.T) {
 		{name: "empty file", month: "2026-05", want: "Month 0:00, carry 120:00, year 120:00, block 0:00", emptyFile: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			path := inputPath
+			path := sessionsPath
 			if test.emptyFile {
-				path = filepath.Join(filepath.Dir(inputPath), "empty.json")
+				path = filepath.Join(filepath.Dir(sessionsPath), "empty.json")
 				if err := os.WriteFile(path, []byte(`{"schemaVersion":3,"sessions":[]}`), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
-			handler := webHandler(fstest.MapFS{}, sessionSource{inputPath: path, configPath: configPath})
+			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: path, configPath: configPath})
 			for attempt := 0; attempt < 2; attempt++ {
 				body := `{"month":"` + test.month + `","carryOverFlightDuty":"120:00","issueDate":"2026-06-09"}`
 				r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/duty-report", strings.NewReader(body))
@@ -127,10 +127,10 @@ func TestDutyReportDownloadErrors(t *testing.T) {
 			if test.missingConfig {
 				configPath = filepath.Join(filepath.Dir(configPath), "missing.json")
 			}
-			inputPath := "testdata/minimal-sessions.json"
+			sessionsPath := "testdata/minimal-sessions.json"
 			if test.input != "" {
-				inputPath = filepath.Join(t.TempDir(), "sessions.json")
-				if err := os.WriteFile(inputPath, []byte(test.input), 0o600); err != nil {
+				sessionsPath = filepath.Join(t.TempDir(), "sessions.json")
+				if err := os.WriteFile(sessionsPath, []byte(test.input), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -139,7 +139,7 @@ func TestDutyReportDownloadErrors(t *testing.T) {
 			if contentType == "" {
 				contentType = "application/json"
 			}
-			handler := webHandler(fstest.MapFS{}, sessionSource{inputPath: inputPath, configPath: configPath})
+			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: sessionsPath, configPath: configPath})
 			r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/duty-report", strings.NewReader(test.body))
 			r.Header.Set("Content-Type", contentType)
 			if test.origin != "" {

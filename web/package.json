@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm run build && concurrently --kill-others \"go -C .. run . serve --port 8080 --no-open --input examples/sessions.json --config examples/config.json\" \"vp dev --open\"",
+    "dev": "pnpm run build && concurrently --kill-others \"go -C .. run . serve --port 8080 --no-open --sessions examples/sessions.json --config examples/config.json\" \"vp dev --open\"",
     "build": "pnpm run check && vp build",
     "check": "vp check --deny-warnings",
     "format": "vp fmt",

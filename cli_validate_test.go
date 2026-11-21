@@ -79,8 +79,8 @@ func TestRunValidate(t *testing.T) {
 			wantError: "expected at most one sessions file",
 		},
 		{
-			name:      "input flag is not supported",
-			arguments: []string{"--input", validPath},
+			name:      "sessions flag is not supported",
+			arguments: []string{"--sessions", validPath},
 			wantError: "flag provided but not defined",
 		},
 		{

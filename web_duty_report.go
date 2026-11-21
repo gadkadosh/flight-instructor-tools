@@ -35,7 +35,7 @@ func (source sessionSource) serveDutyReport(w http.ResponseWriter, r *http.Reque
 		writeJSONError(w, http.StatusBadRequest, err)
 		return
 	}
-	input, err := readSessionFile(source.inputPath)
+	input, err := readSessionFile(source.sessionsPath)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return

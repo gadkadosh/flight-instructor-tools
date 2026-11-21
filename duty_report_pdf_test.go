@@ -24,7 +24,7 @@ func writeTestConfig(t *testing.T, path string, config Config) {
 
 // renderTestDutyReport renders the report for month, issued 2026-06-09, through
 // the stub converter, which returns the HTML unchanged.
-func renderTestDutyReport(t *testing.T, configPath, inputPath, month string, carryOver int) (string, error) {
+func renderTestDutyReport(t *testing.T, configPath, sessionsPath, month string, carryOver int) (string, error) {
 	t.Helper()
 	config, err := readConfig(configPath)
 	if err != nil {
@@ -38,7 +38,7 @@ func renderTestDutyReport(t *testing.T, configPath, inputPath, month string, car
 	if err != nil {
 		t.Fatal(err)
 	}
-	input, err := readSessionFile(inputPath)
+	input, err := readSessionFile(sessionsPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,8 +170,8 @@ func TestDutyReportTemplateMayOmitFieldsAndUseAbsolutePaths(t *testing.T) {
 
 func TestDutyReportPDFEmptySessionFileAndOptionalSignature(t *testing.T) {
 	_, _, configPath := setupDutyReportTest(t)
-	inputPath := filepath.Join(t.TempDir(), "empty.json")
-	if err := os.WriteFile(inputPath, []byte(`{"schemaVersion":3,"sessions":[]}`), 0o644); err != nil {
+	sessionsPath := filepath.Join(t.TempDir(), "empty.json")
+	if err := os.WriteFile(sessionsPath, []byte(`{"schemaVersion":3,"sessions":[]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	config, err := readConfig(configPath)
@@ -180,7 +180,7 @@ func TestDutyReportPDFEmptySessionFileAndOptionalSignature(t *testing.T) {
 	}
 	config.SignatureFile = ""
 	writeTestConfig(t, configPath, config)
-	html, err := renderTestDutyReport(t, configPath, inputPath, "2026-05", 7200)
+	html, err := renderTestDutyReport(t, configPath, sessionsPath, "2026-05", 7200)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,7 +15,7 @@ import (
 
 func setupDutyReportTest(t *testing.T) (args []string, outputDirectory, configPath string) {
 	t.Helper()
-	_, outputDirectory = setupGenerateTest(t)
+	_, outputDirectory = setupInvoiceTest(t)
 	config, err := readConfig("testdata/minimal-config.json")
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +40,7 @@ func setupDutyReportTest(t *testing.T) (args []string, outputDirectory, configPa
 	if err := os.WriteFile(filepath.Join(directory, config.SignatureFile), signature.Bytes(), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return []string{"duty-report", "--input", "testdata/minimal-sessions.json", "--config", configPath,
+	return []string{"duty-report", "--sessions", "testdata/minimal-sessions.json", "--config", configPath,
 		"--month", "2026-05", "--carry-over-flight-duty", "120:00", "--output-dir", outputDirectory}, outputDirectory, configPath
 }
 
@@ -73,7 +73,7 @@ func TestDutyReportCLIValidationAndHelp(t *testing.T) {
 		if err := run(context.Background(), []string{"duty-report", flag}, &stdout, strings.NewReader(""), time.Now); err != nil {
 			t.Fatal(err)
 		}
-		for _, want := range []string{"duty-report", "-carry-over-flight-duty", "-input", "-config", "-month", "-issue-date", "-output-dir", "-force"} {
+		for _, want := range []string{"duty-report", "-carry-over-flight-duty", "-sessions", "-config", "-month", "-issue-date", "-output-dir", "-force"} {
 			if !strings.Contains(stdout.String(), want) {
 				t.Errorf("help missing %q", want)
 			}

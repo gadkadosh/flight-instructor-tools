@@ -12,14 +12,14 @@ import (
 	"time"
 )
 
-func setupGenerateTest(t *testing.T) (args []string, outputDir string) {
+func setupInvoiceTest(t *testing.T) (args []string, outputDir string) {
 	t.Helper()
 	stubWeasyPrint(t, "exec /bin/cat")
 	outputDirectory := t.TempDir()
 
 	args = []string{
-		"generate",
-		"--input", filepath.Join("testdata", "minimal-sessions.json"),
+		"invoice",
+		"--sessions", filepath.Join("testdata", "minimal-sessions.json"),
 		"--config", filepath.Join("testdata", "minimal-config.json"),
 		"--month", "2026-05",
 		"--number", "2026-05",
@@ -29,20 +29,20 @@ func setupGenerateTest(t *testing.T) (args []string, outputDir string) {
 	return args, outputDirectory
 }
 
-func TestRunGenerateResolvesIssueDateInConfiguredTimeZone(t *testing.T) {
-	args, outputDirectory := setupGenerateTest(t)
+func TestRunInvoiceResolvesIssueDateInConfiguredTimeZone(t *testing.T) {
+	args, outputDirectory := setupInvoiceTest(t)
 	// Still June 9 in UTC, but already June 10 in the configured Europe/Berlin.
 	fixedNow := time.Date(2026, time.June, 9, 22, 34, 56, 0, time.UTC)
 	if err := run(context.Background(), args, io.Discard, strings.NewReader(""), func() time.Time { return fixedNow }); err != nil {
-		t.Fatalf("run generate: %v", err)
+		t.Fatalf("run invoice: %v", err)
 	}
 	if pdf := readFile(t, filepath.Join(outputDirectory, "Rechnung-2026-05.pdf")); !strings.Contains(pdf, ">10.06.2026<") {
 		t.Errorf("invoice does not use the issue date in the configured timezone:\n%s", pdf)
 	}
 }
 
-func TestRunGenerateUsesWorkingDirectoryDefaults(t *testing.T) {
-	_, outputDirectory := setupGenerateTest(t)
+func TestRunInvoiceUsesWorkingDirectoryDefaults(t *testing.T) {
+	_, outputDirectory := setupInvoiceTest(t)
 	directory := t.TempDir()
 	for _, file := range []struct{ source, destination string }{
 		{"testdata/minimal-sessions.json", "sessions.json"},
@@ -57,7 +57,7 @@ func TestRunGenerateUsesWorkingDirectoryDefaults(t *testing.T) {
 		}
 	}
 	t.Chdir(directory)
-	args := []string{"generate", "--month", "2026-05", "--number", "2026-05", "--output-dir", outputDirectory}
+	args := []string{"invoice", "--month", "2026-05", "--number", "2026-05", "--output-dir", outputDirectory}
 	if err := run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now); err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestRunGenerateUsesWorkingDirectoryDefaults(t *testing.T) {
 	}
 }
 
-func TestRunGenerateUsesConfiguredMonth(t *testing.T) {
+func TestRunInvoiceUsesConfiguredMonth(t *testing.T) {
 	input, err := readSessionFile("testdata/minimal-sessions.json")
 	if err != nil {
 		t.Fatal(err)
@@ -83,8 +83,8 @@ func TestRunGenerateUsesConfiguredMonth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	inputPath := filepath.Join(t.TempDir(), "sessions.json")
-	if err := os.WriteFile(inputPath, contents, 0o600); err != nil {
+	sessionsPath := filepath.Join(t.TempDir(), "sessions.json")
+	if err := os.WriteFile(sessionsPath, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for _, test := range []struct {
@@ -94,8 +94,8 @@ func TestRunGenerateUsesConfiguredMonth(t *testing.T) {
 		{"2026-06", "Boundary Student", "May Student", "01.06.26"},
 	} {
 		t.Run(test.month, func(t *testing.T) {
-			args, outputDirectory := setupGenerateTest(t)
-			args = append(args, "--input", inputPath, "--month", test.month, "--issue-date", "2026-07-01")
+			args, outputDirectory := setupInvoiceTest(t)
+			args = append(args, "--sessions", sessionsPath, "--month", test.month, "--issue-date", "2026-07-01")
 			if err := run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now); err != nil {
 				t.Fatal(err)
 			}
@@ -112,17 +112,17 @@ func TestRunGenerateUsesConfiguredMonth(t *testing.T) {
 	}
 }
 
-func TestRunGenerateHelp(t *testing.T) {
+func TestRunInvoiceHelp(t *testing.T) {
 	for _, argument := range []string{"-h", "--help"} {
 		t.Run(argument, func(t *testing.T) {
 			var stdout bytes.Buffer
-			err := run(context.Background(), []string{"generate", argument}, &stdout, strings.NewReader(""), time.Now)
+			err := run(context.Background(), []string{"invoice", argument}, &stdout, strings.NewReader(""), time.Now)
 			if err != nil {
-				t.Fatalf("run generate help: %v", err)
+				t.Fatalf("run invoice help: %v", err)
 			}
 			for _, text := range []string{
-				"Usage: fitools generate --month YYYY-MM --number NUMBER [flags]",
-				"-input", "-config", "-month", "-number", "-issue-date", "-output-dir", "-force",
+				"Usage: fitools invoice --month YYYY-MM --number NUMBER [flags]",
+				"-sessions", "-config", "-month", "-number", "-issue-date", "-output-dir", "-force",
 			} {
 				if !strings.Contains(stdout.String(), text) {
 					t.Errorf("help output does not contain %q", text)
@@ -156,8 +156,8 @@ func TestExplicitIssueDateDoesNotReadClock(t *testing.T) {
 	}
 }
 
-func TestRunGenerateRejectsInvalidNumber(t *testing.T) {
-	args, outputDirectory := setupGenerateTest(t)
+func TestRunInvoiceRejectsInvalidNumber(t *testing.T) {
+	args, outputDirectory := setupInvoiceTest(t)
 	err := run(context.Background(), append(args, "--number", "2026/05"), io.Discard, strings.NewReader(""), time.Now)
 	if err == nil || !strings.Contains(err.Error(), "invoice number") {
 		t.Fatalf("error = %v, want invalid invoice number", err)

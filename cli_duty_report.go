@@ -17,7 +17,7 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 		fmt.Fprintln(stdout, "Usage: fitools duty-report --month YYYY-MM --carry-over-flight-duty H:MM [flags]")
 		flags.PrintDefaults()
 	}
-	inputPath := flags.String("input", defaultInputPath, "session JSON file")
+	sessionsPath := flags.String("sessions", defaultSessionsPath, "session JSON file")
 	configPath := flags.String("config", defaultConfigPath, "configuration JSON file")
 	month := flags.String("month", "", "report month in YYYY-MM format")
 	carryOverValue := flags.String("carry-over-flight-duty", "", "year-to-date flight-duty hours:minutes before this month (required, including 0:00)")
@@ -36,7 +36,7 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 		return fmt.Errorf("unexpected positional arguments: %v", flags.Args())
 	}
 	for _, argument := range []struct{ name, value string }{
-		{"input", *inputPath}, {"config", *configPath}, {"month", *month},
+		{"sessions", *sessionsPath}, {"config", *configPath}, {"month", *month},
 		{"carry-over-flight-duty", *carryOverValue}, {"output-dir", *outputDirectory},
 	} {
 		if argument.value == "" {
@@ -59,7 +59,7 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 	if err != nil {
 		return err
 	}
-	input, err := readSessionFile(*inputPath)
+	input, err := readSessionFile(*sessionsPath)
 	if err != nil {
 		return err
 	}
