@@ -6,25 +6,15 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
 )
 
-func TestInvoiceDownloadUsesSelectedSessionsAndCleansUp(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("test uses a POSIX renderer stub")
-	}
-	directory := t.TempDir()
-	t.Setenv("TMPDIR", directory)
-	bin := t.TempDir()
-	// Echo the renderer's input into its output so assertions inspect the document
+func TestInvoiceDownloadUsesSelectedSessions(t *testing.T) {
+	// The stub returns the HTML as the PDF, so assertions inspect the document
 	// that would be converted, alongside the API's download behavior.
-	if err := os.WriteFile(filepath.Join(bin, weasyPrintExecutable), []byte("#!/bin/sh\n/bin/cat \"$1\" > \"$2\"\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin)
+	stubWeasyPrint(t, "exec /bin/cat")
 	input, err := readSessionFile("testdata/minimal-sessions.json")
 	if err != nil {
 		t.Fatal(err)
@@ -64,10 +54,6 @@ func TestInvoiceDownloadUsesSelectedSessionsAndCleansUp(t *testing.T) {
 		}
 		if strings.Contains(body, "Excluded Student") || strings.Count(body, "Sam Beispiel - Blockzeit") != 1 || strings.Index(body, "Alex Beispiel - Flugvorbereitung") > strings.Index(body, "Sam Beispiel - Blockzeit") {
 			t.Fatal("invoice did not preserve selected sessions once each in file order")
-		}
-		entries, err := os.ReadDir(directory)
-		if err != nil || len(entries) != 0 {
-			t.Fatalf("temporary invoice artifacts remain: %v, error = %v", entries, err)
 		}
 	}
 }

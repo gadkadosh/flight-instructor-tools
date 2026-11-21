@@ -6,26 +6,15 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
 )
 
-func TestDutyReportDownloadIncludesWholeMonthAndCleansUp(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("test uses a POSIX renderer stub")
-	}
-	directory := t.TempDir()
-	t.Setenv("TMPDIR", directory)
+func TestDutyReportDownloadIncludesWholeMonth(t *testing.T) {
+	// The setup's stub converter returns the rendered document unchanged.
 	_, _, configPath := setupDutyReportTest(t)
-	bin := t.TempDir()
-	// Inspect the actual rendered document sent to the PDF converter.
-	if err := os.WriteFile(filepath.Join(bin, weasyPrintExecutable), []byte("#!/bin/sh\n/bin/cat \"$1\" > \"$2\"\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin)
 	input, err := readSessionFile("testdata/minimal-sessions.json")
 	if err != nil {
 		t.Fatal(err)
@@ -83,10 +72,6 @@ func TestDutyReportDownloadIncludesWholeMonthAndCleansUp(t *testing.T) {
 				}
 				if strings.Count(response.Body.String(), `class="day"`) != 31 {
 					t.Error("report must contain 31 day slots")
-				}
-				entries, err := os.ReadDir(directory)
-				if err != nil || len(entries) != 0 {
-					t.Fatalf("temporary report artifacts remain: %v, error = %v", entries, err)
 				}
 			}
 		})

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	_ "embed"
 	"encoding/base64"
 	"fmt"
@@ -31,6 +33,19 @@ func renderInvoiceHTML(writer io.Writer, document Document, signaturePNG []byte)
 		SignatureBase64: base64.StdEncoding.EncodeToString(signaturePNG),
 	}
 	return invoiceTemplate.Execute(writer, data)
+}
+
+// invoicePDF renders document with the configured signature as a PDF.
+func invoicePDF(ctx context.Context, document Document, config Config, configPath string) ([]byte, error) {
+	signaturePNG, err := readSignature(config, configPath)
+	if err != nil {
+		return nil, err
+	}
+	var html bytes.Buffer
+	if err := renderInvoiceHTML(&html, document, signaturePNG); err != nil {
+		return nil, fmt.Errorf("render invoice HTML: %w", err)
+	}
+	return convertHTMLToPDF(ctx, html.Bytes())
 }
 
 func formatDuration(minutes int) string {

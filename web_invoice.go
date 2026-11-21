@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 	"strings"
@@ -57,15 +56,10 @@ func (source sessionSource) serveInvoice(w http.ResponseWriter, r *http.Request)
 		writeJSONError(w, http.StatusUnprocessableEntity, err)
 		return
 	}
-	signaturePNG, err := readSignature(config, source.configPath)
+	pdf, err := invoicePDF(r.Context(), document, config, source.configPath)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
-	var html bytes.Buffer
-	if err := renderInvoiceHTML(&html, document, signaturePNG); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err)
-		return
-	}
-	serveDocumentPDF(w, r, html.Bytes(), "Rechnung-"+request.Number+".pdf")
+	servePDF(w, pdf, "Rechnung-"+request.Number+".pdf")
 }

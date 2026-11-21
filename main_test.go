@@ -3,16 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"image"
-	"image/png"
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
-	"slices"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -21,18 +16,7 @@ import (
 
 func setupGenerateTest(t *testing.T) (args []string, outputDir string) {
 	t.Helper()
-
-	if runtime.GOOS == "windows" {
-		t.Skip("test uses a POSIX test executable")
-	}
-
-	binDirectory := t.TempDir()
-	fakeRenderer := filepath.Join(binDirectory, weasyPrintExecutable)
-	if err := os.WriteFile(fakeRenderer, []byte("#!/bin/sh\nprintf 'pdf' > \"$2\"\n"), 0o755); err != nil {
-		t.Fatalf("write fake WeasyPrint: %v", err)
-	}
-	t.Setenv("PATH", binDirectory)
-
+	stubWeasyPrint(t, "exec /bin/cat")
 	outputDirectory := t.TempDir()
 
 	args = []string{
@@ -47,37 +31,159 @@ func setupGenerateTest(t *testing.T) (args []string, outputDir string) {
 	return args, outputDirectory
 }
 
-func TestRunGenerateWritesAllArtifactsAndResolvesIssueDate(t *testing.T) {
-	args, outputDirectory := setupGenerateTest(t)
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(contents)
+}
 
-	var stdout bytes.Buffer
+// documentCommands are the CLI commands that write one document PDF. With the
+// stub converter, content appears in the PDF of the minimal fixtures.
+var documentCommands = []struct {
+	name, pdf, content string
+	setup              func(t *testing.T) []string
+}{
+	{"generate", "Rechnung-2026-05.pdf", "Rechnung Nr. 2026-05", func(t *testing.T) []string {
+		args, _ := setupGenerateTest(t)
+		return args
+	}},
+	{"duty-report", "Dienstzeitnachweis-2026-05.pdf", "Month 3:00, carry 120:00, year 123:00, block 1:05", func(t *testing.T) []string {
+		args, _, _ := setupDutyReportTest(t)
+		return args
+	}},
+}
+
+func TestDocumentCommandsWriteOnlyThePDF(t *testing.T) {
+	for _, command := range documentCommands {
+		t.Run(command.name, func(t *testing.T) {
+			directory := filepath.Join(t.TempDir(), "not-yet-created")
+			args := append(command.setup(t), "--output-dir", directory)
+			var stdout bytes.Buffer
+			if err := run(context.Background(), args, &stdout, strings.NewReader(""), time.Now); err != nil {
+				t.Fatal(err)
+			}
+			entries, err := os.ReadDir(directory)
+			if err != nil || len(entries) != 1 || entries[0].Name() != command.pdf {
+				t.Fatalf("output directory = %v, %v; want only %s", entries, err, command.pdf)
+			}
+			path := filepath.Join(directory, command.pdf)
+			if got := stdout.String(); got != "Wrote "+path+"\n" {
+				t.Errorf("output = %q", got)
+			}
+			if pdf := readFile(t, path); !strings.Contains(pdf, command.content) {
+				t.Errorf("PDF does not contain %q:\n%s", command.content, pdf)
+			}
+		})
+	}
+}
+
+func TestDocumentCommandsOverwrite(t *testing.T) {
+	for _, command := range documentCommands {
+		for _, test := range []struct {
+			name      string
+			existing  bool
+			input     string
+			inputErr  bool
+			force     string
+			wantError string
+		}{
+			{name: "no existing PDF"},
+			{name: "confirm", existing: true, input: "y\n"},
+			{name: "case and whitespace", existing: true, input: " Y \n"},
+			{name: "decline", existing: true, input: "n\n", wantError: "aborting: overwrite not confirmed"},
+			{name: "blank response", existing: true, input: "\n", wantError: "aborting: overwrite not confirmed"},
+			{name: "other response", existing: true, input: "yes\n", wantError: "aborting: overwrite not confirmed"},
+			{name: "EOF", existing: true, wantError: "aborting: no confirmation received"},
+			{name: "input read error", existing: true, inputErr: true, wantError: "read overwrite confirmation: input failed"},
+			{name: "force", existing: true, input: "n\n", force: "--force"},
+			{name: "force shorthand", existing: true, input: "n\n", force: "-f"},
+		} {
+			t.Run(command.name+"/"+test.name, func(t *testing.T) {
+				directory := t.TempDir()
+				args := append(command.setup(t), "--output-dir", directory)
+				path := filepath.Join(directory, command.pdf)
+				if test.existing {
+					if err := os.WriteFile(path, []byte("original"), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if test.force != "" {
+					args = append(args, test.force)
+				}
+				var stdin io.Reader = strings.NewReader(test.input)
+				if test.inputErr {
+					stdin = iotest.ErrReader(fmt.Errorf("input failed"))
+				}
+				var stdout bytes.Buffer
+				err := run(context.Background(), args, &stdout, stdin, time.Now)
+				if test.wantError != "" {
+					if err == nil || err.Error() != test.wantError {
+						t.Fatalf("error = %v, want %q", err, test.wantError)
+					}
+				} else if err != nil {
+					t.Fatal(err)
+				}
+
+				prompt := path + " exists. Overwrite? [y/N] "
+				wantPrompts := 0
+				if test.existing && test.force == "" {
+					wantPrompts = 1
+				}
+				if got := strings.Count(stdout.String(), prompt); got != wantPrompts {
+					t.Errorf("prompts = %d, want %d; output: %q", got, wantPrompts, stdout.String())
+				}
+				pdf := readFile(t, path)
+				if test.wantError != "" {
+					if pdf != "original" || stdout.String() != prompt {
+						t.Errorf("PDF = %q, output = %q; want the original PDF and only the prompt", pdf, stdout.String())
+					}
+				} else if !strings.Contains(pdf, command.content) {
+					t.Errorf("PDF does not contain %q", command.content)
+				}
+				if entries, err := os.ReadDir(directory); err != nil || len(entries) != 1 {
+					t.Errorf("output directory = %v, %v; want only the PDF", entries, err)
+				}
+			})
+		}
+	}
+}
+
+func TestDocumentCommandsConversionFailureKeepsExistingPDF(t *testing.T) {
+	for _, command := range documentCommands {
+		t.Run(command.name, func(t *testing.T) {
+			directory := t.TempDir()
+			args := append(command.setup(t), "--output-dir", directory, "--force")
+			path := filepath.Join(directory, command.pdf)
+			if err := os.WriteFile(path, []byte("original"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			stubWeasyPrint(t, "printf 'partial'; exit 1")
+			err := run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now)
+			if err == nil || !strings.Contains(err.Error(), "WeasyPrint") {
+				t.Fatalf("error = %v, want WeasyPrint failure", err)
+			}
+			if pdf := readFile(t, path); pdf != "original" {
+				t.Errorf("PDF = %q, want the original", pdf)
+			}
+			if entries, err := os.ReadDir(directory); err != nil || len(entries) != 1 {
+				t.Errorf("output directory = %v, %v; want only the original PDF", entries, err)
+			}
+		})
+	}
+}
+
+func TestRunGenerateResolvesIssueDateInConfiguredTimeZone(t *testing.T) {
+	args, outputDirectory := setupGenerateTest(t)
 	// Still June 9 in UTC, but already June 10 in the configured Europe/Berlin.
 	fixedNow := time.Date(2026, time.June, 9, 22, 34, 56, 0, time.UTC)
-	err := run(context.Background(), args, &stdout, strings.NewReader(""), func() time.Time { return fixedNow })
-	if err != nil {
+	if err := run(context.Background(), args, io.Discard, strings.NewReader(""), func() time.Time { return fixedNow }); err != nil {
 		t.Fatalf("run generate: %v", err)
 	}
-
-	for _, extension := range []string{"json", "html", "pdf"} {
-		path := filepath.Join(outputDirectory, "Rechnung-2026-05."+extension)
-		if _, err := os.Stat(path); err != nil {
-			t.Errorf("stat %s artifact: %v", extension, err)
-		}
-		if !strings.Contains(stdout.String(), path) {
-			t.Errorf("command output does not contain artifact path %q", path)
-		}
-	}
-
-	snapshotPath := filepath.Join(outputDirectory, "Rechnung-2026-05.json")
-	snapshot, err := os.ReadFile(snapshotPath)
-	if err != nil {
-		t.Fatalf("read generated snapshot: %v", err)
-	}
-	if expected := `"issueDate": "2026-06-10"`; !bytes.Contains(snapshot, []byte(expected)) {
-		t.Errorf("snapshot does not contain issue date in configured timezone %s:\n%s", expected, snapshot)
-	}
-	if !bytes.Contains(snapshot, []byte(`"grossCents": 4500`)) {
-		t.Errorf("snapshot does not contain expected total:\n%s", snapshot)
+	if pdf := readFile(t, filepath.Join(outputDirectory, "Rechnung-2026-05.pdf")); !strings.Contains(pdf, ">10.06.2026<") {
+		t.Errorf("invoice does not use the issue date in the configured timezone:\n%s", pdf)
 	}
 }
 
@@ -101,12 +207,8 @@ func TestRunGenerateUsesWorkingDirectoryDefaults(t *testing.T) {
 	if err := run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now); err != nil {
 		t.Fatal(err)
 	}
-	snapshot, err := os.ReadFile(filepath.Join(outputDirectory, "Rechnung-2026-05.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(snapshot, []byte(`"grossCents": 4500`)) {
-		t.Fatalf("invoice generated from default files has unexpected totals: %s", snapshot)
+	if pdf := readFile(t, filepath.Join(outputDirectory, "Rechnung-2026-05.pdf")); !strings.Contains(pdf, ">45,00 €<") {
+		t.Fatalf("invoice generated from default files has unexpected totals: %s", pdf)
 	}
 }
 
@@ -123,135 +225,34 @@ func TestRunGenerateUsesConfiguredMonth(t *testing.T) {
 	boundary.DutyStart = mustTimestamp(t, "2026-05-31T22:30:00Z")
 	boundary.DutyEnd = boundary.DutyStart.Add(time.Hour)
 	input.Sessions = []Session{may, boundary}
-	config, err := readConfig("testdata/minimal-config.json")
+	contents, err := json.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	directory := t.TempDir()
-	inputPath, configPath := filepath.Join(directory, "sessions.json"), filepath.Join(directory, "config.json")
-	for _, file := range []struct {
-		path  string
-		value any
-	}{{inputPath, input}, {configPath, config}} {
-		contents, err := json.Marshal(file.value)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(file.path, contents, 0o600); err != nil {
-			t.Fatal(err)
-		}
+	inputPath := filepath.Join(t.TempDir(), "sessions.json")
+	if err := os.WriteFile(inputPath, contents, 0o600); err != nil {
+		t.Fatal(err)
 	}
 	for _, test := range []struct {
-		month, student, date string
+		month, student, other, date string
 	}{
-		{"2026-05", "May Student", "2026-05-03"},
-		{"2026-06", "Boundary Student", "2026-06-01"},
+		{"2026-05", "May Student", "Boundary Student", "03.05.26"},
+		{"2026-06", "Boundary Student", "May Student", "01.06.26"},
 	} {
 		t.Run(test.month, func(t *testing.T) {
 			args, outputDirectory := setupGenerateTest(t)
-			args = append(args, "--input", inputPath, "--config", configPath, "--month", test.month, "--issue-date", "2026-07-01")
+			args = append(args, "--input", inputPath, "--month", test.month, "--issue-date", "2026-07-01")
 			if err := run(context.Background(), args, io.Discard, strings.NewReader(""), time.Now); err != nil {
 				t.Fatal(err)
 			}
-			var snapshot invoiceSnapshot
-			if err := readJSONFile(filepath.Join(outputDirectory, "Rechnung-2026-05.json"), &snapshot); err != nil {
-				t.Fatal(err)
-			}
-			if len(snapshot.Lines) != 1 {
-				t.Fatalf("lines = %+v, want only %s", snapshot.Lines, test.student)
-			}
-			line := snapshot.Lines[0]
-			if line.Description != test.student+" - Blockzeit" || line.Date != test.date || snapshot.Totals.GrossCents != 3000 {
-				t.Fatalf("line = %+v, gross = %d; want %s on %s for 3000", line, snapshot.Totals.GrossCents, test.student, test.date)
-			}
-		})
-	}
-}
-
-func TestRunGenerateSignature(t *testing.T) {
-	var signature bytes.Buffer
-	if err := png.Encode(&signature, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
-		t.Fatal(err)
-	}
-	signaturePath := filepath.Join(t.TempDir(), "signature.png")
-	if err := os.WriteFile(signaturePath, signature.Bytes(), 0o644); err != nil {
-		t.Fatalf("write signature: %v", err)
-	}
-	fixture, err := os.ReadFile(filepath.Join("testdata", "minimal-config.json"))
-	if err != nil {
-		t.Fatalf("read config fixture: %v", err)
-	}
-
-	for _, test := range []struct {
-		name              string
-		signatureFileJSON string
-		wantSignature     bool
-		wantError         string
-	}{
-		{name: "omitted"},
-		{name: "empty", signatureFileJSON: `""`},
-		{name: "absolute path", signatureFileJSON: fmt.Sprintf("%q", signaturePath), wantSignature: true},
-		{name: "relative path", signatureFileJSON: `"signature.png"`, wantSignature: true},
-		{name: "missing file", signatureFileJSON: `"missing.png"`, wantError: "read signature"},
-		{name: "directory instead of file", signatureFileJSON: `"."`, wantError: "read signature"},
-		{name: "not a PNG", signatureFileJSON: `"not-a-signature.png"`, wantError: "load signature"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			args, outputDirectory := setupGenerateTest(t)
-			configDirectory := t.TempDir()
-			if err := os.WriteFile(filepath.Join(configDirectory, "signature.png"), signature.Bytes(), 0o644); err != nil {
-				t.Fatalf("write relative signature: %v", err)
-			}
-			if err := os.WriteFile(filepath.Join(configDirectory, "not-a-signature.png"), []byte("signature"), 0o644); err != nil {
-				t.Fatalf("write invalid signature: %v", err)
-			}
-			var config map[string]json.RawMessage
-			if err := json.Unmarshal(fixture, &config); err != nil {
-				t.Fatalf("decode config fixture: %v", err)
-			}
-			if test.signatureFileJSON != "" {
-				config["signatureFile"] = json.RawMessage(test.signatureFileJSON)
-			}
-			contents, err := json.Marshal(config)
-			if err != nil {
-				t.Fatalf("encode config: %v", err)
-			}
-			configPath := filepath.Join(configDirectory, "config.json")
-			if err := os.WriteFile(configPath, contents, 0o644); err != nil {
-				t.Fatalf("write config: %v", err)
-			}
-			args = append(args, "--config", configPath)
-
-			var stdout bytes.Buffer
-			err = run(context.Background(), args, &stdout, strings.NewReader(""), time.Now)
-			if test.wantError != "" {
-				if err == nil || !strings.Contains(err.Error(), test.wantError) || !strings.Contains(err.Error(), configDirectory) {
-					t.Fatalf("error = %v, want signature read error with resolved path", err)
+			pdf := readFile(t, filepath.Join(outputDirectory, "Rechnung-2026-05.pdf"))
+			for _, want := range []string{test.student + " - Blockzeit", ">" + test.date + "<", ">30,00 €<"} {
+				if !strings.Contains(pdf, want) {
+					t.Errorf("invoice missing %q", want)
 				}
-				entries, err := os.ReadDir(outputDirectory)
-				if err != nil {
-					t.Fatalf("read output directory: %v", err)
-				}
-				if len(entries) != 0 {
-					t.Errorf("generated artifacts despite signature error: %v", entries)
-				}
-				return
 			}
-			if err != nil {
-				t.Fatalf("run generate: %v", err)
-			}
-			html, err := os.ReadFile(filepath.Join(outputDirectory, "Rechnung-2026-05.html"))
-			if err != nil {
-				t.Fatalf("read generated HTML: %v", err)
-			}
-			if !bytes.Contains(html, []byte("Rechnung Nr. 2026-05")) {
-				t.Error("generated HTML does not contain invoice number")
-			}
-			if got := bytes.Contains(html, []byte(`class="signature"`)); got != test.wantSignature {
-				t.Errorf("signature image present = %v, want %v", got, test.wantSignature)
-			}
-			if test.wantSignature && !bytes.Contains(html, []byte(`src="data:image/png;base64,`+base64.StdEncoding.EncodeToString(signature.Bytes())+`"`)) {
-				t.Error("generated HTML does not embed the supplied signature")
+			if strings.Contains(pdf, test.other) {
+				t.Errorf("invoice includes %s from another month", test.other)
 			}
 		})
 	}
@@ -280,97 +281,6 @@ func TestRunGenerateHelp(t *testing.T) {
 	}
 }
 
-func TestRunGenerateOverwrite(t *testing.T) {
-	for _, test := range []struct {
-		name      string
-		existing  []string
-		input     string
-		inputErr  bool
-		force     string
-		wantError string
-	}{
-		{name: "no existing outputs"},
-		{name: "existing JSON", existing: []string{"json"}, input: "y\n"},
-		{name: "existing HTML", existing: []string{"html"}, input: "y\n"},
-		{name: "existing PDF", existing: []string{"pdf"}, input: "y\n"},
-		{name: "one confirmation for all outputs", existing: []string{"json", "html", "pdf"}, input: "y\n"},
-		{name: "case and whitespace", existing: []string{"json", "html", "pdf"}, input: " Y \n"},
-		{name: "decline", existing: []string{"json", "html", "pdf"}, input: "n\n", wantError: "aborting: overwrite not confirmed"},
-		{name: "blank response", existing: []string{"json"}, input: "\n", wantError: "aborting: overwrite not confirmed"},
-		{name: "other response", existing: []string{"html"}, input: "yes\n", wantError: "aborting: overwrite not confirmed"},
-		{name: "EOF", existing: []string{"pdf"}, wantError: "aborting: no confirmation received"},
-		{name: "input read error", existing: []string{"html"}, inputErr: true, wantError: "read overwrite confirmation: input failed"},
-		{name: "force overwrite", existing: []string{"json", "html", "pdf"}, input: "n\n", force: "--force"},
-		{name: "force shorthand", existing: []string{"json", "html", "pdf"}, input: "n\n", force: "-f"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			args, outputDirectory := setupGenerateTest(t)
-			for _, extension := range test.existing {
-				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+extension)
-				if err := os.WriteFile(path, []byte("original "+extension), 0o644); err != nil {
-					t.Fatalf("write existing artifact: %v", err)
-				}
-			}
-			if test.force != "" {
-				args = append(args, test.force)
-			}
-
-			var stdin io.Reader = strings.NewReader(test.input)
-			if test.inputErr {
-				stdin = iotest.ErrReader(fmt.Errorf("input failed"))
-			}
-			var stdout bytes.Buffer
-			err := run(context.Background(), args, &stdout, stdin, time.Now)
-			if test.wantError != "" {
-				if err == nil || err.Error() != test.wantError {
-					t.Errorf("error = %v, want %q", err, test.wantError)
-				}
-			} else if err != nil {
-				t.Fatalf("generate: %v", err)
-			}
-			prompt := "Invoice 2026-05 has existing output files. Overwrite? [y/N] "
-			wantPrompts := 0
-			if len(test.existing) != 0 && test.force == "" {
-				wantPrompts = 1
-			}
-			if got := strings.Count(stdout.String(), prompt); got != wantPrompts {
-				t.Errorf("invoice prompts = %d, want %d; output: %q", got, wantPrompts, stdout.String())
-			}
-			if test.wantError != "" && stdout.String() != prompt {
-				t.Errorf("unexpected output on refusal: %q", stdout.String())
-			}
-
-			for _, artifact := range []struct {
-				extension string
-				marker    string
-			}{
-				{"json", `"grossCents": 4500`},
-				{"html", "Rechnung Nr. 2026-05"},
-				{"pdf", "pdf"},
-			} {
-				path := filepath.Join(outputDirectory, "Rechnung-2026-05."+artifact.extension)
-				content, err := os.ReadFile(path)
-				if test.wantError != "" && !slices.Contains(test.existing, artifact.extension) {
-					if !os.IsNotExist(err) {
-						t.Errorf("%s should not be created; read error = %v", artifact.extension, err)
-					}
-					continue
-				}
-				if err != nil {
-					t.Fatalf("read artifact: %v", err)
-				}
-				if test.wantError != "" {
-					if string(content) != "original "+artifact.extension {
-						t.Errorf("%s changed despite refusing overwrite", artifact.extension)
-					}
-				} else if !bytes.Contains(content, []byte(artifact.marker)) {
-					t.Errorf("%s does not contain generated content %q", artifact.extension, artifact.marker)
-				}
-			}
-		})
-	}
-}
-
 func TestExplicitIssueDateDoesNotReadClock(t *testing.T) {
 	config, err := readConfig(filepath.Join("testdata", "minimal-config.json"))
 	if err != nil {
@@ -389,30 +299,6 @@ func TestExplicitIssueDateDoesNotReadClock(t *testing.T) {
 	}
 	if got, want := date.Format("2006-01-02"), "2026-06-10"; got != want {
 		t.Errorf("issue date = %q, want %q", got, want)
-	}
-}
-
-func TestRunGenerateRendererFailurePreservesExistingFiles(t *testing.T) {
-	args, outputDirectory := setupGenerateTest(t)
-	for _, extension := range []string{"json", "html", "pdf"} {
-		path := filepath.Join(outputDirectory, "Rechnung-2026-05."+extension)
-		if err := os.WriteFile(path, []byte("original"), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	t.Setenv("PATH", t.TempDir())
-	err := run(context.Background(), append(args, "--force"), io.Discard, strings.NewReader(""), time.Now)
-	if err == nil || !strings.Contains(err.Error(), "WeasyPrint") {
-		t.Fatalf("error = %v, want WeasyPrint failure", err)
-	}
-	for _, extension := range []string{"json", "html", "pdf"} {
-		content, err := os.ReadFile(filepath.Join(outputDirectory, "Rechnung-2026-05."+extension))
-		if err != nil || string(content) != "original" {
-			t.Errorf("%s = %q, %v; want the original file", extension, content, err)
-		}
-	}
-	if entries, err := os.ReadDir(outputDirectory); err != nil || len(entries) != 3 {
-		t.Fatalf("output directory = %v, %v; want only the three original files", entries, err)
 	}
 }
 

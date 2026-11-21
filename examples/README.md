@@ -27,8 +27,8 @@ Generate the May invoice (requires [WeasyPrint](https://doc.courtbouillon.org/we
   --issue-date 2026-06-09
 ```
 
-Writes `Rechnung-2026-05.json`, `.html`, and `.pdf` to `output/`.
-Existing files require confirmation before overwriting; use `--force` in scripts.
+Writes `output/Rechnung-2026-05.pdf`. An existing PDF requires confirmation
+before it is overwritten; use `--force` in scripts.
 Invoice output is tailored to EUR, German formatting, and 0% VAT. Review generated
 documents before use.
 
@@ -92,7 +92,7 @@ Only version 3 is supported; there is no legacy loader or automatic migration. B
 
 For version 1 files, first replace `preparationMinutes` with a `preparation` activity, replace `flights` with the remaining activities, rename each flight's `blockMinutes` to `minutes`, and assign every activity a type and ID. Preserve existing flight IDs and identify solo supervision explicitly; the old format cannot distinguish it from dual flying.
 
-Existing generated invoices are not modified. Regenerating equivalent session data preserves rates, durations, charge grouping, rounding, and amounts, while special-flight labels use the standardized type names. Invoice JSON snapshots still contain generated line descriptions; they are separate from the session file format.
+Existing generated invoices are not modified. Regenerating equivalent session data preserves rates, durations, charge grouping, rounding, and amounts, while special-flight labels use the standardized type names.
 
 ## Expected May 2026 invoice
 

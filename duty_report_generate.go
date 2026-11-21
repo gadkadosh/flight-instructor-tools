@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"html/template"
-	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -58,30 +56,9 @@ func renderDutyReportHTML(writer io.Writer, report DutyReport, templatePath stri
 	return nil
 }
 
-func configRelativePath(configPath, path string) string {
-	if filepath.IsAbs(path) {
-		return path
-	}
-	return filepath.Join(filepath.Dir(configPath), path)
-}
-
-// readSignature returns the configured signature PNG, or nil when none is set.
-func readSignature(config Config, configPath string) ([]byte, error) {
-	if config.SignatureFile == "" {
-		return nil, nil
-	}
-	path := configRelativePath(configPath, config.SignatureFile)
-	signaturePNG, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read signature %q: %w", path, err)
-	}
-	if _, err := png.Decode(bytes.NewReader(signaturePNG)); err != nil {
-		return nil, fmt.Errorf("load signature %q as PNG: %w", path, err)
-	}
-	return signaturePNG, nil
-}
-
-func renderConfiguredDutyReport(report DutyReport, config Config, configPath string) ([]byte, error) {
+// dutyReportPDF renders report with the configured template and signature as
+// a PDF.
+func dutyReportPDF(ctx context.Context, report DutyReport, config Config, configPath string) ([]byte, error) {
 	if config.DutyReportTemplateFile == "" {
 		return nil, fmt.Errorf("dutyReportTemplateFile: required for duty reports")
 	}
@@ -93,7 +70,7 @@ func renderConfiguredDutyReport(report DutyReport, config Config, configPath str
 	if err := renderDutyReportHTML(&html, report, configRelativePath(configPath, config.DutyReportTemplateFile), signaturePNG); err != nil {
 		return nil, err
 	}
-	return html.Bytes(), nil
+	return convertHTMLToPDF(ctx, html.Bytes())
 }
 
 func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Reader, now func() time.Time) error {
@@ -108,10 +85,10 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 	month := flags.String("month", "", "report month in YYYY-MM format")
 	carryOverValue := flags.String("carry-over-flight-duty", "", "year-to-date flight-duty hours:minutes before this month (required, including 0:00)")
 	issueDateValue := flags.String("issue-date", "", "issue date in YYYY-MM-DD format (default: today in configured timeZone)")
-	outputDirectory := flags.String("output-dir", defaultOutputDirectory, "artifact output directory")
+	outputDirectory := flags.String("output-dir", defaultOutputDirectory, "PDF output directory")
 	var force bool
-	flags.BoolVar(&force, "f", false, "force overwrite existing files")
-	flags.BoolVar(&force, "force", false, "force overwrite existing files")
+	flags.BoolVar(&force, "f", false, "force overwrite an existing PDF")
+	flags.BoolVar(&force, "force", false, "force overwrite an existing PDF")
 	if err := flags.Parse(arguments); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -137,9 +114,6 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 	if err != nil {
 		return err
 	}
-	if config.DutyReportTemplateFile == "" {
-		return fmt.Errorf("dutyReportTemplateFile: required for duty reports")
-	}
 	issueDate, err := config.issueDate(*issueDateValue, now)
 	if err != nil {
 		return err
@@ -156,25 +130,9 @@ func runDutyReport(ctx context.Context, arguments []string, stdout io.Writer, st
 	if err != nil {
 		return err
 	}
-	// Resolve all configuration and render in memory before touching outputs.
-	html, err := renderConfiguredDutyReport(report, config, *configPath)
+	pdf, err := dutyReportPDF(ctx, report, config, *configPath)
 	if err != nil {
 		return err
 	}
-	snapshot, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode duty report JSON: %w", err)
-	}
-	snapshot = append(snapshot, '\n')
-	paths := documentPaths(*outputDirectory, "Dienstzeitnachweis-"+*month)
-	if err := confirmOverwrite(paths, "Duty report "+*month, force, stdout, stdin); err != nil {
-		return err
-	}
-	if err := writeDocumentFiles(ctx, paths, snapshot, html); err != nil {
-		return err
-	}
-	for _, path := range paths {
-		fmt.Fprintf(stdout, "Wrote %s\n", path)
-	}
-	return nil
+	return writePDF(filepath.Join(*outputDirectory, "Dienstzeitnachweis-"+*month+".pdf"), pdf, force, stdout, stdin)
 }

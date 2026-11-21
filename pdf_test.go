@@ -2,67 +2,57 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
-func TestConvertHTMLToPDFInvokesWeasyPrintWithoutShellInterpolation(t *testing.T) {
+// stubWeasyPrint puts a fake WeasyPrint running script on PATH. With
+// "exec /bin/cat" the PDF is the HTML input, so tests can inspect the document
+// that would be converted.
+func stubWeasyPrint(t *testing.T, script string) {
+	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("test uses a POSIX test executable")
 	}
-
 	binDirectory := t.TempDir()
-	executablePath := filepath.Join(binDirectory, weasyPrintExecutable)
-	argumentsPath := filepath.Join(t.TempDir(), "arguments")
-	fakeWeasyPrint := `#!/bin/sh
-printf '%s\n' "$@" > "$FAKE_WEASYPRINT_ARGUMENTS"
-printf 'pdf' > "$2"
-`
-	if err := os.WriteFile(executablePath, []byte(fakeWeasyPrint), 0o755); err != nil {
-		t.Fatalf("write fake WeasyPrint executable: %v", err)
+	if err := os.WriteFile(filepath.Join(binDirectory, weasyPrintExecutable), []byte("#!/bin/sh\n"+script+"\n"), 0o755); err != nil {
+		t.Fatalf("write fake WeasyPrint: %v", err)
 	}
 	t.Setenv("PATH", binDirectory)
+}
+
+func TestConvertHTMLToPDFPipesDocumentThroughWeasyPrint(t *testing.T) {
+	argumentsPath := filepath.Join(t.TempDir(), "arguments")
 	t.Setenv("FAKE_WEASYPRINT_ARGUMENTS", argumentsPath)
+	stubWeasyPrint(t, `printf '%s\n' "$@" > "$FAKE_WEASYPRINT_ARGUMENTS"; printf 'pdf of '; exec /bin/cat`)
 
-	artifactDirectory := filepath.Join(t.TempDir(), "artifacts with spaces")
-	if err := os.Mkdir(artifactDirectory, 0o755); err != nil {
-		t.Fatalf("create artifact directory: %v", err)
+	pdf, err := convertHTMLToPDF(context.Background(), []byte("<html></html>"))
+	if err != nil {
+		t.Fatalf("convert HTML: %v", err)
 	}
-	htmlPath := filepath.Join(artifactDirectory, "invoice;echo-not-run.html")
-	pdfPath := filepath.Join(artifactDirectory, "invoice.pdf")
-	if err := os.WriteFile(htmlPath, []byte("<html></html>"), 0o644); err != nil {
-		t.Fatalf("write HTML artifact: %v", err)
+	if got, want := string(pdf), "pdf of <html></html>"; got != want {
+		t.Fatalf("PDF = %q, want %q", got, want)
 	}
-
-	if err := convertHTMLToPDF(context.Background(), htmlPath, pdfPath); err != nil {
-		t.Fatalf("write invoice PDF: %v", err)
-	}
-
 	arguments, err := os.ReadFile(argumentsPath)
 	if err != nil {
 		t.Fatalf("read captured arguments: %v", err)
 	}
-	if got, want := string(arguments), htmlPath+"\n"+pdfPath+"\n"; got != want {
-		t.Fatalf("WeasyPrint arguments = %q, want %q", got, want)
-	}
-	contents, err := os.ReadFile(pdfPath)
-	if err != nil {
-		t.Fatalf("read PDF artifact: %v", err)
-	}
-	if string(contents) != "pdf" {
-		t.Fatalf("PDF artifact = %q, want %q", contents, "pdf")
+	if got, want := string(arguments), "-\n-\n"; got != want {
+		t.Fatalf("WeasyPrint arguments = %q, want stdin and stdout %q", got, want)
 	}
 }
 
 func TestConvertHTMLToPDFReportsMissingWeasyPrint(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
-	err := convertHTMLToPDF(context.Background(), "invoice.html", "invoice.pdf")
+	_, err := convertHTMLToPDF(context.Background(), []byte("<html></html>"))
 	if err == nil {
-		t.Fatal("write invoice PDF unexpectedly succeeded")
+		t.Fatal("convert HTML unexpectedly succeeded")
 	}
 	for _, expected := range []string{"WeasyPrint", "PATH", "install"} {
 		if !strings.Contains(err.Error(), expected) {
@@ -72,22 +62,24 @@ func TestConvertHTMLToPDFReportsMissingWeasyPrint(t *testing.T) {
 }
 
 func TestConvertHTMLToPDFIncludesRendererFailureOutput(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("test uses a POSIX test executable")
-	}
+	stubWeasyPrint(t, "printf 'partial'; echo 'invalid document' >&2; exit 2")
 
-	binDirectory := t.TempDir()
-	executablePath := filepath.Join(binDirectory, weasyPrintExecutable)
-	if err := os.WriteFile(executablePath, []byte("#!/bin/sh\necho 'invalid document' >&2\nexit 2\n"), 0o755); err != nil {
-		t.Fatalf("write fake WeasyPrint executable: %v", err)
+	pdf, err := convertHTMLToPDF(context.Background(), []byte("<html></html>"))
+	if err == nil || !strings.Contains(err.Error(), "invalid document") {
+		t.Fatalf("error = %v, want renderer output", err)
 	}
-	t.Setenv("PATH", binDirectory)
+	if pdf != nil {
+		t.Fatalf("PDF = %q, want none on failure", pdf)
+	}
+}
 
-	err := convertHTMLToPDF(context.Background(), "invoice.html", "invoice.pdf")
-	if err == nil {
-		t.Fatal("write invoice PDF unexpectedly succeeded")
-	}
-	if !strings.Contains(err.Error(), "invalid document") {
-		t.Fatalf("error %q does not contain renderer output", err)
+func TestConvertHTMLToPDFReportsTimeout(t *testing.T) {
+	stubWeasyPrint(t, "exec /bin/sleep 5")
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	_, err := convertHTMLToPDF(ctx, []byte("<html></html>"))
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("error = %v, want deadline exceeded", err)
 	}
 }

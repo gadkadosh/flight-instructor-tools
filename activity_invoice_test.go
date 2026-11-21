@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -112,49 +109,35 @@ func TestCalculateSessionLinesRejectsInvalidActivities(t *testing.T) {
 	}
 }
 
-func TestRunGenerateMixedActivitiesPreservesInvoice(t *testing.T) {
-	args, outputDirectory := setupGenerateTest(t)
+func TestMixedActivitiesPreserveInvoice(t *testing.T) {
 	input, err := readSessionFile(filepath.Join("testdata", "minimal-sessions.json"))
 	if err != nil {
 		t.Fatalf("read sessions: %v", err)
 	}
-	input.Sessions[0].Activities = []Activity{
+	config, err := readConfig(filepath.Join("testdata", "minimal-config.json"))
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	issueDate := mustTimestamp(t, "2026-06-09T00:00:00Z")
+	want, err := buildInvoiceDocument(input.Sessions, config, "2026-05", issueDate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mixed := slices.Clone(input.Sessions)
+	mixed[0].Activities = []Activity{
 		{ID: "prep-1", Type: ActivityPreparation, Minutes: 10},
 		{ID: "flight-1", Type: ActivityDual, Minutes: 40},
 		{ID: "prep-2", Type: ActivityPreparation, Minutes: 20},
 		{ID: "flight-2", Type: ActivitySoloSupervision, Minutes: 25},
 	}
-	contents, err := json.Marshal(input)
+	got, err := buildInvoiceDocument(mixed, config, "2026-05", issueDate)
 	if err != nil {
-		t.Fatalf("encode sessions: %v", err)
+		t.Fatal(err)
 	}
-	inputPath := filepath.Join(t.TempDir(), "sessions.json")
-	if err := os.WriteFile(inputPath, contents, 0o644); err != nil {
-		t.Fatalf("write sessions: %v", err)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("mixed activities changed the invoice:\ngot  %+v\nwant %+v", got, want)
 	}
-	args = append(args, "--input", inputPath, "--issue-date", "2026-06-09")
-	var stdout bytes.Buffer
-	if err := run(context.Background(), args, &stdout, strings.NewReader(""), time.Now); err != nil {
-		t.Fatalf("generate invoice: %v", err)
-	}
-	snapshot, err := os.ReadFile(filepath.Join(outputDirectory, "Rechnung-2026-05.json"))
-	if err != nil {
-		t.Fatalf("read snapshot: %v", err)
-	}
-	want, err := os.ReadFile(filepath.Join("testdata", "minimal-snapshot.json"))
-	if err != nil {
-		t.Fatalf("read expected snapshot: %v", err)
-	}
-	if !bytes.Equal(snapshot, want) {
-		t.Errorf("mixed activities changed the expected invoice:\n%s", snapshot)
-	}
-	html, err := os.ReadFile(filepath.Join(outputDirectory, "Rechnung-2026-05.html"))
-	if err != nil {
-		t.Fatalf("read HTML: %v", err)
-	}
-	for _, text := range []string{"Alex Beispiel - Flugvorbereitung", "Alex Beispiel - Blockzeit", ">0:30<", ">1:05<", ">45,00 €<"} {
-		if !bytes.Contains(html, []byte(text)) {
-			t.Errorf("HTML does not contain %q", text)
-		}
+	if len(got.Lines) != 2 || got.Lines[0].Minutes != 30 || got.Lines[1].Minutes != 65 || got.Totals.GrossCents != 4500 {
+		t.Errorf("lines = %+v, totals = %+v; want 0:30 preparation and 1:05 block for 45,00 €", got.Lines, got.Totals)
 	}
 }
