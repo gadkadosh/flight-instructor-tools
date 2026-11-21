@@ -91,6 +91,17 @@ type Rates struct {
 	BlockCentsPerHour       int `json:"blockCentsPerHour"`
 }
 
+type Party struct {
+	Name         string   `json:"name"`
+	AddressLines []string `json:"addressLines"`
+	Email        string   `json:"email,omitempty"`
+}
+
+type BankDetails struct {
+	IBAN string `json:"iban"`
+	BIC  string `json:"bic"`
+}
+
 func loadTimeZone(name string) (*time.Location, error) {
 	if name == "" || name == "Local" {
 		return nil, fmt.Errorf("timeZone: required; use an explicit IANA timezone such as Europe/Berlin")

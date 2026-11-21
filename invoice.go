@@ -8,12 +8,6 @@ import (
 	"time"
 )
 
-type Party struct {
-	Name         string   `json:"name"`
-	AddressLines []string `json:"addressLines"`
-	Email        string   `json:"email,omitempty"`
-}
-
 type Line struct {
 	Date            time.Time
 	Description     string
@@ -27,11 +21,6 @@ type Totals struct {
 	NetCents   int
 	VATCents   int
 	GrossCents int
-}
-
-type BankDetails struct {
-	IBAN string `json:"iban"`
-	BIC  string `json:"bic"`
 }
 
 type Document struct {
