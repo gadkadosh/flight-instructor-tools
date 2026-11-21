@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "sessions": [
     {
       "id": "2026-04-30-pat",
@@ -15,7 +15,14 @@
         {
           "id": "2026-04-30-pat-flight-1",
           "type": "dual",
-          "minutes": 55
+          "blockOff": "2026-04-30T10:30:00Z",
+          "blockOn": "2026-04-30T11:25:00Z",
+          "firstTakeoff": "2026-04-30T10:37:00Z",
+          "lastLanding": "2026-04-30T11:21:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 4
         }
       ]
     },
@@ -33,7 +40,14 @@
         {
           "id": "2026-05-03-alex-flight-1",
           "type": "dual",
-          "minutes": 65
+          "blockOff": "2026-05-03T10:15:00Z",
+          "blockOn": "2026-05-03T11:20:00Z",
+          "firstTakeoff": "2026-05-03T10:22:00Z",
+          "lastLanding": "2026-05-03T11:16:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 5
         }
       ]
     },
@@ -51,7 +65,14 @@
         {
           "id": "2026-05-03-alex-flight-2",
           "type": "dual",
-          "minutes": 70
+          "blockOff": "2026-05-03T11:45:00Z",
+          "blockOn": "2026-05-03T12:55:00Z",
+          "firstTakeoff": "2026-05-03T11:52:00Z",
+          "lastLanding": "2026-05-03T12:51:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 5
         }
       ]
     },
@@ -69,12 +90,24 @@
         {
           "id": "2026-05-03-robin-flight-1",
           "type": "dual",
-          "minutes": 35
+          "blockOff": "2026-05-03T13:30:00Z",
+          "blockOn": "2026-05-03T14:05:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 2
         },
         {
           "id": "2026-05-03-robin-flight-2",
           "type": "dual",
-          "minutes": 45
+          "blockOff": "2026-05-03T14:10:00Z",
+          "blockOn": "2026-05-03T14:55:00Z",
+          "firstTakeoff": "2026-05-03T14:17:00Z",
+          "lastLanding": "2026-05-03T14:51:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 3
         }
       ]
     },
@@ -100,7 +133,14 @@
         {
           "id": "2026-05-10-taylor-flight-1",
           "type": "dual",
-          "minutes": 30
+          "blockOff": "2026-05-10T13:00:00Z",
+          "blockOn": "2026-05-10T13:30:00Z",
+          "firstTakeoff": "2026-05-10T13:07:00Z",
+          "lastLanding": "2026-05-10T13:26:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 2
         }
       ]
     },
@@ -118,12 +158,26 @@
         {
           "id": "2026-05-10-chris-flight-1",
           "type": "dual",
-          "minutes": 60
+          "blockOff": "2026-05-10T14:30:00Z",
+          "blockOn": "2026-05-10T15:30:00Z",
+          "firstTakeoff": "2026-05-10T14:37:00Z",
+          "lastLanding": "2026-05-10T15:26:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFZ",
+          "registration": "D-EKLM",
+          "landings": 1
         },
         {
           "id": "2026-05-10-chris-flight-2",
           "type": "dual",
-          "minutes": 62
+          "blockOff": "2026-05-10T15:35:00Z",
+          "blockOn": "2026-05-10T16:37:00Z",
+          "firstTakeoff": "2026-05-10T15:42:00Z",
+          "lastLanding": "2026-05-10T16:33:00Z",
+          "departure": "EDFZ",
+          "arrival": "EDFE",
+          "registration": "D-EKLM",
+          "landings": 1
         }
       ]
     },
@@ -141,7 +195,14 @@
         {
           "id": "2026-05-10-robin-flight-1",
           "type": "dual",
-          "minutes": 88
+          "blockOff": "2026-05-10T17:27:00Z",
+          "blockOn": "2026-05-10T18:55:00Z",
+          "firstTakeoff": "2026-05-10T17:34:00Z",
+          "lastLanding": "2026-05-10T18:51:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 7
         }
       ]
     },
@@ -153,7 +214,14 @@
         {
           "id": "2026-05-24-sightseeing-flight-1",
           "type": "rundflug",
-          "minutes": 45
+          "blockOff": "2026-05-24T10:00:00Z",
+          "blockOn": "2026-05-24T10:45:00Z",
+          "firstTakeoff": "2026-05-24T10:07:00Z",
+          "lastLanding": "2026-05-24T10:41:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 1
         }
       ]
     },
@@ -171,12 +239,24 @@
         {
           "id": "2026-05-24-sam-flight-1",
           "type": "dual",
-          "minutes": 50
+          "blockOff": "2026-05-24T12:00:00Z",
+          "blockOn": "2026-05-24T12:50:00Z",
+          "firstTakeoff": "2026-05-24T12:07:00Z",
+          "lastLanding": "2026-05-24T12:46:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 4
         },
         {
           "id": "2026-05-24-sam-flight-2",
           "type": "dual",
-          "minutes": 56
+          "blockOff": "2026-05-24T12:55:00Z",
+          "blockOn": "2026-05-24T13:51:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 4
         }
       ]
     },
@@ -194,7 +274,14 @@
         {
           "id": "2026-05-24-dana-flight-1",
           "type": "dual",
-          "minutes": 69
+          "blockOff": "2026-05-24T14:45:00Z",
+          "blockOn": "2026-05-24T15:54:00Z",
+          "firstTakeoff": "2026-05-24T14:52:00Z",
+          "lastLanding": "2026-05-24T15:50:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 5
         }
       ]
     },
@@ -212,7 +299,14 @@
         {
           "id": "2026-05-24-dana-flight-2",
           "type": "dual",
-          "minutes": 70
+          "blockOff": "2026-05-24T17:15:00Z",
+          "blockOn": "2026-05-24T18:25:00Z",
+          "firstTakeoff": "2026-05-24T17:22:00Z",
+          "lastLanding": "2026-05-24T18:21:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EKLM",
+          "landings": 5
         }
       ]
     },
@@ -230,7 +324,14 @@
         {
           "id": "2026-06-01-joerg-flight-1",
           "type": "dual",
-          "minutes": 47
+          "blockOff": "2026-06-01T08:25:00Z",
+          "blockOn": "2026-06-01T09:12:00Z",
+          "firstTakeoff": "2026-06-01T08:32:00Z",
+          "lastLanding": "2026-06-01T09:08:00Z",
+          "departure": "EDFE",
+          "arrival": "EDFE",
+          "registration": "D-EFTI",
+          "landings": 3
         }
       ]
     }

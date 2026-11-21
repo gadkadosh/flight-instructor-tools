@@ -1,22 +1,121 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type ComponentProps, type KeyboardEvent } from 'react';
 import {
   activityKinds,
   clockPattern,
   dateInZone,
   durationPattern,
+  flightColumns,
   formatDuration,
   normalizeDuration,
   parseClock,
   parseDuration,
   type Activity,
-  type ActivityType,
+  type FlightType,
+  type Session,
   type SessionView,
 } from './sessions';
 
-type FlightDraft = { id: string; type: Exclude<ActivityType, 'preparation'>; duration: string };
+type FlightDraft = {
+  id: string;
+  type: FlightType;
+  blockOff: string;
+  blockOn: string;
+  landings: string;
+  departure: string;
+  arrival: string;
+  registration: string;
+  takeoff: string;
+  landing: string;
+};
+type FlightField = Exclude<keyof FlightDraft, 'id' | 'type'>;
+type Carried = Pick<FlightDraft, 'arrival' | 'registration'>;
 const clockHint = '24-hour time, for example 0930 or 9:30';
 const durationHint = 'Hours and two digits for minutes, for example 1:30 or 130';
-const newFlight = (): FlightDraft => ({ id: crypto.randomUUID(), type: 'dual', duration: '' });
+const airfieldPattern = /^[A-Z0-9]{4}$/;
+const landingsPattern = /^[1-9]\d*$/;
+const clockInput = {
+  pattern: clockPattern.source,
+  title: clockHint,
+  inputMode: 'numeric',
+} as const;
+const airfieldInput = {
+  pattern: airfieldPattern.source,
+  maxLength: 4,
+  title: 'Four-character ICAO identifier, for example EDFE',
+  placeholder: 'EDFE',
+};
+const clock = (value: string) => parseClock(value) ?? value;
+const upper = (value: string) => value.toUpperCase();
+
+// The inputs after the type, in the order of flightColumns. Typing applies `edit`; leaving applies `tidy`.
+const flightFields: {
+  name: FlightField;
+  label: string;
+  input: ComponentProps<'input'>;
+  edit?: (value: string) => string;
+  tidy?: (value: string) => string;
+}[] = [
+  { name: 'registration', label: 'registration', input: { placeholder: 'D-EABC' }, edit: upper },
+  { name: 'departure', label: 'departure', input: airfieldInput, edit: upper },
+  { name: 'arrival', label: 'arrival', input: airfieldInput, edit: upper },
+  {
+    name: 'blockOff',
+    label: 'block off',
+    input: { ...clockInput, placeholder: '0930' },
+    tidy: clock,
+  },
+  {
+    name: 'takeoff',
+    label: 'takeoff time',
+    input: { ...clockInput, placeholder: 'Optional' },
+    tidy: clock,
+  },
+  {
+    name: 'landing',
+    label: 'landing time',
+    input: { ...clockInput, placeholder: 'Optional' },
+    tidy: clock,
+  },
+  {
+    name: 'blockOn',
+    label: 'block on',
+    input: { ...clockInput, placeholder: '1030' },
+    tidy: clock,
+  },
+  {
+    name: 'landings',
+    label: 'landings',
+    input: {
+      inputMode: 'numeric',
+      pattern: landingsPattern.source,
+      title: 'A positive whole number',
+    },
+  },
+];
+
+// Airfield and aircraft carry over from the previous flight, which usually ends where the next starts.
+const newFlight = (previous?: Carried): FlightDraft => ({
+  id: crypto.randomUUID(),
+  type: 'dual',
+  blockOff: '',
+  blockOn: '',
+  landings: '1',
+  departure: previous?.arrival ?? '',
+  arrival: previous?.arrival ?? '',
+  registration: previous?.registration ?? '',
+  takeoff: '',
+  landing: '',
+});
+
+function lastFlight(sessions: Session[]): Carried | undefined {
+  for (const session of sessions.toReversed()) {
+    const flight = session.activities.findLast(
+      (activity): activity is Exclude<Activity, { type: 'preparation' }> =>
+        activity.type !== 'preparation',
+    );
+    if (flight) return flight;
+  }
+}
 const endDateFormat = new Intl.DateTimeFormat('de-DE', {
   timeZone: 'UTC',
   day: '2-digit',
@@ -49,7 +148,9 @@ export default function SessionEntry({
   const [endInput, setEndInput] = useState('');
   const [overnightHintDate, setOvernightHintDate] = useState<string>();
   const [preparation, setPreparation] = useState('');
-  const [flights, setFlights] = useState<FlightDraft[]>(() => [newFlight()]);
+  const [flights, setFlights] = useState<FlightDraft[]>(() => [
+    newFlight(lastFlight(view.sessions)),
+  ]);
   const [focusFlight, setFocusFlight] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -74,9 +175,21 @@ export default function SessionEntry({
         .filter((student): student is string => Boolean(student)),
     ),
   ].sort((a, b) => a.localeCompare(b));
+  // Flight times share the session date; when duty runs past midnight, those before duty start fall on the next day.
+  const nextDay = (clock: string) => overnight && clock < start!;
+  const clockMinutes = (clock: string) => {
+    const [hours, minutes] = clock.split(':').map(Number);
+    return hours! * 60 + minutes! + (nextDay(clock) ? 24 * 60 : 0);
+  };
+  function blockMinutes(flight: FlightDraft) {
+    const off = parseClock(flight.blockOff);
+    const on = parseClock(flight.blockOn);
+    if (off && on && clockMinutes(on) > clockMinutes(off))
+      return clockMinutes(on) - clockMinutes(off);
+  }
   const totals = { preparation: 0, block: 0, soloSupervision: 0 };
   for (const flight of flights) {
-    totals[activityKinds[flight.type].summary] += parseDuration(flight.duration) ?? 0;
+    totals[activityKinds[flight.type].summary] += blockMinutes(flight) ?? 0;
   }
 
   useEffect(() => {
@@ -94,16 +207,16 @@ export default function SessionEntry({
     }
   }, [saving]);
 
-  function setDuration(id: string, duration: string) {
+  function setField(id: string, field: Partial<FlightDraft>) {
     setFlights((previous) =>
-      previous.map((item) => (item.id === id ? { ...item, duration } : item)),
+      previous.map((item) => (item.id === id ? { ...item, ...field } : item)),
     );
   }
 
   function addFlight() {
-    const flight = newFlight();
+    const flight = newFlight(flights.at(-1) ?? lastFlight(view.sessions));
     setFlights((previous) => [...previous, flight]);
-    setFocusFlight(flight.id);
+    setFocusFlight(`${flight.id}-blockOff`);
   }
 
   function shortcut(event: KeyboardEvent) {
@@ -138,12 +251,66 @@ export default function SessionEntry({
     const activities: Activity[] =
       prep > 0 ? [{ id: `${id}-prep`, type: 'preparation', minutes: prep }] : [];
     for (const flight of flights) {
-      if (!flight.duration.trim()) continue;
-      const minutes = parseDuration(flight.duration);
-      if (minutes === undefined || minutes <= 0) {
-        return invalid('Enter a positive flight duration as H:MM, such as 1:30 or 130.', flight.id);
+      const field = (name: FlightField) => `${flight.id}-${name}`;
+      // Input patterns block submission of malformed times, so undefined means blank.
+      const [off, on, takeoff, landing] = [
+        flight.blockOff,
+        flight.blockOn,
+        flight.takeoff,
+        flight.landing,
+      ].map(parseClock);
+      // A row without times is an unused flight, even with carried-over details.
+      if (!off && !on && !takeoff && !landing) continue;
+      if (!off)
+        return invalid('Enter block off as a 24-hour time, such as 0930.', field('blockOff'));
+      if (!on) return invalid('Enter block on as a 24-hour time, such as 1030.', field('blockOn'));
+      if (!blockMinutes(flight))
+        return invalid('Block on must be after block off.', field('blockOn'));
+      if (!takeoff !== !landing) {
+        return invalid('Enter both takeoff and landing times, or neither.', field('takeoff'));
       }
-      activities.push({ id: flight.id, type: flight.type, minutes });
+      if (
+        takeoff &&
+        landing &&
+        !(
+          clockMinutes(off) <= clockMinutes(takeoff) &&
+          clockMinutes(takeoff) < clockMinutes(landing) &&
+          clockMinutes(landing) <= clockMinutes(on)
+        )
+      ) {
+        return invalid(
+          'Takeoff and landing must be within the block, takeoff first.',
+          field('takeoff'),
+        );
+      }
+      if (!landingsPattern.test(flight.landings.trim())) {
+        return invalid('Enter landings as a positive whole number.', field('landings'));
+      }
+      for (const name of ['departure', 'arrival'] as const) {
+        if (!airfieldPattern.test(flight[name])) {
+          return invalid(
+            'Enter airfields as four-character ICAO identifiers, such as EDFE.',
+            field(name),
+          );
+        }
+      }
+      if (!flight.registration.trim()) {
+        return invalid('Enter the aircraft registration.', field('registration'));
+      }
+      const stamp = (clock: string) => `${nextDay(clock) ? endDate : date}T${clock}`;
+      activities.push({
+        id: flight.id,
+        type: flight.type,
+        blockOff: stamp(off),
+        blockOn: stamp(on),
+        ...(takeoff && landing
+          ? { firstTakeoff: stamp(takeoff), lastLanding: stamp(landing) }
+          : {}),
+        departure: flight.departure,
+        arrival: flight.arrival,
+        registration: flight.registration.trim(),
+        landings: Number(flight.landings),
+      });
     }
     if (activities.length === 0) {
       return invalid('Enter preparation time or at least one flight.', 'preparation');
@@ -179,7 +346,7 @@ export default function SessionEntry({
         setOvernightHintDate(undefined);
         setId(crypto.randomUUID());
         setPreparation('');
-        setFlights([newFlight()]);
+        setFlights([newFlight(flights.at(-1))]);
         setFocusFlight(undefined);
         focusStudent.current = true;
       } else {
@@ -326,10 +493,11 @@ export default function SessionEntry({
               <table className="flight-table flight-entry-table" aria-label="New session flights">
                 <thead>
                   <tr>
-                    <th scope="col">Type</th>
-                    <th scope="col" className="numeric">
-                      Duration
-                    </th>
+                    {flightColumns.map((column) => (
+                      <th key={column.label} scope="col" className={column.className}>
+                        {column.label}
+                      </th>
+                    ))}
                     <th scope="col">
                       <span className="visually-hidden">Actions</span>
                     </th>
@@ -342,14 +510,9 @@ export default function SessionEntry({
                         <select
                           aria-label={`Flight ${index + 1} type`}
                           value={flight.type}
-                          onChange={(event) => {
-                            const type = event.target.value as FlightDraft['type'];
-                            setFlights((previous) =>
-                              previous.map((item) =>
-                                item.id === flight.id ? { ...item, type } : item,
-                              ),
-                            );
-                          }}
+                          onChange={(event) =>
+                            setField(flight.id, { type: event.target.value as FlightType })
+                          }
                         >
                           {Object.entries(activityKinds)
                             .filter(([type]) => type !== 'preparation')
@@ -360,19 +523,27 @@ export default function SessionEntry({
                             ))}
                         </select>
                       </td>
+                      {flightFields.map(({ name, label, input, edit, tidy }) => (
+                        <td key={name}>
+                          <input
+                            {...input}
+                            id={`${flight.id}-${name}`}
+                            name={`${flight.id}-${name}`}
+                            aria-label={`Flight ${index + 1} ${label}`}
+                            value={flight[name]}
+                            onChange={({ target: { value } }) =>
+                              setField(flight.id, { [name]: edit ? edit(value) : value })
+                            }
+                            onBlur={() =>
+                              tidy && setField(flight.id, { [name]: tidy(flight[name]) })
+                            }
+                          />
+                        </td>
+                      ))}
                       <td className="numeric">
-                        <input
-                          id={flight.id}
-                          name={flight.id}
-                          aria-label={`Flight ${index + 1} duration`}
-                          placeholder="H:MM"
-                          pattern={durationPattern.source}
-                          title={durationHint}
-                          inputMode="numeric"
-                          value={flight.duration}
-                          onChange={(event) => setDuration(flight.id, event.target.value)}
-                          onBlur={() => setDuration(flight.id, normalizeDuration(flight.duration))}
-                        />
+                        <span aria-label={`Flight ${index + 1} block time`}>
+                          {formatDuration(blockMinutes(flight) ?? 0)}
+                        </span>
                       </td>
                       <td>
                         <button
@@ -383,7 +554,9 @@ export default function SessionEntry({
                             const remaining = flights.filter((item) => item.id !== flight.id);
                             setFlights(remaining);
                             if (remaining.length > 0)
-                              setFocusFlight(remaining[Math.min(index, remaining.length - 1)]!.id);
+                              setFocusFlight(
+                                `${remaining[Math.min(index, remaining.length - 1)]!.id}-blockOff`,
+                              );
                             else document.getElementById(`${formId}-add-flight`)?.focus();
                           }}
                         >

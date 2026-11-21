@@ -55,24 +55,49 @@ Run `fitools <command> --help` for the CLI equivalents, including
 
 ### Session format
 
-Sessions use `schemaVersion: 3`. Each session has a `dutyStart`, a `dutyEnd`,
-and at least one activity with an `id`, a `type`, and positive integer
-`minutes`:
+Sessions use `schemaVersion: 4`. Each session has a `dutyStart`, a `dutyEnd`,
+and at least one activity with an `id` and a `type`. Preparation records
+positive integer `minutes`; a flight records what a pilot logbook needs:
 
 ```json
 "activities": [
   { "id": "briefing-1", "type": "preparation", "minutes": 30 },
-  { "id": "flight-1", "type": "dual", "minutes": 60 },
-  { "id": "flight-2", "type": "soloSupervision", "minutes": 45 }
+  {
+    "id": "flight-1",
+    "type": "dual",
+    "blockOff": "2026-05-03T10:30:00Z",
+    "blockOn": "2026-05-03T11:35:00Z",
+    "firstTakeoff": "2026-05-03T10:37:00Z",
+    "lastLanding": "2026-05-03T11:31:00Z",
+    "departure": "EDFE",
+    "arrival": "EDFE",
+    "registration": "D-EFTI",
+    "landings": 5
+  }
 ]
 ```
 
 - `preparation`: briefing and preparation, billed at the preparation rate.
-- `dual`, `soloSupervision`, `rundflug`, `schnupperflug`: flight block minutes,
-  billed at the block rate.
+- `dual`, `soloSupervision`, `rundflug`, `schnupperflug`: flights, billed at
+  the block rate for the minutes from `blockOff` to `blockOn`.
+
+Flight fields:
+
+- `blockOff`, `blockOn`: required timestamps; block on is at least a minute
+  after block off. Block minutes are always calculated from them.
+- `firstTakeoff`, `lastLanding`: optional, but only together, with
+  `blockOff ≤ firstTakeoff < lastLanding ≤ blockOn`.
+- `departure`, `arrival`: four-character ICAO-style identifiers.
+- `registration`: the aircraft registration, as free text.
+- `landings`: a positive integer.
 
 `student` is optional only when the session has flights and all of them are
-`rundflug` or `schnupperflug`. Duty times are independent of activity durations.
+`rundflug` or `schnupperflug`. Duty times are independent of activity times.
+
+When adding a session in the UI, flight times are clock times on the session
+date. If duty ends the next day, flight times earlier than duty start fall on
+the next day too. Airfield and aircraft default to the previous flight's
+arrival and registration.
 
 Each session becomes at most two invoice lines: one `Flugvorbereitung` line and
 one block line labeled by its flight types (`Blockzeit`, `Rundflug`, or

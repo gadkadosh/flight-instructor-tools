@@ -171,7 +171,7 @@ func TestDutyReportTemplateMayOmitFieldsAndUseAbsolutePaths(t *testing.T) {
 func TestDutyReportPDFEmptySessionFileAndOptionalSignature(t *testing.T) {
 	_, _, configPath := setupDutyReportTest(t)
 	sessionsPath := filepath.Join(t.TempDir(), "empty.json")
-	if err := os.WriteFile(sessionsPath, []byte(`{"schemaVersion":3,"sessions":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(sessionsPath, []byte(`{"schemaVersion":4,"sessions":[]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	config, err := readConfig(configPath)
