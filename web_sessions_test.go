@@ -49,7 +49,7 @@ func TestSessionsAPI(t *testing.T) {
 		{name: "malformed config", sessions: string(fixture), config: `{`, wantError: "read config"},
 		{name: "invalid timezone", sessions: string(fixture), config: `{"timeZone":"Invalid/Zone"}`, wantError: `timeZone "Invalid/Zone"`},
 		{name: "machine timezone forbidden", sessions: string(fixture), config: `{"timeZone":"Local"}`, wantError: "explicit IANA timezone"},
-		{name: "missing input", wantError: "--input"},
+		{name: "missing input", wantError: "--sessions"},
 		{name: "malformed input", sessions: `{`, wantError: "read sessions"},
 		{name: "unsupported schema", sessions: `{"schemaVersion":1,"sessions":[]}`, wantError: "schemaVersion"},
 		{name: "invalid activity", sessions: strings.Replace(string(fixture), `"minutes": 30`, `"minutes": 0`, 1), wantError: "minutes: must be positive"},
@@ -58,11 +58,11 @@ func TestSessionsAPI(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			directory := t.TempDir()
 			source := sessionSource{
-				inputPath:     filepath.Join(directory, "sessions.json"),
+				sessionsPath:  filepath.Join(directory, "sessions.json"),
 				configPath:    filepath.Join(directory, "config.json"),
 				requireConfig: test.requireConfig,
 			}
-			for path, contents := range map[string]string{source.inputPath: test.sessions, source.configPath: test.config} {
+			for path, contents := range map[string]string{source.sessionsPath: test.sessions, source.configPath: test.config} {
 				if contents != "" {
 					if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 						t.Fatal(err)
@@ -137,7 +137,7 @@ func startTestWebServer(t *testing.T, arguments []string) string {
 
 func TestServeHosts(t *testing.T) {
 	url := startTestWebServer(t, []string{
-		"serve", "--no-open", "--input", "testdata/minimal-sessions.json",
+		"serve", "--no-open", "--sessions", "testdata/minimal-sessions.json",
 		"--config", "examples/config.json",
 	})
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -195,18 +195,18 @@ func TestServeSessionPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, test := range []struct {
-		name       string
-		args       []string
-		inputPath  string
-		configPath string
+		name         string
+		args         []string
+		sessionsPath string
+		configPath   string
 	}{
 		{"working directory defaults", []string{"--no-open"}, "sessions.json", "config.json"},
-		{"explicit serve paths", []string{"serve", "--no-open", "--input", "custom.json", "--config", "settings.json"}, "custom.json", "settings.json"},
-		{"implicit serve paths", []string{"--input", "custom.json", "--config", "settings.json", "--no-open"}, "custom.json", "settings.json"},
+		{"explicit serve paths", []string{"serve", "--no-open", "--sessions", "custom.json", "--config", "settings.json"}, "custom.json", "settings.json"},
+		{"implicit serve paths", []string{"--sessions", "custom.json", "--config", "settings.json", "--no-open"}, "custom.json", "settings.json"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Chdir(t.TempDir())
-			if err := os.WriteFile(test.inputPath, fixture, 0o600); err != nil {
+			if err := os.WriteFile(test.sessionsPath, fixture, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(test.configPath, []byte(`{"timeZone":"Europe/Berlin"}`), 0o600); err != nil {

@@ -109,3 +109,7 @@ func readSignature(config Config, configPath string) ([]byte, error) {
 	}
 	return signaturePNG, nil
 }
+
+func formatDuration(minutes int) string {
+	return fmt.Sprintf("%d:%02d", minutes/60, minutes%60)
+}

@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultInputPath       = "sessions.json"
+	defaultSessionsPath    = "sessions.json"
 	defaultConfigPath      = "config.json"
 	defaultOutputDirectory = "output"
 )
@@ -27,11 +27,11 @@ func usage(w io.Writer) {
 
 Without a command, start the local web UI and open it in your browser.
 Session and configuration paths default to sessions.json and config.json in the
-current directory. Use --input and --config to override them.
+current directory. Use --sessions and --config to override them.
 
 Commands:
     serve       Start the local web UI
-    generate    Generate an invoice PDF
+    invoice     Generate an invoice PDF
     duty-report Generate a monthly duty report PDF
     validate    Validate a sessions file (JSON)
 
@@ -50,8 +50,8 @@ func run(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Rea
 		return nil
 	case "serve":
 		return runServe(ctx, arguments[1:], stdout)
-	case "generate":
-		return runGenerate(ctx, arguments[1:], stdout, stdin, now)
+	case "invoice":
+		return runInvoice(ctx, arguments[1:], stdout, stdin, now)
 	case "duty-report":
 		return runDutyReport(ctx, arguments[1:], stdout, stdin, now)
 	case "validate":

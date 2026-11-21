@@ -19,8 +19,8 @@ validate the example sessions:
 Generate the May invoice (requires [WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) on `PATH`):
 
 ```sh
-./fitools generate \
-  --input examples/sessions.json \
+./fitools invoice \
+  --sessions examples/sessions.json \
   --config examples/config.json \
   --month 2026-05 \
   --number 2026-05 \

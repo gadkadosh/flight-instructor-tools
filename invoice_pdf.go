@@ -48,10 +48,6 @@ func invoicePDF(ctx context.Context, document Document, config Config, configPat
 	return convertHTMLToPDF(ctx, html.Bytes())
 }
 
-func formatDuration(minutes int) string {
-	return fmt.Sprintf("%d:%02d", minutes/60, minutes%60)
-}
-
 func formatMoney(cents int) string {
 	sign := ""
 	if cents < 0 {

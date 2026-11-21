@@ -63,7 +63,7 @@ func runServe(ctx context.Context, arguments []string, stdout io.Writer) error {
 	}
 	port := flags.Int("port", 0, "localhost port (0 chooses an available port)")
 	noOpen := flags.Bool("no-open", false, "do not open the browser")
-	inputPath := flags.String("input", defaultInputPath, "session JSON file")
+	sessionsPath := flags.String("sessions", defaultSessionsPath, "session JSON file")
 	configPath := flags.String("config", defaultConfigPath, "configuration JSON file (optional by default; used for timeZone)")
 	if err := flags.Parse(arguments); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -74,10 +74,10 @@ func runServe(ctx context.Context, arguments []string, stdout io.Writer) error {
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments: %v", flags.Args())
 	}
-	if *inputPath == "" || *configPath == "" {
-		return fmt.Errorf("--input and --config must not be empty")
+	if *sessionsPath == "" || *configPath == "" {
+		return fmt.Errorf("--sessions and --config must not be empty")
 	}
-	source := sessionSource{inputPath: *inputPath, configPath: *configPath}
+	source := sessionSource{sessionsPath: *sessionsPath, configPath: *configPath}
 	flags.Visit(func(option *flag.Flag) {
 		if option.Name == "config" {
 			source.requireConfig = true

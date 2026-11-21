@@ -32,7 +32,7 @@ func (source sessionSource) deleteSession(w http.ResponseWriter, r *http.Request
 		}
 		view.Sessions = slices.Delete(view.Sessions, index, index+1)
 		input := SessionFile{SchemaVersion: supportedSessionSchemaVersion, Sessions: view.Sessions}
-		if err := writeSessionFile(source.inputPath, input); err != nil {
+		if err := writeSessionFile(source.sessionsPath, input); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("save sessions: %w", err))
 			return
 		}

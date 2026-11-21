@@ -23,7 +23,7 @@ func runValidate(arguments []string, stdout io.Writer) error {
 		return fmt.Errorf("expected at most one sessions file; usage: fitools validate [FILE]")
 	}
 
-	path := defaultInputPath
+	path := defaultSessionsPath
 	if flags.NArg() == 1 {
 		path = flags.Arg(0)
 	}

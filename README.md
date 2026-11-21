@@ -13,11 +13,11 @@ Requires Go 1.26.5+, Node.js 24.11+ on the 24.x line (see
 
 ```sh
 make build
-./fitools --input examples/sessions.json --config examples/config.json
+./fitools --sessions examples/sessions.json --config examples/config.json
 ```
 
 This opens the session UI with the example data in your browser. Adding or
-deleting a session writes to the file selected by `--input`, including the
+deleting a session writes to the file selected by `--sessions`, including the
 example file when using the command above. Press Ctrl+C in the terminal to stop
 the server.
 

@@ -30,7 +30,7 @@ func sessionWriter(t *testing.T) (http.Handler, string) {
 	if err := os.WriteFile(config, []byte(`{"timeZone":"Europe/Berlin"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return webHandler(fstest.MapFS{}, sessionSource{inputPath: path, configPath: config}), path
+	return webHandler(fstest.MapFS{}, sessionSource{sessionsPath: path, configPath: config}), path
 }
 
 func validSessionEntry() sessionEntry {

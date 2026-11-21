@@ -10,14 +10,14 @@ import (
 	"time"
 )
 
-func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Reader, now func() time.Time) error {
-	flags := flag.NewFlagSet("generate", flag.ContinueOnError)
+func runInvoice(ctx context.Context, arguments []string, stdout io.Writer, stdin io.Reader, now func() time.Time) error {
+	flags := flag.NewFlagSet("invoice", flag.ContinueOnError)
 	flags.SetOutput(stdout)
 	flags.Usage = func() {
-		fmt.Fprintln(stdout, "Usage: fitools generate --month YYYY-MM --number NUMBER [flags]")
+		fmt.Fprintln(stdout, "Usage: fitools invoice --month YYYY-MM --number NUMBER [flags]")
 		flags.PrintDefaults()
 	}
-	inputPath := flags.String("input", defaultInputPath, "session JSON file")
+	sessionsPath := flags.String("sessions", defaultSessionsPath, "session JSON file")
 	configPath := flags.String("config", defaultConfigPath, "invoice configuration JSON file")
 	month := flags.String("month", "", "invoice month in YYYY-MM format")
 	number := flags.String("number", "", "invoice number")
@@ -30,7 +30,7 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
-		return fmt.Errorf("parse generate arguments: %w", err)
+		return fmt.Errorf("parse invoice arguments: %w", err)
 	}
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments: %v", flags.Args())
@@ -39,7 +39,7 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 		name  string
 		value string
 	}{
-		{name: "input", value: *inputPath},
+		{name: "sessions", value: *sessionsPath},
 		{name: "config", value: *configPath},
 		{name: "month", value: *month},
 		{name: "number", value: *number},
@@ -51,7 +51,7 @@ func runGenerate(ctx context.Context, arguments []string, stdout io.Writer, stdi
 		}
 	}
 
-	input, err := readSessionFile(*inputPath)
+	input, err := readSessionFile(*sessionsPath)
 	if err != nil {
 		return err
 	}
