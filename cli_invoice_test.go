@@ -20,7 +20,7 @@ func setupInvoiceTest(t *testing.T) (args []string, outputDir string) {
 	args = []string{
 		"invoice",
 		"--sessions", filepath.Join("testdata", "minimal-sessions.json"),
-		"--config", filepath.Join("testdata", "minimal-config.json"),
+		"--config", filepath.Join("examples", "config.json"),
 		"--month", "2026-05",
 		"--number", "2026-05",
 		"--output-dir", outputDirectory,
@@ -46,7 +46,7 @@ func TestRunInvoiceUsesWorkingDirectoryDefaults(t *testing.T) {
 	directory := t.TempDir()
 	for _, file := range []struct{ source, destination string }{
 		{"testdata/minimal-sessions.json", "sessions.json"},
-		{"testdata/minimal-config.json", "config.json"},
+		{"examples/config.json", "config.json"},
 	} {
 		contents, err := os.ReadFile(file.source)
 		if err != nil {
@@ -136,7 +136,7 @@ func TestRunInvoiceHelp(t *testing.T) {
 }
 
 func TestExplicitIssueDateDoesNotReadClock(t *testing.T) {
-	config, err := readConfig(filepath.Join("testdata", "minimal-config.json"))
+	config, err := readConfig(filepath.Join("examples", "config.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

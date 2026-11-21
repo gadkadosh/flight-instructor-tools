@@ -15,7 +15,7 @@ func TestBuildMinimalInvoiceDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read sessions: %v", err)
 	}
-	config, err := readConfig(filepath.Join("testdata", "minimal-config.json"))
+	config, err := readConfig(filepath.Join("examples", "config.json"))
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestBuildInvoiceDocumentOrdersSessionsByDutyStart(t *testing.T) {
 }
 
 func TestInvoiceDatesUseConfiguredTimeZone(t *testing.T) {
-	config, err := readConfig("testdata/minimal-config.json")
+	config, err := readConfig("examples/config.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +415,7 @@ func TestMixedActivitiesPreserveInvoice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read sessions: %v", err)
 	}
-	config, err := readConfig(filepath.Join("testdata", "minimal-config.json"))
+	config, err := readConfig(filepath.Join("examples", "config.json"))
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}

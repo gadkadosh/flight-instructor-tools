@@ -16,7 +16,7 @@ import (
 func setupDutyReportTest(t *testing.T) (args []string, outputDirectory, configPath string) {
 	t.Helper()
 	_, outputDirectory = setupInvoiceTest(t)
-	config, err := readConfig("testdata/minimal-config.json")
+	config, err := readConfig("examples/config.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func setupDutyReportTest(t *testing.T) (args []string, outputDirectory, configPa
 	directory := t.TempDir()
 	configPath = filepath.Join(directory, "config.json")
 	writeTestConfig(t, configPath, config)
-	tmpl, err := os.ReadFile("testdata/duty-report.html.tmpl")
+	tmpl, err := os.ReadFile("examples/duty-report.html.tmpl")
 	if err != nil {
 		t.Fatal(err)
 	}

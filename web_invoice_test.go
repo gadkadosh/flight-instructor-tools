@@ -83,7 +83,7 @@ func TestInvoiceDownloadErrors(t *testing.T) {
 			t.Setenv("PATH", t.TempDir())
 			config := test.config
 			if config == "" {
-				config = "testdata/minimal-config.json"
+				config = "examples/config.json"
 			}
 			contentType := test.contentType
 			if contentType == "" {
