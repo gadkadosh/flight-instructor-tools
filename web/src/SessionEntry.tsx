@@ -44,6 +44,7 @@ export default function SessionEntry({
   const focusStudent = useRef(false);
   const [id, setId] = useState(() => crypto.randomUUID());
   const [date, setDate] = useState(() => dateInZone(view.timeZone));
+  const [student, setStudent] = useState('');
   const [startInput, setStartInput] = useState('');
   const [endInput, setEndInput] = useState('');
   const [overnightHintDate, setOvernightHintDate] = useState<string>();
@@ -116,18 +117,13 @@ export default function SessionEntry({
     if (!saving && !savingRef.current) setOvernightHintDate(overnight ? endDate : undefined);
   }
 
-  async function save(form: HTMLFormElement, another: boolean) {
+  async function save(another: boolean) {
     if (savingRef.current) return;
     updateOvernightHint();
     setError('');
-    const data = new FormData(form);
-    const text = (name: string) => {
-      const value = data.get(name);
-      return typeof value === 'string' ? value.trim() : '';
-    };
     function invalid(message: string, name: string) {
       setError(message);
-      (form.elements.namedItem(name) as HTMLElement | null)?.focus();
+      (formRef.current?.elements.namedItem(name) as HTMLElement | null)?.focus();
     }
     if (!endDate) {
       return invalid('Enter a valid session date and duty end within years 0001–9999.', 'date');
@@ -154,7 +150,7 @@ export default function SessionEntry({
     }
     const hasFlight = activities.some((activity) => activity.type !== 'preparation');
     if (
-      !text('student') &&
+      !student.trim() &&
       (!hasFlight || activities.some((activity) => activityKinds[activity.type].studentRequired))
     ) {
       return invalid('Enter a student for training or preparation-only sessions.', 'student');
@@ -167,9 +163,9 @@ export default function SessionEntry({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id,
-          dutyStart: `${text('date')}T${start}`,
+          dutyStart: `${date}T${start}`,
           dutyEnd: `${endDate}T${end}`,
-          student: text('student'),
+          student: student.trim(),
           activities,
         }),
       });
@@ -177,7 +173,7 @@ export default function SessionEntry({
       if (!response.ok) throw new Error(body.error || 'Could not save session.');
       onSaved(body);
       if (another) {
-        form.reset();
+        setStudent('');
         setStartInput('');
         setEndInput('');
         setOvernightHintDate(undefined);
@@ -226,6 +222,8 @@ export default function SessionEntry({
             list={suggestionsId}
             placeholder="Student"
             autoComplete="off"
+            value={student}
+            onChange={(event) => setStudent(event.target.value)}
             disabled={saving}
           />
           <datalist id={suggestionsId}>
@@ -320,7 +318,7 @@ export default function SessionEntry({
             onSubmit={(event) => {
               event.preventDefault();
               const another = (event.nativeEvent as SubmitEvent).submitter === repeatRef.current;
-              void save(event.currentTarget, another);
+              void save(another);
             }}
           >
             <fieldset disabled={saving}>

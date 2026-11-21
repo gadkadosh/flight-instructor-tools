@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import InvoiceForm from './InvoiceForm';
 import DutyReportForm from './DutyReportForm';
+import { useDocumentDownload } from './documents';
 
 type DocumentKind = 'invoice' | 'dutyReport';
 
@@ -18,7 +19,7 @@ export default function SessionToolbar({
   onClearSelection: () => void;
 }) {
   const [expanded, setExpanded] = useState<DocumentKind | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const pdf = useDocumentDownload();
   const formId = useId();
   const selectionStatus = useRef<HTMLParagraphElement>(null);
   const invoiceTrigger = useRef<HTMLButtonElement>(null);
@@ -34,7 +35,10 @@ export default function SessionToolbar({
 
   function toggle(kind: DocumentKind) {
     if (expanded === kind) close();
-    else setExpanded(kind);
+    else {
+      setExpanded(kind);
+      pdf.clearError();
+    }
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -43,7 +47,7 @@ export default function SessionToolbar({
       event.defaultPrevented ||
       event.nativeEvent.isComposing ||
       event.repeat ||
-      generating
+      pdf.generating
     )
       return;
 
@@ -81,7 +85,7 @@ export default function SessionToolbar({
           ref={invoiceTrigger}
           type="button"
           className="action-button secondary"
-          disabled={generating || (!invoiceOpen && !hasSelection)}
+          disabled={pdf.generating || (!invoiceOpen && !hasSelection)}
           aria-expanded={invoiceOpen}
           aria-controls={`${formId}-invoice`}
           onClick={() => toggle('invoice')}
@@ -92,7 +96,7 @@ export default function SessionToolbar({
           ref={reportTrigger}
           type="button"
           className="action-button secondary"
-          disabled={generating}
+          disabled={pdf.generating}
           aria-expanded={expanded === 'dutyReport'}
           aria-controls={`${formId}-duty-report`}
           onClick={() => toggle('dutyReport')}
@@ -106,7 +110,7 @@ export default function SessionToolbar({
         selectedSessionIds={selectedSessionIds}
         timeZone={timeZone}
         onClose={close}
-        onGeneratingChange={setGenerating}
+        pdf={pdf}
       />
       <DutyReportForm
         id={`${formId}-duty-report`}
@@ -114,7 +118,7 @@ export default function SessionToolbar({
         countSessionsInMonth={countSessionsInMonth}
         timeZone={timeZone}
         onClose={close}
-        onGeneratingChange={setGenerating}
+        pdf={pdf}
       />
     </div>
   );

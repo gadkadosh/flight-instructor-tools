@@ -1,36 +1,40 @@
-export function today(timeZone: string) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
-  const value = (type: string) => parts.find((part) => part.type === type)!.value;
-  return `${value('year')}-${value('month')}-${value('day')}`;
-}
+import { useState } from 'react';
 
-export async function downloadPDF(
-  endpoint: string,
-  request: unknown,
-  filename: string,
-  name: string,
-) {
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
-  if (!response.ok) {
-    const body = await response.json();
-    throw new Error(body.error || `Could not generate ${name}.`);
+export type DocumentDownload = ReturnType<typeof useDocumentDownload>;
+
+export function useDocumentDownload() {
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState('');
+
+  async function download(endpoint: string, request: unknown, filename: string, name: string) {
+    if (generating) return;
+    setGenerating(true);
+    setError('');
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || `Could not generate ${name}.`);
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      // Give the browser time to start reading the blob before releasing it.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : `Could not generate ${name}.`);
+    } finally {
+      setGenerating(false);
+    }
   }
-  const url = URL.createObjectURL(await response.blob());
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  // Give the browser time to start reading the blob before releasing it.
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  return { generating, error, download, clearError: () => setError('') };
 }
