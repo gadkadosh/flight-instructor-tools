@@ -100,7 +100,7 @@ async function fillBasics() {
 function flightColumns(table: HTMLElement) {
   return within(table)
     .getAllByRole('columnheader')
-    .slice(0, 2)
+    .slice(0, 10)
     .map((header) => {
       const { x, width } = header.getBoundingClientRect();
       return { x, width, align: getComputedStyle(header).textAlign };
@@ -165,6 +165,8 @@ test('enters a session by keyboard, calculates block times, and saves individual
   await userEvent.fill(screen.getByLabelText('Flight 3 block on'), '1220');
   await userEvent.fill(screen.getByLabelText('Flight 3 takeoff time'), '1203');
   await userEvent.fill(screen.getByLabelText('Flight 3 landing time'), '1218');
+  await userEvent.fill(screen.getByLabelText('Flight 3 registration'), 'd-eklm');
+  await userEvent.fill(screen.getByLabelText('Flight 3 departure'), 'edfz');
   await userEvent.fill(screen.getByLabelText('Flight 3 arrival'), 'edfe');
   expect(getComputedStyle(screen.getByLabelText('Flight 3 arrival')).textTransform).toBe(
     'uppercase',
@@ -246,10 +248,22 @@ test('rejects block times out of order without saving', async () => {
   expect(entries).toHaveLength(0);
   await userEvent.fill(screen.getByLabelText('Flight 1 landing time'), '1100');
   await userEvent.fill(screen.getByLabelText('Flight 1 takeoff time'), '1000');
-  await userEvent.clear(screen.getByLabelText('Flight 1 arrival'));
-  await save();
-  expect(screen.getByRole('alert').textContent).toContain('ICAO');
-  expect(document.activeElement).toBe(screen.getByLabelText('Flight 1 arrival'));
+  for (const [label, message] of [
+    ['block on', 'Enter block on'],
+    ['landings', 'Enter landings'],
+    ['departure', 'ICAO'],
+    ['arrival', 'ICAO'],
+    ['registration', 'Enter the aircraft registration'],
+  ] as const) {
+    const input = screen.getByLabelText<HTMLInputElement>(`Flight 1 ${label}`);
+    const valid = input.value;
+    await userEvent.clear(input);
+    await save();
+    expect(screen.getByRole('alert').textContent).toContain(message);
+    expect(document.activeElement).toBe(input);
+    await userEvent.fill(input, valid);
+  }
+  expect(entries).toHaveLength(0);
   await userEvent.fill(screen.getByLabelText('Flight 1 arrival'), 'EDFZ');
   await save();
   await screen.findByRole('rowheader', { name: 'New Student' });
