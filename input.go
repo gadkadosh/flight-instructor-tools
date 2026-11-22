@@ -143,22 +143,6 @@ func (flight Flight) validate(dutyStart, dutyEnd time.Time) error {
 	return nil
 }
 
-// equal compares instants, not the timezones they were read in.
-func (activity Activity) equal(other Activity) bool {
-	if activity.ID != other.ID || activity.Type != other.Type || activity.Minutes != other.Minutes ||
-		(activity.Flight == nil) != (other.Flight == nil) {
-		return false
-	}
-	if activity.Flight == nil {
-		return true
-	}
-	a, b := *activity.Flight, *other.Flight
-	return a.BlockOff.Equal(b.BlockOff) && a.BlockOn.Equal(b.BlockOn) &&
-		a.FirstTakeoff.Equal(b.FirstTakeoff) && a.LastLanding.Equal(b.LastLanding) &&
-		a.Departure == b.Departure && a.Arrival == b.Arrival &&
-		a.Registration == b.Registration && a.Landings == b.Landings
-}
-
 type Config struct {
 	Currency               string      `json:"currency"`
 	Issuer                 Party       `json:"issuer"`

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -199,7 +200,7 @@ func TestSessionFileRoundTripsActivitiesWithCalculatedBlockMinutes(t *testing.T)
 		t.Fatal(err)
 	}
 	got := read.Sessions[0].Activities
-	if !slices.EqualFunc(got, want, Activity.equal) {
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("activities = %+v, want %+v", got, want)
 	}
 	var minutes []int

@@ -36,7 +36,7 @@ func sessionWriter(t *testing.T) (http.Handler, string) {
 func entryFlight(id string, activityType ActivityType, blockOff, blockOn string) activityEntry {
 	return activityEntry{ID: id, Type: activityType, flightEntry: flightEntry{
 		BlockOff: blockOff, BlockOn: blockOn,
-		Departure: "EDFE", Arrival: "EDFE", Registration: " D-EFTI ", Landings: 2,
+		Departure: "EDFE", Arrival: "EDFZ", Registration: " D-EFTI ", Landings: 2,
 	}}
 }
 
@@ -106,7 +106,7 @@ func TestCreateSessionPersistsAndRetries(t *testing.T) {
 			minutes = append(minutes, activity.durationMinutes())
 		}
 		airborne := saved.Activities[1]
-		if fmt.Sprint(minutes) != "[30 45 15 20]" || airborne.Registration != "D-EFTI" || airborne.Landings != 2 ||
+		if fmt.Sprint(minutes) != "[30 45 15 20]" || airborne.Departure != "EDFE" || airborne.Arrival != "EDFZ" || airborne.Registration != "D-EFTI" || airborne.Landings != 2 ||
 			airborne.FirstTakeoff.UTC().Format(time.RFC3339) != "2026-05-03T21:15:00Z" ||
 			airborne.LastLanding.UTC().Format(time.RFC3339) != "2026-05-03T21:50:00Z" ||
 			saved.Activities[3].BlockOff.UTC().Format(time.RFC3339) != "2026-05-03T22:20:00Z" {

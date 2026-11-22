@@ -1,9 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 )
@@ -100,9 +100,13 @@ func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request
 	for _, existing := range view.Sessions {
 		if existing.ID == session.ID {
 			// A retry after a lost response must not append another session.
-			if !existing.DutyStart.Equal(session.DutyStart) || !existing.DutyEnd.Equal(session.DutyEnd) ||
-				existing.Student != session.Student ||
-				!slices.EqualFunc(existing.Activities, session.Activities, Activity.equal) {
+			saved, savedErr := sessionETag(existing)
+			sent, sentErr := sessionETag(session)
+			if err := errors.Join(savedErr, sentErr); err != nil {
+				writeJSONError(w, http.StatusInternalServerError, err)
+				return
+			}
+			if saved != sent {
 				writeJSONError(w, http.StatusConflict, fmt.Errorf("session ID already exists with different values; reload before trying again"))
 				return
 			}
