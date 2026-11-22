@@ -18,13 +18,24 @@ function sessionAPI(sessions: Session[] = []) {
     if (options?.method === 'POST') {
       const entry = JSON.parse(options.body as string) as Omit<Session, 'etag'>;
       entries.push(entry);
+      // Like the server, read wall-clock entry times as instants (in UTC here).
+      const instant = (value: string) => `${value}:00Z`;
       sessions = [
         ...sessions,
         {
           ...entry,
           etag: `"${entry.id}"`,
-          dutyStart: `${entry.dutyStart}:00Z`,
-          dutyEnd: `${entry.dutyEnd}:00Z`,
+          dutyStart: instant(entry.dutyStart),
+          dutyEnd: instant(entry.dutyEnd),
+          activities: entry.activities.map((activity) =>
+            activity.type === 'preparation'
+              ? activity
+              : {
+                  ...activity,
+                  blockOff: instant(activity.blockOff),
+                  blockOn: instant(activity.blockOn),
+                },
+          ),
         },
       ];
     }
@@ -39,6 +50,46 @@ async function openEntry() {
   await userEvent.click(await screen.findByRole('button', { name: 'Add session' }));
 }
 
+const previousSession: Session = {
+  id: 'previous',
+  etag: '"previous"',
+  student: 'Earlier Student',
+  dutyStart: '2026-05-02T09:00:00Z',
+  dutyEnd: '2026-05-02T11:00:00Z',
+  activities: [
+    {
+      id: 'first-flight',
+      type: 'dual',
+      blockOff: '2026-05-02T09:00:00Z',
+      blockOn: '2026-05-02T09:20:00Z',
+      departure: 'EDFH',
+      arrival: 'EDFH',
+      registration: 'D-EAAA',
+      landings: 1,
+    },
+    {
+      id: 'previous-flight',
+      type: 'dual',
+      blockOff: '2026-05-02T09:30:00Z',
+      blockOn: '2026-05-02T10:30:00Z',
+      departure: 'EDFE',
+      arrival: 'EDFZ',
+      registration: 'D-EKLM',
+      landings: 1,
+    },
+  ],
+};
+
+const value = (label: string) => screen.getByLabelText<HTMLInputElement>(label).value;
+
+async function fillFlight(number: number, blockOff: string, blockOn: string) {
+  await userEvent.fill(screen.getByLabelText(`Flight ${number} block off`), blockOff);
+  await userEvent.fill(screen.getByLabelText(`Flight ${number} block on`), blockOn);
+  await userEvent.fill(screen.getByLabelText(`Flight ${number} departure`), 'EDFE');
+  await userEvent.fill(screen.getByLabelText(`Flight ${number} arrival`), 'EDFE');
+  await userEvent.fill(screen.getByLabelText(`Flight ${number} registration`), 'D-EFTI');
+}
+
 async function fillBasics() {
   await userEvent.fill(screen.getByLabelText('Session date'), '2026-05-03');
   await userEvent.fill(screen.getByLabelText('Student'), 'New Student');
@@ -49,56 +100,118 @@ async function fillBasics() {
 function flightColumns(table: HTMLElement) {
   return within(table)
     .getAllByRole('columnheader')
-    .slice(0, 2)
+    .slice(0, 10)
     .map((header) => {
       const { x, width } = header.getBoundingClientRect();
       return { x, width, align: getComputedStyle(header).textAlign };
     });
 }
 
-test('enters a session by keyboard, calculates totals, and saves individual flights', async () => {
-  const { entries } = sessionAPI();
+test('enters a session by keyboard, calculates block times, and saves individual flights', async () => {
+  const older: Session = {
+    ...previousSession,
+    id: 'older',
+    dutyStart: '2026-05-01T09:00:00Z',
+    dutyEnd: '2026-05-01T11:00:00Z',
+    activities: [previousSession.activities[0]!],
+  };
+  const { entries } = sessionAPI([older, previousSession]);
   await openEntry();
   const editor = screen.getByRole('table', { name: 'New session flights' });
   expect(
     within(editor)
       .getAllByRole('columnheader')
       .map((header) => header.textContent),
-  ).toEqual(['Type', 'Duration', 'Actions']);
+  ).toEqual([
+    'Type',
+    'Aircraft',
+    'From',
+    'To',
+    'Block off',
+    'Takeoff',
+    'Landing',
+    'Block on',
+    'Landings',
+    'Block',
+    'Actions',
+  ]);
   const editorColumns = flightColumns(editor);
   expect(document.activeElement).toBe(screen.getByLabelText('Session date'));
   await userEvent.fill(screen.getByLabelText('Session date'), '2026-05-03');
   await userEvent.fill(screen.getByLabelText('Student'), 'New Student');
   await userEvent.keyboard('{Tab}0900{Tab}1230{Tab}30{Tab}');
   expect(document.activeElement).toBe(screen.getByLabelText('Flight 1 type'));
-  expect((screen.getByLabelText('Duty start') as HTMLInputElement).value).toBe('09:00');
-  expect((screen.getByLabelText('Duty end') as HTMLInputElement).value).toBe('12:30');
-  expect((screen.getByLabelText('Preparation duration') as HTMLInputElement).value).toBe('0:30');
-  await userEvent.keyboard('{Tab}45{Tab}{Tab}{Enter}');
-  expect(document.activeElement).toBe(screen.getByLabelText('Flight 2 duration'));
-  await userEvent.keyboard('115');
+  expect(value('Duty start')).toBe('09:00');
+  expect(value('Duty end')).toBe('12:30');
+  expect(value('Preparation duration')).toBe('0:30');
+  // The last logged flight ended at EDFZ in D-EKLM.
+  expect(
+    ['departure', 'arrival', 'registration', 'landings'].map((field) => value(`Flight 1 ${field}`)),
+  ).toEqual(['EDFZ', 'EDFZ', 'D-EKLM', '1']);
+  // Tab past the prefilled aircraft and airfields, then the optional takeoff and landing.
+  await userEvent.keyboard('{Tab}{Tab}{Tab}{Tab}945{Tab}{Tab}{Tab}1030{Tab}5{Tab}');
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Remove flight 1' }));
+  expect(value('Flight 1 block off')).toBe('09:45');
+  expect(screen.getByLabelText('Flight 1 block time').textContent).toBe('0:45');
+  await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
+  expect(document.activeElement).toBe(screen.getByLabelText('Flight 2 block off'));
+  await userEvent.keyboard('1040{Tab}{Tab}{Tab}1155');
   expect(screen.getByLabelText('Block time total').textContent).toBe('2:00');
   expect(screen.getByLabelText('Block time total').tagName).toBe('SPAN');
   await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
   await userEvent.selectOptions(screen.getByLabelText('Flight 3 type'), 'soloSupervision');
-  expect((screen.getByLabelText('Flight 2 duration') as HTMLInputElement).value).toBe('1:15');
-  await userEvent.fill(screen.getByLabelText('Flight 3 duration'), '20');
+  expect(value('Flight 2 block on')).toBe('11:55');
+  await userEvent.fill(screen.getByLabelText('Flight 3 block off'), '1200');
+  await userEvent.fill(screen.getByLabelText('Flight 3 block on'), '1220');
+  await userEvent.fill(screen.getByLabelText('Flight 3 takeoff time'), '1203');
+  await userEvent.fill(screen.getByLabelText('Flight 3 landing time'), '1218');
+  await userEvent.fill(screen.getByLabelText('Flight 3 registration'), 'd-eklm');
+  await userEvent.fill(screen.getByLabelText('Flight 3 departure'), 'edfz');
+  await userEvent.fill(screen.getByLabelText('Flight 3 arrival'), 'edfe');
+  expect(getComputedStyle(screen.getByLabelText('Flight 3 arrival')).textTransform).toBe(
+    'uppercase',
+  );
   expect(screen.getByLabelText('Solo supervision total').textContent).toBe('0:20');
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
 
   await screen.findByRole('rowheader', { name: 'New Student' });
   expect(entries).toHaveLength(1);
+  const carried = { departure: 'EDFZ', registration: 'D-EKLM' };
   expect(entries[0]).toMatchObject({
     dutyStart: '2026-05-03T09:00',
     dutyEnd: '2026-05-03T12:30',
     student: 'New Student',
     activities: [
       { type: 'preparation', minutes: 30 },
-      { type: 'dual', minutes: 45 },
-      { type: 'dual', minutes: 75 },
-      { type: 'soloSupervision', minutes: 20 },
+      {
+        type: 'dual',
+        blockOff: '2026-05-03T09:45',
+        blockOn: '2026-05-03T10:30',
+        arrival: 'EDFZ',
+        landings: 5,
+        ...carried,
+      },
+      {
+        type: 'dual',
+        blockOff: '2026-05-03T10:40',
+        blockOn: '2026-05-03T11:55',
+        arrival: 'EDFZ',
+        landings: 1,
+        ...carried,
+      },
+      {
+        type: 'soloSupervision',
+        blockOff: '2026-05-03T12:00',
+        blockOn: '2026-05-03T12:20',
+        firstTakeoff: '2026-05-03T12:03',
+        lastLanding: '2026-05-03T12:18',
+        arrival: 'EDFE',
+        ...carried,
+      },
     ],
   });
+  expect(entries[0]!.activities[1]).not.toHaveProperty('firstTakeoff');
+  expect(entries[0]!.activities[1]).not.toHaveProperty('minutes');
   expect(new Set(entries[0]!.activities.map((activity) => activity.id)).size).toBe(4);
   expect(screen.queryByRole('form', { name: 'Add session' })).toBeNull();
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add session' }));
@@ -109,13 +222,113 @@ test('enters a session by keyboard, calculates totals, and saves individual flig
   expect(within(flights).getByText('1:15')).toBeTruthy();
 });
 
-test('the flight duration looks disabled while the session is saving', async () => {
+test('rejects block times out of order without saving', async () => {
+  const { entries } = sessionAPI();
+  await openEntry();
+  await fillBasics();
+  await fillFlight(1, '1000', '1100');
+  const save = () => userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  for (const [label, time, message, focus] of [
+    ['block on', '1000', 'Block on must be after block off.', 'block on'],
+    ['block on', '0930', 'Block on must be after block off.', 'block on'],
+    ['takeoff time', '1005', 'Enter both takeoff and landing times, or neither.', 'takeoff time'],
+    ['landing time', '1005', 'Takeoff and landing must be within the block', 'takeoff time'],
+    ['takeoff time', '0955', 'Takeoff and landing must be within the block', 'takeoff time'],
+    ['landing time', '1101', 'Takeoff and landing must be within the block', 'takeoff time'],
+  ] as const) {
+    if (label === 'landing time')
+      await userEvent.fill(screen.getByLabelText('Flight 1 takeoff time'), '1005');
+    await userEvent.fill(screen.getByLabelText(`Flight 1 ${label}`), time);
+    await save();
+    expect(screen.getByRole('alert').textContent).toContain(message);
+    expect(document.activeElement).toBe(screen.getByLabelText(`Flight 1 ${focus}`));
+    if (label === 'block on')
+      await userEvent.fill(screen.getByLabelText('Flight 1 block on'), '1100');
+  }
+  expect(entries).toHaveLength(0);
+  await userEvent.fill(screen.getByLabelText('Flight 1 landing time'), '1100');
+  await userEvent.fill(screen.getByLabelText('Flight 1 takeoff time'), '1000');
+  for (const [label, message] of [
+    ['block on', 'Enter block on'],
+    ['landings', 'Enter landings'],
+    ['departure', 'ICAO'],
+    ['arrival', 'ICAO'],
+    ['registration', 'Enter the aircraft registration'],
+  ] as const) {
+    const input = screen.getByLabelText<HTMLInputElement>(`Flight 1 ${label}`);
+    const valid = input.value;
+    await userEvent.clear(input);
+    await save();
+    expect(screen.getByRole('alert').textContent).toContain(message);
+    expect(document.activeElement).toBe(input);
+    await userEvent.fill(input, valid);
+  }
+  expect(entries).toHaveLength(0);
+  await userEvent.fill(screen.getByLabelText('Flight 1 arrival'), 'EDFZ');
+  await save();
+  await screen.findByRole('rowheader', { name: 'New Student' });
+  expect(entries[0]!.activities).toEqual([
+    expect.objectContaining({
+      blockOff: '2026-05-03T10:00',
+      firstTakeoff: '2026-05-03T10:00',
+      lastLanding: '2026-05-03T11:00',
+      blockOn: '2026-05-03T11:00',
+      arrival: 'EDFZ',
+    }),
+  ]);
+});
+
+test.for([
+  ['0900', '1200', '0859', '1000', 'block off'],
+  ['0900', '1200', '1100', '1201', 'block on'],
+  ['0900', '1200', '1400', '1500', 'block off'],
+  ['2200', '0200', '2100', '2150', 'block off'],
+  ['2200', '0200', '2150', '2230', 'block off'],
+  ['2200', '0200', '0130', '0201', 'block on'],
+  ['2200', '0200', '0300', '0400', 'block off'],
+] as const)(
+  'rejects a flight outside duty: %s–%s duty, %s–%s block',
+  async ([dutyStart, dutyEnd, blockOff, blockOn, invalid]) => {
+    const { entries } = sessionAPI();
+    await openEntry();
+    await fillBasics();
+    await userEvent.fill(screen.getByLabelText('Duty start'), dutyStart);
+    await userEvent.fill(screen.getByLabelText('Duty end'), dutyEnd);
+    await fillFlight(1, blockOff, blockOn);
+    await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      `${invalid === 'block off' ? 'Block off' : 'Block on'} must be within duty time.`,
+    );
+    expect(document.activeElement).toBe(screen.getByLabelText(`Flight 1 ${invalid}`));
+    expect(entries).toHaveLength(0);
+  },
+);
+
+test.for([
+  ['0900', '1200', '2026-05-03T09:00', '2026-05-03T12:00'],
+  ['2200', '0200', '2026-05-03T22:00', '2026-05-04T02:00'],
+] as const)(
+  'accepts a flight filling %s–%s duty',
+  async ([dutyStart, dutyEnd, blockOff, blockOn]) => {
+    const { entries } = sessionAPI();
+    await openEntry();
+    await fillBasics();
+    await userEvent.fill(screen.getByLabelText('Duty start'), dutyStart);
+    await userEvent.fill(screen.getByLabelText('Duty end'), dutyEnd);
+    await fillFlight(1, dutyStart, dutyEnd);
+    await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    await screen.findByRole('rowheader', { name: 'New Student' });
+    expect(entries[0]!.activities).toEqual([expect.objectContaining({ blockOff, blockOn })]);
+  },
+);
+
+test('the flight inputs look disabled while the session is saving', async () => {
   const { fetch } = sessionAPI();
   await openEntry();
   await fillBasics();
-  const duration = screen.getByLabelText('Flight 1 duration');
-  await userEvent.fill(duration, '45');
-  const enabledBackground = getComputedStyle(duration).backgroundColor;
+  await fillFlight(1, '0930', '1015');
+  const blockOff = screen.getByLabelText('Flight 1 block off');
+  const enabledBackground = getComputedStyle(blockOff).backgroundColor;
 
   let finish!: (response: Response) => void;
   fetch.mockReturnValueOnce(
@@ -132,57 +345,128 @@ test('the flight duration looks disabled while the session is saving', async () 
   };
   const date = screen.getByLabelText('Session date');
   const type = screen.getByLabelText('Flight 1 type');
-  for (const field of [date, type, duration]) {
+  for (const field of [date, type, blockOff]) {
     expect(field.matches(':disabled')).toBe(true);
   }
-  const disabledColors = fieldColors(duration);
+  const disabledColors = fieldColors(blockOff);
   expect(disabledColors.backgroundColor).not.toBe(enabledBackground);
   expect(disabledColors).toEqual(fieldColors(date));
   expect(disabledColors).toEqual(fieldColors(type));
 
   finish(Response.json({ error: 'Disk is full' }, { status: 500 }));
   await screen.findByRole('alert');
-  expect(duration.matches(':enabled')).toBe(true);
+  expect(blockOff.matches(':enabled')).toBe(true);
 });
 
-test('save-and-add shortcut retains the date, resets inputs, and focuses the student', async () => {
+test('save-and-add shortcut retains the date and aircraft, resets inputs, and focuses the student', async () => {
   const { entries } = sessionAPI();
   await openEntry();
   await fillBasics();
   await userEvent.fill(screen.getByLabelText('Preparation duration'), '0:30');
-  await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '105');
+  await fillFlight(1, '2330', '0035');
+  await userEvent.fill(screen.getByLabelText('Flight 1 takeoff time'), '0005');
+  await userEvent.fill(screen.getByLabelText('Flight 1 landing time'), '0030');
+  await userEvent.fill(screen.getByLabelText('Flight 1 arrival'), 'EDFZ');
+  await userEvent.fill(screen.getByLabelText('Duty start'), '2300');
   await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
   await userEvent.keyboard('{Control>}{Enter}{/Control}');
   await screen.findByRole('rowheader', { name: 'New Student' });
   expect(entries[0]).toMatchObject({ dutyEnd: '2026-05-04T01:00' });
+  // Flight times before duty start belong to the overnight duty's second day.
   expect(entries[0]!.activities).toContainEqual(
-    expect.objectContaining({ type: 'dual', minutes: 65 }),
+    expect.objectContaining({
+      type: 'dual',
+      blockOff: '2026-05-03T23:30',
+      blockOn: '2026-05-04T00:35',
+      firstTakeoff: '2026-05-04T00:05',
+      lastLanding: '2026-05-04T00:30',
+    }),
   );
   await expect.poll(() => document.activeElement).toBe(screen.getByLabelText('Student'));
+  expect(screen.getByLabelText('Block time total').textContent).toBe('0:00');
   expect(screen.queryByText(/Duty ends the next day/)).toBeNull();
-  expect((screen.getByLabelText('Session date') as HTMLInputElement).value).toBe('2026-05-03');
+  expect(value('Session date')).toBe('2026-05-03');
   for (const label of [
     'Student',
     'Duty start',
     'Duty end',
     'Preparation duration',
-    'Flight 1 duration',
+    'Flight 1 block off',
+    'Flight 1 block on',
   ]) {
-    expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe('');
+    expect(value(label)).toBe('');
   }
-  expect(screen.getByLabelText('Block time total').textContent).toBe('0:00');
+  expect(
+    ['departure', 'arrival', 'registration', 'landings'].map((field) => value(`Flight 1 ${field}`)),
+  ).toEqual(['EDFZ', 'EDFZ', 'D-EFTI', '1']);
   const suggestions = document.getElementById(
     screen.getByLabelText('Student').getAttribute('list')!,
   );
   expect(suggestions?.querySelector('option')?.value).toBe('New Student');
 
-  await userEvent.keyboard('Second Student{Tab}13{Tab}14{Tab}45{Enter}');
+  // Tab through the prefilled row as far as landing, then submit.
+  await userEvent.keyboard(`Second Student{Tab}13{Tab}14{Tab}45${'{Tab}'.repeat(7)}{Enter}`);
   await screen.findByRole('rowheader', { name: 'Second Student' });
   expect(entries).toHaveLength(2);
   expect(entries[1]!.id).not.toBe(entries[0]!.id);
+  // The carried-over details alone do not make an unused row a flight.
   expect(entries[1]!.activities).toEqual([
     expect.objectContaining({ type: 'preparation', minutes: 45 }),
   ]);
+});
+
+test.for([
+  ['registration', 'D-EFTI', 3, 'kl', 'D-EKLI'],
+  ['arrival', 'EDFE', 1, 'tm', 'ETME'],
+] as const)(
+  'editing inside the %s keeps the cursor and undo',
+  async ([name, initial, from, typed, edited]) => {
+    sessionAPI();
+    await openEntry();
+    const input = screen.getByLabelText<HTMLInputElement>(`Flight 1 ${name}`);
+    await userEvent.fill(input, initial);
+    input.setSelectionRange(from, from + typed.length);
+    await userEvent.keyboard(typed);
+    expect(input.value.toUpperCase()).toBe(edited);
+    await userEvent.keyboard('{ControlOrMeta>}z{/ControlOrMeta}');
+    if (input.value !== initial) await userEvent.keyboard('{ControlOrMeta>}z{/ControlOrMeta}');
+    expect(input.value).toBe(initial);
+  },
+);
+
+test.for(['arrival', 'type'])('reports a flight with an edited %s but no times', async (field) => {
+  const { entries } = sessionAPI([previousSession]);
+  await openEntry();
+  await fillBasics();
+  await userEvent.fill(screen.getByLabelText('Preparation duration'), '30');
+  const input = screen.getByLabelText(`Flight 1 ${field}`);
+  if (field === 'type') await userEvent.selectOptions(input, 'rundflug');
+  else await userEvent.fill(input, 'EDDF');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  expect((await screen.findByRole('alert')).textContent).toContain('Enter block off');
+  expect(document.activeElement).toBe(screen.getByLabelText('Flight 1 block off'));
+  expect(entries).toHaveLength(0);
+});
+
+test('save-and-add carries over from the last saved flight, not the last row', async () => {
+  const { entries } = sessionAPI([previousSession]);
+  await openEntry();
+  await fillBasics();
+  await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
+  await fillFlight(1, '1000', '1100');
+  await userEvent.click(screen.getByRole('button', { name: 'Save and add another' }));
+  await expect.poll(() => value('Student')).toBe('');
+  const carried = () =>
+    ['departure', 'arrival', 'registration'].map((field) => value(`Flight 1 ${field}`));
+  expect(carried()).toEqual(['EDFE', 'EDFE', 'D-EFTI']);
+
+  await fillBasics();
+  await userEvent.fill(screen.getByLabelText('Preparation duration'), '30');
+  await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Save and add another' }));
+  await expect.poll(() => entries.length).toBe(2);
+  await expect.poll(() => value('Student')).toBe('');
+  expect(carried()).toEqual(['EDFE', 'EDFE', 'D-EFTI']);
 });
 
 test('saves unnamed special flights with preparation and includes them in block totals', async () => {
@@ -192,10 +476,11 @@ test('saves unnamed special flights with preparation and includes them in block 
   await userEvent.fill(screen.getByLabelText('Student'), '');
   await userEvent.fill(screen.getByLabelText('Preparation duration'), '15');
   await userEvent.selectOptions(screen.getByLabelText('Flight 1 type'), 'rundflug');
-  await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '45');
+  await fillFlight(1, '0915', '1000');
   await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
   await userEvent.selectOptions(screen.getByLabelText('Flight 2 type'), 'schnupperflug');
-  await userEvent.fill(screen.getByLabelText('Flight 2 duration'), '30');
+  await userEvent.fill(screen.getByLabelText('Flight 2 block off'), '1010');
+  await userEvent.fill(screen.getByLabelText('Flight 2 block on'), '1040');
   expect(screen.getByLabelText('Block time total').textContent).toBe('1:15');
   expect(screen.getByLabelText('Solo supervision total').textContent).toBe('0:00');
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
@@ -203,8 +488,8 @@ test('saves unnamed special flights with preparation and includes them in block 
   expect(entries).toHaveLength(1);
   expect(entries[0]!.activities).toEqual([
     expect.objectContaining({ type: 'preparation', minutes: 15 }),
-    expect.objectContaining({ type: 'rundflug', minutes: 45 }),
-    expect.objectContaining({ type: 'schnupperflug', minutes: 30 }),
+    expect.objectContaining({ type: 'rundflug', blockOff: '2026-05-03T09:15' }),
+    expect.objectContaining({ type: 'schnupperflug', registration: 'D-EFTI' }),
   ]);
   expect(entries[0]).not.toHaveProperty('description');
 });
@@ -220,10 +505,11 @@ test.each(['dual', 'soloSupervision', 'preparation'])(
       await userEvent.fill(screen.getByLabelText('Preparation duration'), '15');
     } else {
       await userEvent.selectOptions(screen.getByLabelText('Flight 1 type'), 'rundflug');
-      await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '30');
+      await fillFlight(1, '0930', '1000');
       await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
       await userEvent.selectOptions(screen.getByLabelText('Flight 2 type'), type);
-      await userEvent.fill(screen.getByLabelText('Flight 2 duration'), '15');
+      await userEvent.fill(screen.getByLabelText('Flight 2 block off'), '1010');
+      await userEvent.fill(screen.getByLabelText('Flight 2 block on'), '1025');
     }
     await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
     expect(screen.getByRole('alert').textContent).toContain('Enter a student');
@@ -235,12 +521,13 @@ test.each(['dual', 'soloSupervision', 'preparation'])(
 test('removing flights updates totals and keeps keyboard focus in the editor', async () => {
   sessionAPI();
   await openEntry();
-  await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '45');
+  await fillFlight(1, '0900', '0945');
   await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
-  await userEvent.fill(screen.getByLabelText('Flight 2 duration'), '15');
+  await userEvent.fill(screen.getByLabelText('Flight 2 block off'), '1000');
+  await userEvent.fill(screen.getByLabelText('Flight 2 block on'), '1015');
   await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
   expect(screen.getByLabelText('Block time total').textContent).toBe('0:15');
-  await expect.poll(() => document.activeElement).toBe(screen.getByLabelText('Flight 1 duration'));
+  await expect.poll(() => document.activeElement).toBe(screen.getByLabelText('Flight 1 block off'));
   await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add flight' }));
   expect(screen.getByLabelText('Block time total').textContent).toBe('0:00');
@@ -307,21 +594,22 @@ test('validates entries, infers overnight duty, and preserves data after errors'
   expect(within(entryRow).queryByText('+1 day')).toBeNull();
   expect(saveOffset()).toBe(savePosition);
   await userEvent.fill(end, '0100');
-  const duration = screen.getByLabelText<HTMLInputElement>('Flight 1 duration');
-  const { borderColor, backgroundColor } = getComputedStyle(duration);
-  await userEvent.fill(duration, '90');
+  await fillFlight(1, '2330', '0015');
+  const blockOff = screen.getByLabelText<HTMLInputElement>('Flight 1 block off');
+  const { borderColor, backgroundColor } = getComputedStyle(blockOff);
+  await userEvent.fill(blockOff, '2460');
   await userEvent.keyboard('{Tab}');
-  expect(duration.value).toBe('90');
-  expect(getComputedStyle(duration).borderColor).not.toBe(borderColor);
-  expect(getComputedStyle(duration).backgroundColor).not.toBe(backgroundColor);
+  expect(blockOff.value).toBe('2460');
+  expect(getComputedStyle(blockOff).borderColor).not.toBe(borderColor);
+  expect(getComputedStyle(blockOff).backgroundColor).not.toBe(backgroundColor);
   const requests = fetch.mock.calls.length;
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect(fetch).toHaveBeenCalledTimes(requests);
-  await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '45');
+  await userEvent.fill(blockOff, '2330');
   fetch.mockResolvedValueOnce(Response.json({ error: 'Disk is full' }, { status: 500 }));
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect((await screen.findByRole('alert')).textContent).toBe('Disk is full');
-  expect((screen.getByLabelText('Flight 1 duration') as HTMLInputElement).value).toBe('0:45');
+  expect(value('Flight 1 block off')).toBe('23:30');
   const failedRequest = fetch.mock.calls.at(-1)![1]!.body;
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   await screen.findByRole('rowheader', { name: 'New Student' });
@@ -356,11 +644,11 @@ test.each(['20260-05-03', '9999-12-31'])(
     await fillBasics();
     await userEvent.fill(screen.getByLabelText('Duty start'), '2300');
     await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
-    await userEvent.fill(screen.getByLabelText('Flight 1 duration'), '45');
+    await fillFlight(1, '2315', '0000');
     await userEvent.fill(screen.getByLabelText('Session date'), date);
 
-    expect((screen.getByLabelText('Student') as HTMLInputElement).value).toBe('New Student');
-    expect((screen.getByLabelText('Flight 1 duration') as HTMLInputElement).value).toBe('0:45');
+    expect(value('Student')).toBe('New Student');
+    expect(value('Flight 1 block on')).toBe('00:00');
     await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
     expect(screen.getByRole('alert').textContent).toContain('session date');
     expect(document.activeElement).toBe(screen.getByLabelText('Session date'));
@@ -374,7 +662,13 @@ test.each(['20260-05-03', '9999-12-31'])(
       dutyStart: '2026-05-03T23:00',
       dutyEnd: '2026-05-04T01:00',
       student: 'New Student',
-      activities: [expect.objectContaining({ type: 'dual', minutes: 45 })],
+      activities: [
+        expect.objectContaining({
+          type: 'dual',
+          blockOff: '2026-05-03T23:15',
+          blockOn: '2026-05-04T00:00',
+        }),
+      ],
     });
   },
 );

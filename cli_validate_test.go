@@ -12,7 +12,7 @@ import (
 
 func TestRunValidate(t *testing.T) {
 	emptyPath := filepath.Join(t.TempDir(), "empty-sessions.json")
-	if err := os.WriteFile(emptyPath, []byte(`{"schemaVersion":3,"sessions":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(emptyPath, []byte(`{"schemaVersion":4,"sessions":[]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	invalidPath := filepath.Join(t.TempDir(), "invalid-sessions.json")
@@ -57,7 +57,7 @@ func TestRunValidate(t *testing.T) {
 		{
 			name:      "invalid sessions",
 			arguments: []string{invalidPath},
-			wantError: "schemaVersion: got 2, want 3",
+			wantError: "schemaVersion: got 2, want 4",
 		},
 		{
 			name:      "malformed JSON",

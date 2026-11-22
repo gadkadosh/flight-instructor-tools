@@ -1,7 +1,5 @@
 # Repository guidelines
 
-Keep the README minimal: project overview, getting started, essential development commands, and links to details; update it only when those instructions would otherwise be inaccurate or materially incomplete.
-
 ## Pull requests
 
 1. For UI changes, put screenshots at the top, with before and after views when useful.

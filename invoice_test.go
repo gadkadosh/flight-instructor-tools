@@ -83,14 +83,14 @@ func TestBuildInvoiceDocumentOrdersSessionsByDutyStart(t *testing.T) {
 			ID:         "zulu",
 			DutyStart:  mustTimestamp(t, "2026-05-03T12:00:00Z"),
 			Student:    "Zulu",
-			Activities: []Activity{{ID: "zulu-flight", Type: ActivityDual, Minutes: 60}},
+			Activities: []Activity{testFlight("zulu-flight", ActivityDual, 60)},
 		},
 		{
 			ID:        "early",
 			DutyStart: mustTimestamp(t, "2026-05-03T13:00:00+02:00"),
 			Student:   "Early",
 			Activities: []Activity{
-				{ID: "early-flight", Type: ActivityDual, Minutes: 60},
+				testFlight("early-flight", ActivityDual, 60),
 				{ID: "early-prep", Type: ActivityPreparation, Minutes: 30},
 			},
 		},
@@ -98,7 +98,7 @@ func TestBuildInvoiceDocumentOrdersSessionsByDutyStart(t *testing.T) {
 			ID:         "alpha",
 			DutyStart:  mustTimestamp(t, "2026-05-03T14:00:00+02:00"),
 			Student:    "Alpha",
-			Activities: []Activity{{ID: "alpha-flight", Type: ActivityDual, Minutes: 60}},
+			Activities: []Activity{testFlight("alpha-flight", ActivityDual, 60)},
 		},
 	}
 	config := Config{Rates: Rates{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3000}, location: time.UTC}
@@ -141,7 +141,7 @@ func TestInvoiceDatesUseConfiguredTimeZone(t *testing.T) {
 				ID:         "boundary",
 				DutyStart:  mustTimestamp(t, test.start),
 				Student:    "Alex",
-				Activities: []Activity{{ID: "flight", Type: ActivityDual, Minutes: 60}},
+				Activities: []Activity{testFlight("flight", ActivityDual, 60)},
 			}
 			document, err := buildInvoiceDocument([]Session{session}, config, "2026-001", mustTimestamp(t, "2026-07-01T00:00:00Z"))
 			if err != nil {
@@ -194,7 +194,7 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndActivities(t *testing.T) {
 				DutyStart:  mustTimestamp(t, "2026-04-30T10:00:00Z"),
 				DutyEnd:    mustTimestamp(t, "2026-04-30T12:00:00Z"),
 				Student:    "April Student",
-				Activities: []Activity{{ID: "april-flight", Type: ActivityDual, Minutes: 60}},
+				Activities: []Activity{testFlight("april-flight", ActivityDual, 60)},
 			},
 			{
 				ID:        "may-1",
@@ -203,8 +203,8 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndActivities(t *testing.T) {
 				Student:   "Alex",
 				Activities: []Activity{
 					{ID: "prep-1", Type: ActivityPreparation, Minutes: 30},
-					{ID: "flight-1", Type: ActivityDual, Minutes: 20},
-					{ID: "flight-2", Type: ActivitySoloSupervision, Minutes: 30},
+					testFlight("flight-1", ActivityDual, 20),
+					testFlight("flight-2", ActivitySoloSupervision, 30),
 				},
 			},
 			{
@@ -213,8 +213,8 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndActivities(t *testing.T) {
 				DutyEnd:   mustTimestamp(t, "2026-05-07T11:30:00Z"),
 				Student:   "Robin",
 				Activities: []Activity{
-					{ID: "flight-3", Type: ActivityDual, Minutes: 40},
-					{ID: "flight-4", Type: ActivityDual, Minutes: 50},
+					testFlight("flight-3", ActivityDual, 40),
+					testFlight("flight-4", ActivityDual, 50),
 				},
 			},
 			{
@@ -229,7 +229,7 @@ func TestBuildInvoiceDocumentWithMultipleSessionsAndActivities(t *testing.T) {
 				DutyStart:  mustTimestamp(t, "2026-06-01T10:00:00Z"),
 				DutyEnd:    mustTimestamp(t, "2026-06-01T11:30:00Z"),
 				Student:    "June Student",
-				Activities: []Activity{{ID: "june-flight", Type: ActivityDual, Minutes: 60}},
+				Activities: []Activity{testFlight("june-flight", ActivityDual, 60)},
 			},
 		},
 	}
@@ -343,9 +343,9 @@ func TestCalculateSessionLinesGroupsActivitiesBeforeRounding(t *testing.T) {
 	session := Session{
 		Student: "Alex",
 		Activities: []Activity{
-			{ID: "flight-1", Type: ActivityDual, Minutes: 1},
+			testFlight("flight-1", ActivityDual, 1),
 			{ID: "prep-1", Type: ActivityPreparation, Minutes: 1},
-			{ID: "flight-2", Type: ActivitySoloSupervision, Minutes: 1},
+			testFlight("flight-2", ActivitySoloSupervision, 1),
 			{ID: "prep-2", Type: ActivityPreparation, Minutes: 1},
 		},
 	}
@@ -378,8 +378,8 @@ func TestCalculateSessionLinesBillsSpecialFlights(t *testing.T) {
 				Student: test.student,
 				Activities: []Activity{
 					{ID: "prep", Type: ActivityPreparation, Minutes: 2},
-					{ID: "flight-1", Type: test.activityType, Minutes: 1},
-					{ID: "flight-2", Type: test.activityType, Minutes: 60},
+					testFlight("flight-1", test.activityType, 1),
+					testFlight("flight-2", test.activityType, 60),
 				},
 			}
 			lines := calculateSessionLines(session, date, Rates{PreparationCentsPerHour: 2500, BlockCentsPerHour: 3100}, 0)
@@ -395,10 +395,10 @@ func TestCalculateSessionLinesBillsSpecialFlights(t *testing.T) {
 
 	t.Run("mixed flights retain a single rounded block charge", func(t *testing.T) {
 		session := Session{Student: "Alex", Activities: []Activity{
-			{ID: "dual", Type: ActivityDual, Minutes: 1},
-			{ID: "solo", Type: ActivitySoloSupervision, Minutes: 1},
-			{ID: "rundflug", Type: ActivityRundflug, Minutes: 1},
-			{ID: "schnupperflug", Type: ActivitySchnupperflug, Minutes: 1},
+			testFlight("dual", ActivityDual, 1),
+			testFlight("solo", ActivitySoloSupervision, 1),
+			testFlight("rundflug", ActivityRundflug, 1),
+			testFlight("schnupperflug", ActivitySchnupperflug, 1),
 		}}
 		want := []Line{{Date: date, Description: "Alex - Blockzeit / Rundflug / Schnupperflug", Minutes: 4, HourlyRateCents: 3100, TotalCents: 207}}
 		for range 2 {
@@ -427,9 +427,9 @@ func TestMixedActivitiesPreserveInvoice(t *testing.T) {
 	mixed := slices.Clone(input.Sessions)
 	mixed[0].Activities = []Activity{
 		{ID: "prep-1", Type: ActivityPreparation, Minutes: 10},
-		{ID: "flight-1", Type: ActivityDual, Minutes: 40},
+		testFlight("flight-1", ActivityDual, 40),
 		{ID: "prep-2", Type: ActivityPreparation, Minutes: 20},
-		{ID: "flight-2", Type: ActivitySoloSupervision, Minutes: 25},
+		testFlight("flight-2", ActivitySoloSupervision, 25),
 	}
 	got, err := buildInvoiceDocument(mixed, config, "2026-05", issueDate)
 	if err != nil {

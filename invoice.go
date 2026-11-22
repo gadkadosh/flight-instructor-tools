@@ -98,11 +98,12 @@ func calculateSessionLines(session Session, date time.Time, rates Rates, vatRate
 	preparationMinutes, blockMinutes := 0, 0
 	var blockLabels []string
 	for _, activity := range session.Activities {
-		if activity.Type == ActivityPreparation {
-			preparationMinutes += activity.Minutes
+		kind := activityKinds[activity.Type]
+		if !kind.flight {
+			preparationMinutes += activity.durationMinutes()
 		} else {
-			blockMinutes += activity.Minutes
-			label := activityKinds[activity.Type].invoiceLabel
+			blockMinutes += activity.durationMinutes()
+			label := kind.invoiceLabel
 			if !slices.Contains(blockLabels, label) {
 				blockLabels = append(blockLabels, label)
 			}
