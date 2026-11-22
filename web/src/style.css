@@ -787,6 +787,11 @@ td {
   margin-bottom: 0.5rem;
 }
 
+.flight-entry-table input:not([inputmode]) {
+  /* Saved in uppercase. Rewriting the value while typing would break undo. */
+  text-transform: uppercase;
+}
+
 .flight-entry-table td {
   padding-inline: 0.5rem;
 }

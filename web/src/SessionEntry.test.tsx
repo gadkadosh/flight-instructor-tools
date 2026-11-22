@@ -166,7 +166,9 @@ test('enters a session by keyboard, calculates block times, and saves individual
   await userEvent.fill(screen.getByLabelText('Flight 3 takeoff time'), '1203');
   await userEvent.fill(screen.getByLabelText('Flight 3 landing time'), '1218');
   await userEvent.fill(screen.getByLabelText('Flight 3 arrival'), 'edfe');
-  expect(value('Flight 3 arrival')).toBe('EDFE');
+  expect(getComputedStyle(screen.getByLabelText('Flight 3 arrival')).textTransform).toBe(
+    'uppercase',
+  );
   expect(screen.getByLabelText('Solo supervision total').textContent).toBe('0:20');
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
 
@@ -403,7 +405,7 @@ test.for([
   ['registration', 'D-EFTI', 3, 'kl', 'D-EKLI'],
   ['arrival', 'EDFE', 1, 'tm', 'ETME'],
 ] as const)(
-  'editing inside the %s keeps the cursor in place',
+  'editing inside the %s keeps the cursor and undo',
   async ([name, initial, from, typed, edited]) => {
     sessionAPI();
     await openEntry();
@@ -411,7 +413,10 @@ test.for([
     await userEvent.fill(input, initial);
     input.setSelectionRange(from, from + typed.length);
     await userEvent.keyboard(typed);
-    expect(input.value).toBe(edited);
+    expect(input.value.toUpperCase()).toBe(edited);
+    await userEvent.keyboard('{ControlOrMeta>}z{/ControlOrMeta}');
+    if (input.value !== initial) await userEvent.keyboard('{ControlOrMeta>}z{/ControlOrMeta}');
+    expect(input.value).toBe(initial);
   },
 );
 

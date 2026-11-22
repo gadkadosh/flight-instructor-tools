@@ -32,7 +32,7 @@ type FlightField = Exclude<keyof FlightDraft, 'id' | 'type' | 'edited'>;
 type Carried = Pick<FlightDraft, 'arrival' | 'registration'>;
 const clockHint = '24-hour time, for example 0930 or 9:30';
 const durationHint = 'Hours and two digits for minutes, for example 1:30 or 130';
-const airfieldPattern = /^[A-Z0-9]{4}$/;
+const airfieldPattern = /^[A-Za-z0-9]{4}$/;
 const landingsPattern = /^[1-9]\d*$/;
 const clockInput = {
   pattern: clockPattern.source,
@@ -46,19 +46,17 @@ const airfieldInput = {
   placeholder: 'EDFE',
 };
 const clock = (value: string) => parseClock(value) ?? value;
-const upper = (value: string) => value.toUpperCase();
 
-// The inputs after the type, in the order of flightColumns. Typing applies `edit`; leaving applies `tidy`.
+// The inputs after the type, in the order of flightColumns. Leaving applies `tidy`.
 const flightFields: {
   name: FlightField;
   label: string;
   input: ComponentProps<'input'>;
-  edit?: (value: string) => string;
   tidy?: (value: string) => string;
 }[] = [
-  { name: 'registration', label: 'registration', input: { placeholder: 'D-EABC' }, edit: upper },
-  { name: 'departure', label: 'departure', input: airfieldInput, edit: upper },
-  { name: 'arrival', label: 'arrival', input: airfieldInput, edit: upper },
+  { name: 'registration', label: 'registration', input: { placeholder: 'D-EABC' } },
+  { name: 'departure', label: 'departure', input: airfieldInput },
+  { name: 'arrival', label: 'arrival', input: airfieldInput },
   {
     name: 'blockOff',
     label: 'block off',
@@ -311,9 +309,9 @@ export default function SessionEntry({
         ...(takeoff && landing
           ? { firstTakeoff: stamp(takeoff), lastLanding: stamp(landing) }
           : {}),
-        departure: flight.departure,
-        arrival: flight.arrival,
-        registration: flight.registration.trim(),
+        departure: flight.departure.toUpperCase(),
+        arrival: flight.arrival.toUpperCase(),
+        registration: flight.registration.trim().toUpperCase(),
         landings: Number(flight.landings),
       });
     }
@@ -531,7 +529,7 @@ export default function SessionEntry({
                             ))}
                         </select>
                       </td>
-                      {flightFields.map(({ name, label, input, edit, tidy }) => (
+                      {flightFields.map(({ name, label, input, tidy }) => (
                         <td key={name}>
                           <input
                             {...input}
@@ -539,15 +537,9 @@ export default function SessionEntry({
                             name={`${flight.id}-${name}`}
                             aria-label={`Flight ${index + 1} ${label}`}
                             value={flight[name]}
-                            onChange={({ target }) => {
-                              if (edit) {
-                                // Replacing the value moves the cursor to the end.
-                                const { selectionStart, selectionEnd } = target;
-                                target.value = edit(target.value);
-                                target.setSelectionRange(selectionStart, selectionEnd);
-                              }
-                              setField(flight.id, { [name]: target.value, edited: true });
-                            }}
+                            onChange={({ target }) =>
+                              setField(flight.id, { [name]: target.value, edited: true })
+                            }
                             onBlur={() =>
                               tidy && setField(flight.id, { [name]: tidy(flight[name]) })
                             }
