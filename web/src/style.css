@@ -790,6 +790,8 @@ td {
 .flight-entry-table input:not([inputmode]) {
   /* Saved in uppercase. Rewriting the value while typing would break undo. */
   text-transform: uppercase;
+  /* Room for wide airfield codes such as EDMW, without moving the columns. */
+  padding-inline-end: 0;
 }
 
 .flight-entry-table td {
