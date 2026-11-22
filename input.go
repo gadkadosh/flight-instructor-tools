@@ -85,7 +85,7 @@ func (flight Flight) blockMinutes() int {
 	return int(flight.BlockOn.Sub(flight.BlockOff) / time.Minute)
 }
 
-func (activity Activity) validate() error {
+func (activity Activity) validate(dutyStart, dutyEnd time.Time) error {
 	if strings.TrimSpace(activity.ID) == "" {
 		return fmt.Errorf("id: must not be empty")
 	}
@@ -108,10 +108,10 @@ func (activity Activity) validate() error {
 	if activity.Flight == nil {
 		return fmt.Errorf("blockOff: missing or zero")
 	}
-	return activity.Flight.validate()
+	return activity.Flight.validate(dutyStart, dutyEnd)
 }
 
-func (flight Flight) validate() error {
+func (flight Flight) validate(dutyStart, dutyEnd time.Time) error {
 	switch {
 	case flight.BlockOff.IsZero():
 		return fmt.Errorf("blockOff: missing or zero")
@@ -119,6 +119,10 @@ func (flight Flight) validate() error {
 		return fmt.Errorf("blockOn: missing or zero")
 	case flight.blockMinutes() <= 0:
 		return fmt.Errorf("blockOn: must be at least one minute after blockOff")
+	case flight.BlockOff.Before(dutyStart):
+		return fmt.Errorf("blockOff: must not be before dutyStart")
+	case flight.BlockOn.After(dutyEnd):
+		return fmt.Errorf("blockOn: must not be after dutyEnd")
 	case flight.FirstTakeoff.IsZero() != flight.LastLanding.IsZero():
 		return fmt.Errorf("firstTakeoff, lastLanding: record both or neither")
 	case !flight.FirstTakeoff.IsZero() && flight.FirstTakeoff.Before(flight.BlockOff):
@@ -280,7 +284,7 @@ func validateSessionFile(input SessionFile) error {
 		}
 		hasFlight, studentRequired := false, false
 		for activityIndex, activity := range session.Activities {
-			if err := activity.validate(); err != nil {
+			if err := activity.validate(session.DutyStart, session.DutyEnd); err != nil {
 				return fmt.Errorf("%s.activities[%d].%w", path, activityIndex, err)
 			}
 			kind := activityKinds[activity.Type]

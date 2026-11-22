@@ -245,6 +245,50 @@ test('rejects block times out of order without saving', async () => {
   ]);
 });
 
+test.for([
+  ['0900', '1200', '0859', '1000', 'block off'],
+  ['0900', '1200', '1100', '1201', 'block on'],
+  ['0900', '1200', '1400', '1500', 'block off'],
+  ['2200', '0200', '2100', '2150', 'block off'],
+  ['2200', '0200', '2150', '2230', 'block off'],
+  ['2200', '0200', '0130', '0201', 'block on'],
+  ['2200', '0200', '0300', '0400', 'block off'],
+] as const)(
+  'rejects a flight outside duty: %s–%s duty, %s–%s block',
+  async ([dutyStart, dutyEnd, blockOff, blockOn, invalid]) => {
+    const { entries } = sessionAPI();
+    await openEntry();
+    await fillBasics();
+    await userEvent.fill(screen.getByLabelText('Duty start'), dutyStart);
+    await userEvent.fill(screen.getByLabelText('Duty end'), dutyEnd);
+    await fillFlight(1, blockOff, blockOn);
+    await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      `${invalid === 'block off' ? 'Block off' : 'Block on'} must be within duty time.`,
+    );
+    expect(document.activeElement).toBe(screen.getByLabelText(`Flight 1 ${invalid}`));
+    expect(entries).toHaveLength(0);
+  },
+);
+
+test.for([
+  ['0900', '1200', '2026-05-03T09:00', '2026-05-03T12:00'],
+  ['2200', '0200', '2026-05-03T22:00', '2026-05-04T02:00'],
+] as const)(
+  'accepts a flight filling %s–%s duty',
+  async ([dutyStart, dutyEnd, blockOff, blockOn]) => {
+    const { entries } = sessionAPI();
+    await openEntry();
+    await fillBasics();
+    await userEvent.fill(screen.getByLabelText('Duty start'), dutyStart);
+    await userEvent.fill(screen.getByLabelText('Duty end'), dutyEnd);
+    await fillFlight(1, dutyStart, dutyEnd);
+    await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    await screen.findByRole('rowheader', { name: 'New Student' });
+    expect(entries[0]!.activities).toEqual([expect.objectContaining({ blockOff, blockOn })]);
+  },
+);
+
 test('the flight inputs look disabled while the session is saving', async () => {
   const { fetch } = sessionAPI();
   await openEntry();

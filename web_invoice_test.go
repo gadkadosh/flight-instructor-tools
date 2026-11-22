@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 )
 
 func TestInvoiceDownloadUsesSelectedSessions(t *testing.T) {
@@ -19,10 +20,8 @@ func TestInvoiceDownloadUsesSelectedSessions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	second := input.Sessions[0]
+	second := shiftSession(input.Sessions[0], 31*24*time.Hour) // 3 May to 3 June
 	second.ID, second.Student = "second", "Sam Beispiel"
-	second.DutyStart = second.DutyStart.AddDate(0, 1, 0)
-	second.DutyEnd = second.DutyEnd.AddDate(0, 1, 0)
 	unselected := second
 	unselected.ID, unselected.Student = "excluded", "Excluded Student"
 	input.Sessions = append(input.Sessions, unselected, second)

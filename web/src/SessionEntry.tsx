@@ -248,6 +248,8 @@ export default function SessionEntry({
     if (prep === undefined) {
       return invalid('Enter preparation as H:MM, such as 1:30 or 130.', 'preparation');
     }
+    const inDuty = (clock: string) =>
+      clockMinutes(start) <= clockMinutes(clock) && clockMinutes(clock) <= clockMinutes(end);
     const activities: Activity[] =
       prep > 0 ? [{ id: `${id}-prep`, type: 'preparation', minutes: prep }] : [];
     for (const flight of flights) {
@@ -264,6 +266,8 @@ export default function SessionEntry({
       if (!off)
         return invalid('Enter block off as a 24-hour time, such as 0930.', field('blockOff'));
       if (!on) return invalid('Enter block on as a 24-hour time, such as 1030.', field('blockOn'));
+      if (!inDuty(off)) return invalid('Block off must be within duty time.', field('blockOff'));
+      if (!inDuty(on)) return invalid('Block on must be within duty time.', field('blockOn'));
       if (!blockMinutes(flight))
         return invalid('Block on must be after block off.', field('blockOn'));
       if (!takeoff !== !landing) {

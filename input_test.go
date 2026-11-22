@@ -45,6 +45,24 @@ func testFlight(id string, activityType ActivityType, minutes int) Activity {
 	}}
 }
 
+// shiftSession moves a copy of the session, flights included.
+func shiftSession(session Session, by time.Duration) Session {
+	session.DutyStart, session.DutyEnd = session.DutyStart.Add(by), session.DutyEnd.Add(by)
+	session.Activities = slices.Clone(session.Activities)
+	for index, activity := range session.Activities {
+		if activity.Flight == nil {
+			continue
+		}
+		flight := *activity.Flight
+		flight.BlockOff, flight.BlockOn = flight.BlockOff.Add(by), flight.BlockOn.Add(by)
+		if !flight.FirstTakeoff.IsZero() {
+			flight.FirstTakeoff, flight.LastLanding = flight.FirstTakeoff.Add(by), flight.LastLanding.Add(by)
+		}
+		session.Activities[index].Flight = &flight
+	}
+	return session
+}
+
 func TestReadSessionFileRejectsInvalidInput(t *testing.T) {
 	const valid = `{"schemaVersion":4,"sessions":[{"id":"session-1","dutyStart":"2026-05-03T10:00:00Z","dutyEnd":"2026-05-03T12:00:00Z","student":"Alex","activities":[` +
 		`{"id":"activity-1","type":"dual","blockOff":"2026-05-03T10:30:00Z","blockOn":"2026-05-03T11:30:00Z","firstTakeoff":"2026-05-03T10:35:00Z","lastLanding":"2026-05-03T11:25:00Z","departure":"EDFE","arrival":"EDFZ","registration":"D-EFTI","landings":3},` +
@@ -82,6 +100,8 @@ func TestReadSessionFileRejectsInvalidInput(t *testing.T) {
 		{"missing blockOn", `"blockOn":"2026-05-03T11:30:00Z",`, ``, flight + "blockOn: missing or zero"},
 		{"blockOn equals blockOff", `"blockOn":"2026-05-03T11:30:00Z"`, `"blockOn":"2026-05-03T10:30:00Z"`, flight + "blockOn: must be at least one minute after blockOff"},
 		{"blockOn before blockOff", `"blockOn":"2026-05-03T11:30:00Z"`, `"blockOn":"2026-05-03T10:00:00Z"`, flight + "blockOn: must be at least one minute after blockOff"},
+		{"blockOff before dutyStart in another offset", `"blockOff":"2026-05-03T10:30:00Z"`, `"blockOff":"2026-05-03T11:59:00+02:00"`, flight + "blockOff: must not be before dutyStart"},
+		{"blockOn after dutyEnd", `"blockOn":"2026-05-03T11:30:00Z"`, `"blockOn":"2026-05-03T12:01:00Z"`, flight + "blockOn: must not be after dutyEnd"},
 		{"takeoff without landing", `"lastLanding":"2026-05-03T11:25:00Z",`, ``, flight + "firstTakeoff, lastLanding: record both or neither"},
 		{"landing without takeoff", `"firstTakeoff":"2026-05-03T10:35:00Z",`, ``, flight + "firstTakeoff, lastLanding: record both or neither"},
 		{"takeoff before blockOff", `"firstTakeoff":"2026-05-03T10:35:00Z"`, `"firstTakeoff":"2026-05-03T10:29:00Z"`, flight + "firstTakeoff: must not be before blockOff"},
@@ -150,7 +170,7 @@ func TestSessionFileRequiresActivities(t *testing.T) {
 
 func TestSessionFileRoundTripsActivitiesWithCalculatedBlockMinutes(t *testing.T) {
 	airborne := testFlight("airborne", ActivityDual, 65)
-	// Takeoff at block off and landing at block on are the allowed extremes.
+	// The block may fill the whole duty, and the time airborne the whole block.
 	airborne.FirstTakeoff, airborne.LastLanding = airborne.BlockOff, airborne.BlockOn
 	want := []Activity{
 		{ID: "prep", Type: ActivityPreparation, Minutes: 30},
@@ -161,8 +181,7 @@ func TestSessionFileRoundTripsActivitiesWithCalculatedBlockMinutes(t *testing.T)
 	}
 	input := SessionFile{SchemaVersion: 4, Sessions: []Session{{
 		ID: "session-1", Student: "Robin", Activities: want,
-		DutyStart: mustTimestamp(t, "2026-05-03T10:00:00Z"),
-		DutyEnd:   mustTimestamp(t, "2026-05-03T12:00:00Z"),
+		DutyStart: airborne.BlockOff, DutyEnd: airborne.BlockOn,
 	}}}
 	path := filepath.Join(t.TempDir(), "sessions.json")
 	if err := os.WriteFile(path, nil, 0o600); err != nil {

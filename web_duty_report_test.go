@@ -21,13 +21,11 @@ func TestDutyReportDownloadIncludesWholeMonth(t *testing.T) {
 	}
 	second := input.Sessions[0]
 	second.ID = "second"
-	second.DutyStart = second.DutyStart.Add(4 * time.Hour)
-	second.DutyEnd = second.DutyEnd.Add(3 * time.Hour)
+	second.DutyEnd = second.DutyStart.Add(2 * time.Hour)
 	second.Activities = []Activity{testFlight("second-flight", ActivityDual, 30)}
-	outside := second
+	second = shiftSession(second, 4*time.Hour)
+	outside := shiftSession(second, 31*24*time.Hour) // 3 May to 3 June
 	outside.ID = "outside"
-	outside.DutyStart = outside.DutyStart.AddDate(0, 1, 0)
-	outside.DutyEnd = outside.DutyEnd.AddDate(0, 1, 0)
 	input.Sessions = append(input.Sessions, second, outside)
 	sessionsPath := filepath.Join(t.TempDir(), "sessions.json")
 	contents, err := json.Marshal(input)

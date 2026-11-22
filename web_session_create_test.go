@@ -137,6 +137,11 @@ func TestCreateSessionRejectsInvalidRecordsWithoutChangingFile(t *testing.T) {
 			e.Activities[2] = activityEntry{ID: "dual-2", Type: ActivityDual, Minutes: 15}
 		}},
 		{"block on before block off", func(e *sessionEntry) { e.Activities[2].BlockOn = "2026-05-03T23:50" }},
+		{"block off before duty", func(e *sessionEntry) { e.Activities[1].BlockOff = "2026-05-03T22:59" }},
+		{"block on after duty", func(e *sessionEntry) { e.Activities[3].BlockOn = "2026-05-04T01:01" }},
+		{"flight on the wrong day", func(e *sessionEntry) {
+			e.Activities[3].BlockOff, e.Activities[3].BlockOn = "2026-05-04T21:00", "2026-05-04T21:50"
+		}},
 		{"takeoff without landing", func(e *sessionEntry) { e.Activities[1].LastLanding = "" }},
 		{"landing after block on", func(e *sessionEntry) { e.Activities[1].LastLanding = "2026-05-03T23:56" }},
 		{"lowercase airfield", func(e *sessionEntry) { e.Activities[1].Arrival = "edfe" }},
