@@ -144,6 +144,8 @@ func TestCreateSessionRejectsInvalidRecordsWithoutChangingFile(t *testing.T) {
 		}},
 		{"takeoff without landing", func(e *sessionEntry) { e.Activities[1].LastLanding = "" }},
 		{"landing after block on", func(e *sessionEntry) { e.Activities[1].LastLanding = "2026-05-03T23:56" }},
+		{"airfield with a leading extra character", func(e *sessionEntry) { e.Activities[1].Departure = "XEDFE" }},
+		{"airfield with a trailing extra character", func(e *sessionEntry) { e.Activities[1].Departure = "EDFEX" }},
 		{"lowercase airfield", func(e *sessionEntry) { e.Activities[1].Arrival = "edfe" }},
 		{"missing registration", func(e *sessionEntry) { e.Activities[1].Registration = " " }},
 		{"zero landings", func(e *sessionEntry) { e.Activities[1].Landings = 0 }},
