@@ -18,6 +18,7 @@ import {
 type FlightDraft = {
   id: string;
   type: FlightType;
+  edited?: boolean;
   blockOff: string;
   blockOn: string;
   landings: string;
@@ -27,7 +28,7 @@ type FlightDraft = {
   takeoff: string;
   landing: string;
 };
-type FlightField = Exclude<keyof FlightDraft, 'id' | 'type'>;
+type FlightField = Exclude<keyof FlightDraft, 'id' | 'type' | 'edited'>;
 type Carried = Pick<FlightDraft, 'arrival' | 'registration'>;
 const clockHint = '24-hour time, for example 0930 or 9:30';
 const durationHint = 'Hours and two digits for minutes, for example 1:30 or 130';
@@ -253,6 +254,8 @@ export default function SessionEntry({
     const activities: Activity[] =
       prep > 0 ? [{ id: `${id}-prep`, type: 'preparation', minutes: prep }] : [];
     for (const flight of flights) {
+      // An untouched row is an unused flight, even with carried-over details.
+      if (!flight.edited) continue;
       const field = (name: FlightField) => `${flight.id}-${name}`;
       // Input patterns block submission of malformed times, so undefined means blank.
       const [off, on, takeoff, landing] = [
@@ -261,8 +264,6 @@ export default function SessionEntry({
         flight.takeoff,
         flight.landing,
       ].map(parseClock);
-      // A row without times is an unused flight, even with carried-over details.
-      if (!off && !on && !takeoff && !landing) continue;
       if (!off)
         return invalid('Enter block off as a 24-hour time, such as 0930.', field('blockOff'));
       if (!on) return invalid('Enter block on as a 24-hour time, such as 1030.', field('blockOn'));
@@ -350,7 +351,7 @@ export default function SessionEntry({
         setOvernightHintDate(undefined);
         setId(crypto.randomUUID());
         setPreparation('');
-        setFlights([newFlight(flights.at(-1))]);
+        setFlights([newFlight(lastFlight(body.sessions))]);
         setFocusFlight(undefined);
         focusStudent.current = true;
       } else {
@@ -515,7 +516,10 @@ export default function SessionEntry({
                           aria-label={`Flight ${index + 1} type`}
                           value={flight.type}
                           onChange={(event) =>
-                            setField(flight.id, { type: event.target.value as FlightType })
+                            setField(flight.id, {
+                              type: event.target.value as FlightType,
+                              edited: true,
+                            })
                           }
                         >
                           {Object.entries(activityKinds)
@@ -535,9 +539,15 @@ export default function SessionEntry({
                             name={`${flight.id}-${name}`}
                             aria-label={`Flight ${index + 1} ${label}`}
                             value={flight[name]}
-                            onChange={({ target: { value } }) =>
-                              setField(flight.id, { [name]: edit ? edit(value) : value })
-                            }
+                            onChange={({ target }) => {
+                              if (edit) {
+                                // Replacing the value moves the cursor to the end.
+                                const { selectionStart, selectionEnd } = target;
+                                target.value = edit(target.value);
+                                target.setSelectionRange(selectionStart, selectionEnd);
+                              }
+                              setField(flight.id, { [name]: target.value, edited: true });
+                            }}
                             onBlur={() =>
                               tidy && setField(flight.id, { [name]: tidy(flight[name]) })
                             }

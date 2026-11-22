@@ -58,6 +58,16 @@ const previousSession: Session = {
   dutyEnd: '2026-05-02T11:00:00Z',
   activities: [
     {
+      id: 'first-flight',
+      type: 'dual',
+      blockOff: '2026-05-02T09:00:00Z',
+      blockOn: '2026-05-02T09:20:00Z',
+      departure: 'EDFH',
+      arrival: 'EDFH',
+      registration: 'D-EAAA',
+      landings: 1,
+    },
+    {
       id: 'previous-flight',
       type: 'dual',
       blockOff: '2026-05-02T09:30:00Z',
@@ -98,7 +108,14 @@ function flightColumns(table: HTMLElement) {
 }
 
 test('enters a session by keyboard, calculates block times, and saves individual flights', async () => {
-  const { entries } = sessionAPI([previousSession]);
+  const older: Session = {
+    ...previousSession,
+    id: 'older',
+    dutyStart: '2026-05-01T09:00:00Z',
+    dutyEnd: '2026-05-01T11:00:00Z',
+    activities: [previousSession.activities[0]!],
+  };
+  const { entries } = sessionAPI([older, previousSession]);
   await openEntry();
   const editor = screen.getByRole('table', { name: 'New session flights' });
   expect(
@@ -331,6 +348,8 @@ test('save-and-add shortcut retains the date and aircraft, resets inputs, and fo
   await fillBasics();
   await userEvent.fill(screen.getByLabelText('Preparation duration'), '0:30');
   await fillFlight(1, '2330', '0035');
+  await userEvent.fill(screen.getByLabelText('Flight 1 takeoff time'), '0005');
+  await userEvent.fill(screen.getByLabelText('Flight 1 landing time'), '0030');
   await userEvent.fill(screen.getByLabelText('Flight 1 arrival'), 'EDFZ');
   await userEvent.fill(screen.getByLabelText('Duty start'), '2300');
   await userEvent.fill(screen.getByLabelText('Duty end'), '0100');
@@ -343,6 +362,8 @@ test('save-and-add shortcut retains the date and aircraft, resets inputs, and fo
       type: 'dual',
       blockOff: '2026-05-03T23:30',
       blockOn: '2026-05-04T00:35',
+      firstTakeoff: '2026-05-04T00:05',
+      lastLanding: '2026-05-04T00:30',
     }),
   );
   await expect.poll(() => document.activeElement).toBe(screen.getByLabelText('Student'));
@@ -367,7 +388,8 @@ test('save-and-add shortcut retains the date and aircraft, resets inputs, and fo
   );
   expect(suggestions?.querySelector('option')?.value).toBe('New Student');
 
-  await userEvent.keyboard('Second Student{Tab}13{Tab}14{Tab}45{Enter}');
+  // Tab through the prefilled row as far as landing, then submit.
+  await userEvent.keyboard(`Second Student{Tab}13{Tab}14{Tab}45${'{Tab}'.repeat(7)}{Enter}`);
   await screen.findByRole('rowheader', { name: 'Second Student' });
   expect(entries).toHaveLength(2);
   expect(entries[1]!.id).not.toBe(entries[0]!.id);
@@ -375,6 +397,57 @@ test('save-and-add shortcut retains the date and aircraft, resets inputs, and fo
   expect(entries[1]!.activities).toEqual([
     expect.objectContaining({ type: 'preparation', minutes: 45 }),
   ]);
+});
+
+test.for([
+  ['registration', 'D-EFTI', 3, 'kl', 'D-EKLI'],
+  ['arrival', 'EDFE', 1, 'tm', 'ETME'],
+] as const)(
+  'editing inside the %s keeps the cursor in place',
+  async ([name, initial, from, typed, edited]) => {
+    sessionAPI();
+    await openEntry();
+    const input = screen.getByLabelText<HTMLInputElement>(`Flight 1 ${name}`);
+    await userEvent.fill(input, initial);
+    input.setSelectionRange(from, from + typed.length);
+    await userEvent.keyboard(typed);
+    expect(input.value).toBe(edited);
+  },
+);
+
+test.for(['arrival', 'type'])('reports a flight with an edited %s but no times', async (field) => {
+  const { entries } = sessionAPI([previousSession]);
+  await openEntry();
+  await fillBasics();
+  await userEvent.fill(screen.getByLabelText('Preparation duration'), '30');
+  const input = screen.getByLabelText(`Flight 1 ${field}`);
+  if (field === 'type') await userEvent.selectOptions(input, 'rundflug');
+  else await userEvent.fill(input, 'EDDF');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  expect((await screen.findByRole('alert')).textContent).toContain('Enter block off');
+  expect(document.activeElement).toBe(screen.getByLabelText('Flight 1 block off'));
+  expect(entries).toHaveLength(0);
+});
+
+test('save-and-add carries over from the last saved flight, not the last row', async () => {
+  const { entries } = sessionAPI([previousSession]);
+  await openEntry();
+  await fillBasics();
+  await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
+  await fillFlight(1, '1000', '1100');
+  await userEvent.click(screen.getByRole('button', { name: 'Save and add another' }));
+  await expect.poll(() => value('Student')).toBe('');
+  const carried = () =>
+    ['departure', 'arrival', 'registration'].map((field) => value(`Flight 1 ${field}`));
+  expect(carried()).toEqual(['EDFE', 'EDFE', 'D-EFTI']);
+
+  await fillBasics();
+  await userEvent.fill(screen.getByLabelText('Preparation duration'), '30');
+  await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Save and add another' }));
+  await expect.poll(() => entries.length).toBe(2);
+  await expect.poll(() => value('Student')).toBe('');
+  expect(carried()).toEqual(['EDFE', 'EDFE', 'D-EFTI']);
 });
 
 test('saves unnamed special flights with preparation and includes them in block totals', async () => {
