@@ -54,6 +54,7 @@ pnpm --dir web run check   # Formatting, linting, and TypeScript checks
 pnpm --dir web exec playwright install chromium  # Once, for frontend tests
 pnpm --dir web test
 go test ./...
+pnpm --dir web run test:e2e  # End-to-end smoke test, after make build
 ```
 
 ## License

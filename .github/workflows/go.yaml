@@ -60,3 +60,8 @@ jobs:
 
       - name: Test
         run: go test -v ./...
+
+      - name: Test end to end
+        run: |
+          go build -o fitools .
+          pnpm --dir web run test:e2e

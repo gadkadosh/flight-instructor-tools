@@ -8,7 +8,8 @@
     "build": "pnpm run check && vp build",
     "check": "vp check --deny-warnings",
     "format": "vp fmt",
-    "test": "vp test run"
+    "test": "vp test run",
+    "test:e2e": "node --test e2e/smoke.ts"
   },
   "dependencies": {
     "react": "^19.3.1",
