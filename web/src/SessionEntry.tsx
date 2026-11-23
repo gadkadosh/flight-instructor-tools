@@ -32,7 +32,7 @@ type FlightDraft = {
 type FlightField = Exclude<keyof FlightDraft, 'id' | 'type' | 'edited'>;
 type Carried = Pick<FlightDraft, 'arrival' | 'registration'>;
 const clockHint = '24-hour time, for example 0930 or 9:30';
-const day = 24 * 60 * 60_000;
+const dayMs = 24 * 60 * 60_000;
 const durationHint = 'Hours and two digits for minutes, for example 1:30 or 130';
 const airfieldPattern = /^[A-Za-z0-9]{4}$/;
 const landingsPattern = /^[1-9]\d*$/;
@@ -183,8 +183,8 @@ export default function SessionEntry({
   const flightInstant = (clock: string) => {
     const from = dutyStart ?? 0;
     const [hours, minutes] = clock.split(':').map(Number);
-    const instant = Math.floor(from / day) * day + (hours! * 60 + minutes!) * 60_000;
-    return instant < from ? instant + day : instant;
+    const instant = Math.floor(from / dayMs) * dayMs + (hours! * 60 + minutes!) * 60_000;
+    return instant < from ? instant + dayMs : instant;
   };
   function blockMinutes(flight: FlightDraft) {
     const off = parseClock(flight.blockOff);
