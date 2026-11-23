@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useState, type Ref } from 'react';
 import FlightHeaderCells from './FlightHeaderCells';
 import {
   activityKinds,
@@ -21,6 +21,8 @@ export default function SessionRow({
   timeFormat,
   selected,
   onSelect,
+  editButtonRef,
+  onEdit,
   onDelete,
 }: {
   session: Session;
@@ -28,6 +30,8 @@ export default function SessionRow({
   timeFormat: Intl.DateTimeFormat;
   selected: boolean;
   onSelect: () => void;
+  editButtonRef: Ref<HTMLButtonElement>;
+  onEdit: () => void;
   onDelete: (target: DeleteTarget) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -146,6 +150,30 @@ export default function SessionRow({
         <td className="numeric">{formatDuration(totals.block)}</td>
         <td className="numeric">{formatDuration(totals.soloSupervision)}</td>
         <td className="row-actions" onClick={(event) => event.stopPropagation()}>
+          <button
+            className="action-button icon"
+            type="button"
+            ref={editButtonRef}
+            aria-label={`Edit session for ${description}`}
+            title="Edit session"
+            onClick={onEdit}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+          </button>
           <button
             className="action-button icon danger"
             type="button"

@@ -135,6 +135,11 @@ export function dateInZone(timeZone: string, date = new Date()) {
   return wallClock(timeZone, date.getTime()).slice(0, 10);
 }
 
+// HH:MM
+export function clockInZone(timeZone: string, date: Date) {
+  return wallClock(timeZone, date.getTime()).slice(11, 16);
+}
+
 // The instant that a date and H:MM clock time name in timeZone. During a clock change this
 // settles on one candidate; the server rejects ambiguous and skipped times.
 export function zonedInstant(timeZone: string, date: string, clock: string) {

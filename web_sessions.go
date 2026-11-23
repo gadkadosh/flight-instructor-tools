@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -38,6 +39,7 @@ func webHandler(assets fs.FS, source sessionSource) http.Handler {
 		}
 	}
 	mux.HandleFunc("POST /api/sessions", sessionWrite(source.createSession))
+	mux.HandleFunc("PUT /api/sessions/{id}", sessionWrite(source.updateSession))
 	mux.HandleFunc("DELETE /api/sessions/{id}", sessionWrite(source.deleteSession))
 	mux.HandleFunc("POST /api/invoice", source.serveInvoice)
 	mux.HandleFunc("POST /api/duty-report", source.serveDutyReport)
@@ -125,12 +127,62 @@ func (source sessionSource) serveSessions(w http.ResponseWriter, r *http.Request
 	writeSessionView(w, http.StatusOK, view)
 }
 
+func (source sessionSource) save(w http.ResponseWriter, view sessionView, status int) {
+	input := SessionFile{SchemaVersion: supportedSessionSchemaVersion, Sessions: view.Sessions}
+	if err := validateSessionFile(input); err != nil {
+		writeJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := writeSessionFile(source.sessionsPath, input); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("save sessions: %w", err))
+		return
+	}
+	writeSessionView(w, status, view)
+}
+
+// The tag ignores UTC offsets: a session read as 10:00Z is the same as one sent as 12:00+02:00.
 func sessionETag(session Session) (string, error) {
+	session.DutyStart, session.DutyEnd = session.DutyStart.UTC(), session.DutyEnd.UTC()
+	session.Activities = slices.Clone(session.Activities)
+	for index, activity := range session.Activities {
+		if activity.Flight != nil {
+			flight := *activity.Flight
+			flight.BlockOff, flight.BlockOn = flight.BlockOff.UTC(), flight.BlockOn.UTC()
+			flight.FirstTakeoff, flight.LastLanding = flight.FirstTakeoff.UTC(), flight.LastLanding.UTC()
+			session.Activities[index].Flight = &flight
+		}
+	}
 	data, err := json.Marshal(session)
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf(`"%x"`, sha256.Sum256(data)), nil
+}
+
+func sameSession(first, second Session) (bool, error) {
+	firstTag, firstErr := sessionETag(first)
+	secondTag, secondErr := sessionETag(second)
+	return firstTag == secondTag, errors.Join(firstErr, secondErr)
+}
+
+// matchesSession reports whether the request names the stored version of session, so a change
+// based on an outdated copy cannot overwrite a newer one.
+func matchesSession(w http.ResponseWriter, r *http.Request, session Session, action string) bool {
+	tag, err := sessionETag(session)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("encode session: %w", err))
+		return false
+	}
+	matches := r.Header.Values("If-Match")
+	if len(matches) == 0 {
+		writeJSONError(w, http.StatusPreconditionRequired, fmt.Errorf("reload the page and review the session before %s", action))
+		return false
+	}
+	if len(matches) != 1 || matches[0] != tag {
+		writeJSONError(w, http.StatusPreconditionFailed, fmt.Errorf("this session changed; reload the page and review it before %s", action))
+		return false
+	}
+	return true
 }
 
 func writeSessionView(w http.ResponseWriter, status int, view sessionView) {

@@ -4,6 +4,7 @@ import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
 import SessionDelete from './SessionDelete';
 import SessionRow, { type DeleteTarget } from './SessionRow';
+import { newSessionDraft, sessionDraft } from './sessionDraft';
 import { groupSessionsByMonth, type Session, type SessionView } from './sessions';
 
 type LoadState =
@@ -26,6 +27,9 @@ function SessionTable({
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteNotice, setDeleteNotice] = useState('');
+  // Each open editor keeps the session as it was opened, so saving cannot overwrite a newer version.
+  const [editing, setEditing] = useState<ReadonlyMap<string, Session>>(() => new Map());
+  const editButtons = useRef(new Map<string, HTMLButtonElement>());
   const tableRegion = useRef<HTMLDivElement>(null);
   const monthGroups = useMemo(
     () => groupSessionsByMonth(view.sessions, view.timeZone),
@@ -54,6 +58,17 @@ function SessionTable({
       }
       return next;
     });
+  }
+
+  function closeEditor(id: string) {
+    flushSync(() =>
+      setEditing((previous) => {
+        const next = new Map(previous);
+        next.delete(id);
+        return next;
+      }),
+    );
+    editButtons.current.get(id)?.focus();
   }
 
   function updateView(nextView: SessionView) {
@@ -129,7 +144,12 @@ function SessionTable({
             </thead>
             {adding && (
               <tbody>
-                <SessionEntry view={view} onSaved={updateView} onClose={onCloseEntry} />
+                <SessionEntry
+                  view={view}
+                  initial={newSessionDraft(view)}
+                  onSaved={updateView}
+                  onClose={onCloseEntry}
+                />
               </tbody>
             )}
             {monthGroups.map(([month, { label, sessions }]) => {
@@ -150,20 +170,41 @@ function SessionTable({
                       </button>
                     </th>
                   </tr>
-                  {sessions.map((session) => (
-                    <SessionRow
-                      key={session.id}
-                      session={session}
-                      dateFormat={dateFormat}
-                      timeFormat={timeFormat}
-                      selected={selectedSessionIds.has(session.id)}
-                      onSelect={() => toggleSessions([session])}
-                      onDelete={(target) => {
-                        setDeleteNotice('');
-                        setDeleteTarget(target);
-                      }}
-                    />
-                  ))}
+                  {sessions.map((session) => {
+                    const opened = editing.get(session.id);
+                    return opened ? (
+                      <SessionEntry
+                        key={session.id}
+                        view={view}
+                        initial={sessionDraft(opened, view.timeZone)}
+                        etag={opened.etag}
+                        onSaved={updateView}
+                        onClose={() => closeEditor(session.id)}
+                      />
+                    ) : (
+                      <SessionRow
+                        key={session.id}
+                        session={session}
+                        dateFormat={dateFormat}
+                        timeFormat={timeFormat}
+                        selected={selectedSessionIds.has(session.id)}
+                        onSelect={() => toggleSessions([session])}
+                        editButtonRef={(button) => {
+                          if (button) editButtons.current.set(session.id, button);
+                          return () => {
+                            editButtons.current.delete(session.id);
+                          };
+                        }}
+                        onEdit={() =>
+                          setEditing((previous) => new Map(previous).set(session.id, session))
+                        }
+                        onDelete={(target) => {
+                          setDeleteNotice('');
+                          setDeleteTarget(target);
+                        }}
+                      />
+                    );
+                  })}
                 </tbody>
               );
             })}

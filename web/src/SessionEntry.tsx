@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef, useState, type ComponentProps, type KeyboardEvent } from 'react';
 import FlightHeaderCells from './FlightHeaderCells';
+import { newFlight, newSessionDraft, type FlightDraft, type SessionDraft } from './sessionDraft';
 import {
   activityKinds,
   clockPattern,
-  dateInZone,
   durationPattern,
   formatDuration,
   normalizeDuration,
@@ -11,26 +11,11 @@ import {
   parseDuration,
   type Activity,
   type FlightType,
-  type Session,
   type SessionView,
   zonedInstant,
 } from './sessions';
 
-type FlightDraft = {
-  id: string;
-  type: FlightType;
-  edited?: boolean;
-  blockOff: string;
-  blockOn: string;
-  landings: string;
-  departure: string;
-  arrival: string;
-  registration: string;
-  takeoff: string;
-  landing: string;
-};
-type FlightField = Exclude<keyof FlightDraft, 'id' | 'type' | 'edited'>;
-type Carried = Pick<FlightDraft, 'arrival' | 'registration'>;
+type FlightField = Exclude<keyof FlightDraft, 'id' | 'type' | 'untouched'>;
 const clockHint = '24-hour time, for example 0930 or 9:30';
 const dayMs = 24 * 60 * 60_000;
 const durationHint = 'Hours and two digits for minutes, for example 1:30 or 130';
@@ -94,29 +79,22 @@ const flightFields: {
   },
 ];
 
-// Airfield and aircraft carry over from the previous flight, which usually ends where the next starts.
-const newFlight = (previous?: Carried): FlightDraft => ({
-  id: crypto.randomUUID(),
-  type: 'dual',
-  blockOff: '',
-  blockOn: '',
-  landings: '1',
-  departure: previous?.arrival ?? '',
-  arrival: previous?.arrival ?? '',
-  registration: previous?.registration ?? '',
-  takeoff: '',
-  landing: '',
-});
-
-function lastFlight(sessions: Session[]): Carried | undefined {
-  for (const session of sessions.toReversed()) {
-    const flight = session.activities.findLast(
-      (activity): activity is Exclude<Activity, { type: 'preparation' }> =>
-        activity.type !== 'preparation',
-    );
-    if (flight) return flight;
+// A duty end before its start is on the next day.
+function duty({ date, dutyStart, dutyEnd }: SessionDraft) {
+  const start = parseClock(dutyStart);
+  const end = parseClock(dutyEnd);
+  const overnight = Boolean(date && start && end && end < start);
+  let endDate: string | undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const day = new Date(`${date}T00:00:00Z`);
+    if (overnight) day.setUTCDate(day.getUTCDate() + 1);
+    if (Number.isFinite(day.getTime()) && day.getUTCFullYear() <= 9999) {
+      endDate = day.toISOString().slice(0, 10);
+    }
   }
+  return { start, end, endDate, nextDay: overnight ? endDate : undefined };
 }
+
 const endDateFormat = new Intl.DateTimeFormat('de-DE', {
   timeZone: 'UTC',
   day: '2-digit',
@@ -124,12 +102,17 @@ const endDateFormat = new Intl.DateTimeFormat('de-DE', {
   year: 'numeric',
 });
 
+// Adds a session, or with the etag of a stored session, replaces it.
 export default function SessionEntry({
   view,
+  initial,
+  etag,
   onSaved,
   onClose,
 }: {
   view: SessionView;
+  initial: SessionDraft;
+  etag?: string;
   onSaved: (view: SessionView) => void;
   onClose: () => void;
 }) {
@@ -142,33 +125,17 @@ export default function SessionEntry({
   const repeatRef = useRef<HTMLButtonElement>(null);
   const savingRef = useRef(false);
   const focusStudent = useRef(false);
-  const [id, setId] = useState(() => crypto.randomUUID());
-  const [date, setDate] = useState(() => dateInZone(view.timeZone));
-  const [student, setStudent] = useState('');
-  const [startInput, setStartInput] = useState('');
-  const [endInput, setEndInput] = useState('');
-  const [overnightHintDate, setOvernightHintDate] = useState<string>();
-  const [preparation, setPreparation] = useState('');
-  const [flights, setFlights] = useState<FlightDraft[]>(() => [
-    newFlight(lastFlight(view.sessions)),
-  ]);
+  const [draft, setDraft] = useState(initial);
+  const [overnightHintDate, setOvernightHintDate] = useState(() => duty(initial).nextDay);
   const [focusFlight, setFocusFlight] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const overnightDateLabel = overnightHintDate
     ? endDateFormat.format(new Date(`${overnightHintDate}T00:00:00Z`))
     : undefined;
-  const start = parseClock(startInput);
-  const end = parseClock(endInput);
-  const overnight = Boolean(date && start && end && end < start);
-  let endDate: string | undefined;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    const day = new Date(`${date}T00:00:00Z`);
-    if (overnight) day.setUTCDate(day.getUTCDate() + 1);
-    if (Number.isFinite(day.getTime()) && day.getUTCFullYear() <= 9999) {
-      endDate = day.toISOString().slice(0, 10);
-    }
-  }
+  const { date, student, preparation, flights } = draft;
+  const { start, end, endDate, nextDay } = duty(draft);
+  const title = etag ? 'Edit session' : 'New session';
   const students = [
     ...new Set(
       view.sessions
@@ -212,6 +179,22 @@ export default function SessionEntry({
     }
   }, [saving]);
 
+  function set(fields: Partial<SessionDraft>) {
+    setDraft((previous) => ({ ...previous, ...fields }));
+  }
+
+  // Blur can follow a reset by save-and-add, so tidy the current value, not the rendered one.
+  function tidyDraft(
+    name: 'dutyStart' | 'dutyEnd' | 'preparation',
+    clean: (value: string) => string,
+  ) {
+    setDraft((previous) => ({ ...previous, [name]: clean(previous[name]) }));
+  }
+
+  function setFlights(update: (flights: FlightDraft[]) => FlightDraft[]) {
+    setDraft((previous) => ({ ...previous, flights: update(previous.flights) }));
+  }
+
   function setField(id: string, field: Partial<FlightDraft>) {
     setFlights((previous) =>
       previous.map((item) => (item.id === id ? { ...item, ...field } : item)),
@@ -219,7 +202,7 @@ export default function SessionEntry({
   }
 
   function addFlight() {
-    const flight = newFlight(flights.at(-1) ?? lastFlight(view.sessions));
+    const flight = newFlight(flights.at(-1));
     setFlights((previous) => [...previous, flight]);
     setFocusFlight(`${flight.id}-blockOff`);
   }
@@ -227,12 +210,12 @@ export default function SessionEntry({
   function shortcut(event: KeyboardEvent) {
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
-      formRef.current?.requestSubmit(repeatRef.current!);
+      formRef.current?.requestSubmit(repeatRef.current);
     }
   }
 
   function updateOvernightHint() {
-    if (!saving && !savingRef.current) setOvernightHintDate(overnight ? endDate : undefined);
+    if (!saving && !savingRef.current) setOvernightHintDate(nextDay);
   }
 
   async function save(another: boolean) {
@@ -255,10 +238,9 @@ export default function SessionEntry({
     }
     const inDuty = (clock: string) => flightInstant(clock) <= dutyEnd!;
     const activities: Activity[] =
-      prep > 0 ? [{ id: `${id}-prep`, type: 'preparation', minutes: prep }] : [];
+      prep > 0 ? [{ id: draft.preparationId, type: 'preparation', minutes: prep }] : [];
     for (const flight of flights) {
-      // An untouched row is an unused flight, even with carried-over details.
-      if (!flight.edited) continue;
+      if (flight.untouched) continue;
       const field = (name: FlightField) => `${flight.id}-${name}`;
       // Input patterns block submission of malformed times, so undefined means blank.
       const [off, on, takeoff, landing] = [
@@ -337,28 +319,27 @@ export default function SessionEntry({
     savingRef.current = true;
     setSaving(true);
     try {
-      const response = await fetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          dutyStart: `${date}T${start}`,
-          dutyEnd: `${endDate}T${end}`,
-          student: student.trim(),
-          activities,
-        }),
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || 'Could not save session.');
+      const response = await fetch(
+        etag ? `/api/sessions/${encodeURIComponent(draft.id)}` : '/api/sessions',
+        {
+          method: etag ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json', ...(etag ? { 'If-Match': etag } : {}) },
+          body: JSON.stringify({
+            id: draft.id,
+            dutyStart: `${date}T${start}`,
+            dutyEnd: `${endDate}T${end}`,
+            student: student.trim(),
+            activities,
+          }),
+        },
+      );
+      // The host check and the router can answer with plain text.
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body) throw new Error(body?.error || 'Could not save session.');
       onSaved(body);
       if (another) {
-        setStudent('');
-        setStartInput('');
-        setEndInput('');
+        setDraft(newSessionDraft(body, date));
         setOvernightHintDate(undefined);
-        setId(crypto.randomUUID());
-        setPreparation('');
-        setFlights([newFlight(lastFlight(body.sessions))]);
         setFocusFlight(undefined);
         focusStudent.current = true;
       } else {
@@ -376,7 +357,7 @@ export default function SessionEntry({
     <>
       <tr className="entry-row" onKeyDown={shortcut}>
         <td colSpan={2}>
-          <span className="visually-hidden">New session</span>
+          <span className="visually-hidden">{title}</span>
         </td>
         <td>
           <input
@@ -386,7 +367,7 @@ export default function SessionEntry({
             type="date"
             aria-label="Session date"
             value={date}
-            onChange={(event) => setDate(event.target.value)}
+            onChange={(event) => set({ date: event.target.value })}
             onBlur={updateOvernightHint}
             required
             disabled={saving}
@@ -402,7 +383,7 @@ export default function SessionEntry({
             placeholder="Student"
             autoComplete="off"
             value={student}
-            onChange={(event) => setStudent(event.target.value)}
+            onChange={(event) => set({ student: event.target.value })}
             disabled={saving}
           />
           <datalist id={suggestionsId}>
@@ -421,10 +402,10 @@ export default function SessionEntry({
             title={clockHint}
             inputMode="numeric"
             required
-            value={startInput}
-            onChange={(event) => setStartInput(event.target.value)}
+            value={draft.dutyStart}
+            onChange={(event) => set({ dutyStart: event.target.value })}
             onBlur={() => {
-              setStartInput((value) => parseClock(value) ?? value);
+              tidyDraft('dutyStart', clock);
               updateOvernightHint();
             }}
             disabled={saving}
@@ -455,10 +436,10 @@ export default function SessionEntry({
               title={clockHint}
               inputMode="numeric"
               required
-              value={endInput}
-              onChange={(event) => setEndInput(event.target.value)}
+              value={draft.dutyEnd}
+              onChange={(event) => set({ dutyEnd: event.target.value })}
               onBlur={() => {
-                setEndInput((value) => parseClock(value) ?? value);
+                tidyDraft('dutyEnd', clock);
                 updateOvernightHint();
               }}
               disabled={saving}
@@ -475,8 +456,8 @@ export default function SessionEntry({
             title={durationHint}
             inputMode="numeric"
             value={preparation}
-            onChange={(event) => setPreparation(event.target.value)}
-            onBlur={() => setPreparation(normalizeDuration)}
+            onChange={(event) => set({ preparation: event.target.value })}
+            onBlur={() => tidyDraft('preparation', normalizeDuration)}
             disabled={saving}
           />
         </td>
@@ -493,16 +474,17 @@ export default function SessionEntry({
           <form
             id={formId}
             ref={formRef}
-            aria-label="Add session"
+            aria-label={title}
             onSubmit={(event) => {
               event.preventDefault();
-              const another = (event.nativeEvent as SubmitEvent).submitter === repeatRef.current;
+              const { submitter } = event.nativeEvent as SubmitEvent;
+              const another = Boolean(submitter) && submitter === repeatRef.current;
               void save(another);
             }}
           >
             <fieldset disabled={saving}>
               <legend className="visually-hidden">Flights</legend>
-              <table className="flight-table flight-entry-table" aria-label="New session flights">
+              <table className="flight-table flight-entry-table" aria-label={`${title} flights`}>
                 <thead>
                   <tr>
                     <FlightHeaderCells />
@@ -521,7 +503,7 @@ export default function SessionEntry({
                           onChange={(event) =>
                             setField(flight.id, {
                               type: event.target.value as FlightType,
-                              edited: true,
+                              untouched: false,
                             })
                           }
                         >
@@ -543,7 +525,7 @@ export default function SessionEntry({
                             aria-label={`Flight ${index + 1} ${label}`}
                             value={flight[name]}
                             onChange={({ target }) =>
-                              setField(flight.id, { [name]: target.value, edited: true })
+                              setField(flight.id, { [name]: target.value, untouched: false })
                             }
                             onBlur={() =>
                               tidy && setField(flight.id, { [name]: tidy(flight[name]) })
@@ -563,7 +545,7 @@ export default function SessionEntry({
                           aria-label={`Remove flight ${index + 1}`}
                           onClick={() => {
                             const remaining = flights.filter((item) => item.id !== flight.id);
-                            setFlights(remaining);
+                            setFlights(() => remaining);
                             if (remaining.length > 0)
                               setFocusFlight(
                                 `${remaining[Math.min(index, remaining.length - 1)]!.id}-blockOff`,
@@ -595,13 +577,17 @@ export default function SessionEntry({
                 <button type="submit" className="action-button">
                   {saving ? 'Saving…' : 'Save session'}
                 </button>
-                <button className="action-button secondary" ref={repeatRef} type="submit">
-                  Save and add another
-                </button>
+                {!etag && (
+                  <button className="action-button secondary" ref={repeatRef} type="submit">
+                    Save and add another
+                  </button>
+                )}
                 <button className="action-button text" type="button" onClick={onClose}>
                   Cancel
                 </button>
-                <span className="entry-hint">Ctrl/⌘ + Enter: save and add another</span>
+                <span className="entry-hint">
+                  Ctrl/⌘ + Enter: {etag ? 'save' : 'save and add another'}
+                </span>
               </div>
             </fieldset>
           </form>
