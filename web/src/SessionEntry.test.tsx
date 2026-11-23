@@ -482,6 +482,8 @@ test('save-and-add shortcut retains the date and aircraft, resets inputs, and fo
   // Tab through the prefilled row as far as landing, then submit.
   await userEvent.keyboard(`Second Student{Tab}13{Tab}14{Tab}45${'{Tab}'.repeat(7)}{Enter}`);
   await screen.findByRole('rowheader', { name: 'Second Student' });
+  // Enter saves and closes, even though Save and add another comes first on screen.
+  expect(screen.queryByRole('form', { name: 'New session' })).toBeNull();
   expect(entries).toHaveLength(2);
   expect(entries[1]!.id).not.toBe(entries[0]!.id);
   // The carried-over details alone do not make an unused row a flight.
@@ -520,6 +522,21 @@ test.for(['arrival', 'type'])('reports a flight with an edited %s but no times',
   await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
   expect((await screen.findByRole('alert')).textContent).toContain('Enter block off');
   expect(document.activeElement).toBe(screen.getByLabelText('Flight 1 block off'));
+  expect(entries).toHaveLength(0);
+});
+
+test('the save buttons follow their on-screen order and check the fields before saving', async () => {
+  const { entries } = sessionAPI();
+  await openEntry();
+  const saveAnother = screen.getByRole('button', { name: /Save and add another/ });
+  screen.getByRole('button', { name: 'Cancel' }).focus();
+  await userEvent.keyboard('{Tab}');
+  expect(document.activeElement).toBe(saveAnother);
+  await userEvent.keyboard('{Tab}');
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save session' }));
+  // The browser's field checks focus the first missing field.
+  await userEvent.click(saveAnother);
+  expect(document.activeElement).toBe(screen.getByLabelText('Duty start'));
   expect(entries).toHaveLength(0);
 });
 

@@ -125,7 +125,6 @@ export default function SessionEntry({
   const formRef = useRef<HTMLFormElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   const studentRef = useRef<HTMLInputElement>(null);
-  const repeatRef = useRef<HTMLButtonElement>(null);
   const savingRef = useRef(false);
   const focusStudent = useRef(false);
   const [draft, setDraft] = useState(initial);
@@ -210,10 +209,15 @@ export default function SessionEntry({
     setFocusFlight(`${flight.id}-blockOff`);
   }
 
+  function saveAnother() {
+    if (formRef.current?.reportValidity()) void save(true);
+  }
+
   function shortcut(event: KeyboardEvent) {
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
-      formRef.current?.requestSubmit(repeatRef.current);
+      if (etag) formRef.current?.requestSubmit();
+      else saveAnother();
     }
   }
 
@@ -480,9 +484,7 @@ export default function SessionEntry({
             aria-label={title}
             onSubmit={(event) => {
               event.preventDefault();
-              const { submitter } = event.nativeEvent as SubmitEvent;
-              const another = Boolean(submitter) && submitter === repeatRef.current;
-              void save(another);
+              void save(false);
             }}
           >
             <fieldset disabled={saving}>
@@ -623,25 +625,24 @@ export default function SessionEntry({
                     Delete session…
                   </button>
                 )}
-                {/* Enter submits with the first submit button, so Save session comes first and
-                    the row shows it last. */}
+                {/* Save session is the only submit button, so Enter saves wherever it sits. */}
                 <div className="entry-submit">
-                  <button type="submit" className="action-button">
-                    {saving ? 'Saving…' : 'Save session'}
+                  <button className="action-button text" type="button" onClick={onClose}>
+                    Cancel
                   </button>
                   {!etag && (
                     <button
                       className="action-button secondary"
-                      ref={repeatRef}
-                      type="submit"
+                      type="button"
                       aria-keyshortcuts="Control+Enter Meta+Enter"
+                      onClick={saveAnother}
                     >
                       Save and add another
                       <kbd aria-hidden="true">{saveAnotherKeys}</kbd>
                     </button>
                   )}
-                  <button className="action-button text" type="button" onClick={onClose}>
-                    Cancel
+                  <button type="submit" className="action-button">
+                    {saving ? 'Saving…' : 'Save session'}
                   </button>
                 </div>
               </div>

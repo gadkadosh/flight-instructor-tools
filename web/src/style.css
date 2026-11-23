@@ -842,7 +842,6 @@ td {
 
 .entry-submit {
   display: flex;
-  flex-direction: row-reverse;
   gap: 0.75rem;
   margin-left: auto;
 }
