@@ -1,14 +1,14 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 )
 
-// Duty times are wall-clock values in the configured timezone, not the browser's.
+// Duty times are wall-clock values in the configured timezone, not the browser's; they are stored in UTC.
 // Flight times are absolute, because the form enters them in UTC as logbooks do.
 type sessionEntry struct {
 	ID         string     `json:"id"`
@@ -19,29 +19,50 @@ type sessionEntry struct {
 }
 
 func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request) {
+	view, session, ok := source.readEntry(w, r)
+	if !ok {
+		return
+	}
+	if index := slices.IndexFunc(view.Sessions, func(existing Session) bool { return existing.ID == session.ID }); index >= 0 {
+		// A retry after a lost response must not append another session.
+		if same, err := sameSession(view.Sessions[index], session); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err)
+		} else if !same {
+			writeJSONError(w, http.StatusConflict, fmt.Errorf("session ID already exists with different values; reload before trying again"))
+		} else {
+			writeSessionView(w, http.StatusOK, view)
+		}
+		return
+	}
+	view.Sessions = append(view.Sessions, session)
+	source.save(w, view, http.StatusCreated)
+}
+
+// readEntry decodes a session from the form along with the current sessions it applies to.
+func (source sessionSource) readEntry(w http.ResponseWriter, r *http.Request) (sessionView, Session, bool) {
 	w.Header().Set("Cache-Control", "no-store")
 	var entry sessionEntry
 	if !decodeJSONRequest(w, r, &entry, "session") {
-		return
+		return sessionView{}, Session{}, false
 	}
 	view, err := source.read()
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err)
-		return
+		return sessionView{}, Session{}, false
 	}
 	location, _ := time.LoadLocation(view.TimeZone) // Already checked by read.
 	start, err := parseSessionTime(entry.DutyStart, location)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("duty start: %w", err))
-		return
+		return sessionView{}, Session{}, false
 	}
 	end, err := parseSessionTime(entry.DutyEnd, location)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("duty end: %w", err))
-		return
+		return sessionView{}, Session{}, false
 	}
 	session := Session{
-		ID: entry.ID, DutyStart: start, DutyEnd: end,
+		ID: entry.ID, DutyStart: start.UTC(), DutyEnd: end.UTC(),
 		Student:    strings.TrimSpace(entry.Student),
 		Activities: entry.Activities,
 	}
@@ -50,34 +71,7 @@ func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request
 			activity.Registration = strings.TrimSpace(activity.Registration)
 		}
 	}
-	for _, existing := range view.Sessions {
-		if existing.ID == session.ID {
-			// A retry after a lost response must not append another session.
-			saved, savedErr := sessionETag(existing)
-			sent, sentErr := sessionETag(session)
-			if err := errors.Join(savedErr, sentErr); err != nil {
-				writeJSONError(w, http.StatusInternalServerError, err)
-				return
-			}
-			if saved != sent {
-				writeJSONError(w, http.StatusConflict, fmt.Errorf("session ID already exists with different values; reload before trying again"))
-				return
-			}
-			writeSessionView(w, http.StatusOK, view)
-			return
-		}
-	}
-	view.Sessions = append(view.Sessions, session)
-	input := SessionFile{SchemaVersion: supportedSessionSchemaVersion, Sessions: view.Sessions}
-	if err := validateSessionFile(input); err != nil {
-		writeJSONError(w, http.StatusBadRequest, err)
-		return
-	}
-	if err := writeSessionFile(source.sessionsPath, input); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, fmt.Errorf("save sessions: %w", err))
-		return
-	}
-	writeSessionView(w, http.StatusCreated, view)
+	return view, session, true
 }
 
 func parseSessionTime(value string, location *time.Location) (time.Time, error) {

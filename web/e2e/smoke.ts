@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 
 const root = join(import.meta.dirname, '../..');
 
-await test('create, invoice, report, and delete a session', { timeout: 30_000 }, async (t) => {
+await test('create, edit, document, and delete a session', { timeout: 30_000 }, async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'fitools-e2e-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   await cp(join(root, 'examples'), dir, { recursive: true });
@@ -55,6 +55,38 @@ await test('create, invoice, report, and delete a session', { timeout: 30_000 },
   await row.waitFor();
   await page.reload();
   await row.waitFor();
+
+  const sessionsFile = join(dir, 'sessions.json');
+  const editor = page.getByRole('form', { name: 'Edit session' });
+  async function edit(session: typeof row) {
+    await session.hover();
+    await session.getByRole('button', { name: /^Edit session/ }).click();
+  }
+  async function save() {
+    await editor.getByRole('button', { name: 'Save session' }).click();
+    await editor.waitFor({ state: 'detached' });
+  }
+
+  // The example file records times in UTC; saving one unchanged must not rewrite it.
+  const examples = await readFile(sessionsFile, 'utf8');
+  await edit(
+    page.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Pat Beispiel' }) }),
+  );
+  await save();
+  assert.equal(await readFile(sessionsFile, 'utf8'), examples);
+
+  await edit(row);
+  await field('Flight 1 block on').fill('0845');
+  await field('Flight 1 landings').fill('3');
+  await save();
+  await page.reload();
+  assert.match((await row.textContent()) ?? '', /1:15/);
+  const { sessions } = JSON.parse(await readFile(sessionsFile, 'utf8'));
+  const edited = sessions.find((session: { student?: string }) => session.student === 'Smoke Test');
+  assert.deepEqual(
+    [sessions.length, edited.activities[0].blockOn, edited.activities[0].landings],
+    [JSON.parse(examples).sessions.length, '2026-05-29T08:45:00Z', 3],
+  );
 
   async function download(form: string) {
     const pdf = page.waitForEvent('download');

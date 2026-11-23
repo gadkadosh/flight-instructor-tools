@@ -425,6 +425,10 @@ test('confirms the row being deleted and preserves other selected sessions', asy
   const expand = screen.getByRole('button', { name: /Show flights for Alex/ });
   expand.focus();
   await userEvent.keyboard('{Tab}');
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: /Edit session for Alex/ }),
+  );
+  await userEvent.keyboard('{Tab}');
   expect(document.activeElement).toBe(trigger);
   expect(getComputedStyle(trigger).opacity).toBe('1');
   await userEvent.keyboard('{Enter}');

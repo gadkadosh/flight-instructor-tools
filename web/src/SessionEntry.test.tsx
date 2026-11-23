@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, expect, test, vi } from 'vite-plus/test';
 import { page, userEvent } from 'vite-plus/test/browser';
 import App from './App';
-import type { Session } from './sessions';
+import { zonedInstant, type Session } from './sessions';
 import './style.css';
 
 afterEach(async () => {
@@ -12,25 +12,37 @@ afterEach(async () => {
   await page.viewport(1280, 720);
 });
 
-function sessionAPI(sessions: Session[] = []) {
+function sessionAPI(sessions: Session[] = [], timeZone = 'UTC') {
   const entries: Omit<Session, 'etag'>[] = [];
-  const fetch = vi.fn(async (_url: string, options?: RequestInit) => {
-    if (options?.method === 'POST') {
+  const fetch = vi.fn(async (url: string, options?: RequestInit) => {
+    if (options?.method === 'POST' || options?.method === 'PUT') {
       const entry = JSON.parse(options.body as string) as Omit<Session, 'etag'>;
+      // Like the server, read wall-clock duty times as instants in the time zone.
+      const instant = (value: string) =>
+        new Date(zonedInstant(timeZone, value.slice(0, 10), value.slice(11))).toISOString();
+      const saved = {
+        ...entry,
+        etag: `"${entry.id}-${entries.length}"`,
+        dutyStart: instant(entry.dutyStart),
+        dutyEnd: instant(entry.dutyEnd),
+      };
+      if (options.method === 'PUT') {
+        const current = sessions.find(
+          ({ id }) => url === `/api/sessions/${encodeURIComponent(id)}`,
+        );
+        if (new Headers(options.headers).get('If-Match') !== current?.etag) {
+          return Response.json(
+            { error: 'this session changed; reload the page and review it before saving' },
+            { status: 412 },
+          );
+        }
+        sessions = sessions.map((session) => (session === current ? saved : session));
+      } else {
+        sessions = [...sessions, saved];
+      }
       entries.push(entry);
-      // Like the server, read wall-clock duty times as instants (in UTC here).
-      const instant = (value: string) => `${value}:00Z`;
-      sessions = [
-        ...sessions,
-        {
-          ...entry,
-          etag: `"${entry.id}"`,
-          dutyStart: instant(entry.dutyStart),
-          dutyEnd: instant(entry.dutyEnd),
-        },
-      ];
     }
-    return Response.json({ sessions, timeZone: 'UTC' });
+    return Response.json({ sessions, timeZone });
   });
   vi.stubGlobal('fetch', fetch);
   return { fetch, entries };
@@ -212,7 +224,7 @@ test('enters a session by keyboard, calculates block times, and saves individual
   expect(entries[0]!.activities[1]).not.toHaveProperty('firstTakeoff');
   expect(entries[0]!.activities[1]).not.toHaveProperty('minutes');
   expect(new Set(entries[0]!.activities.map((activity) => activity.id)).size).toBe(4);
-  expect(screen.queryByRole('form', { name: 'Add session' })).toBeNull();
+  expect(screen.queryByRole('form', { name: 'New session' })).toBeNull();
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add session' }));
   await userEvent.click(screen.getByRole('button', { name: /Show flights for New Student/ }));
   const flights = screen.getByRole('table', { name: /Flights for New Student/ });
@@ -615,7 +627,7 @@ test('validates entries, infers overnight duty, and preserves data after errors'
   const save = screen.getByRole('button', { name: 'Save session' });
   const rowHeight = entryRow.getBoundingClientRect().height;
   const endWidth = end.getBoundingClientRect().width;
-  const form = screen.getByRole('form', { name: 'Add session' });
+  const form = screen.getByRole('form', { name: 'New session' });
   const flights = screen.getByRole('table', { name: 'New session flights' });
   expect(flights.getBoundingClientRect().top).toBe(form.getBoundingClientRect().top);
   await userEvent.fill(end, '2330');
@@ -792,7 +804,210 @@ test('suggests distinct existing students, defaults the date to the configured t
   const list = document.getElementById(screen.getByLabelText('Student').getAttribute('list')!)!;
   expect([...list.querySelectorAll('option')].map((option) => option.value)).toEqual(['Alex']);
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-  expect(screen.queryByRole('form', { name: 'Add session' })).toBeNull();
+  expect(screen.queryByRole('form', { name: 'New session' })).toBeNull();
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add session' }));
+});
+
+const editButton = (name: RegExp) => screen.getByRole('button', { name });
+
+async function openEditor(student: string) {
+  render(<App />);
+  await screen.findByRole('rowheader', { name: student });
+  // Like a mouse user, point at the row to reveal its buttons.
+  await page.getByRole('rowheader', { name: student }).hover();
+  await userEvent.click(editButton(new RegExp(`Edit session for ${student}`)));
+}
+
+test('edits a session in place and saves the corrected values under the same ID', async () => {
+  const later: Session = {
+    ...previousSession,
+    id: 'later',
+    etag: '"later"',
+    student: 'Later Student',
+    dutyStart: '2026-05-02T12:00:00Z',
+    dutyEnd: '2026-05-02T13:00:00Z',
+    activities: [{ id: 'later-prep', type: 'preparation', minutes: 45 }],
+  };
+  const earliest: Session = {
+    ...later,
+    id: 'earliest',
+    etag: '"earliest"',
+    student: 'Earliest Student',
+    dutyStart: '2026-05-02T07:00:00Z',
+    dutyEnd: '2026-05-02T08:00:00Z',
+  };
+  const { fetch, entries } = sessionAPI([previousSession, later, earliest]);
+  await openEditor('Earlier Student');
+  const row = (student: string) => screen.getByRole('rowheader', { name: student }).closest('tr')!;
+
+  const form = screen.getByRole('form', { name: 'Edit session' });
+  const entryRow = screen.getByLabelText('Session date').closest('tr')!;
+  // The form takes the row's place, between the later and earlier sessions of the day.
+  expect(screen.queryByRole('rowheader', { name: 'Earlier Student' })).toBeNull();
+  expect(row('Later Student').compareDocumentPosition(entryRow)).toBe(
+    Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+  expect(row('Earliest Student').compareDocumentPosition(entryRow)).toBe(
+    Node.DOCUMENT_POSITION_PRECEDING,
+  );
+  expect(document.activeElement).toBe(screen.getByLabelText('Session date'));
+  expect(
+    ['Session date', 'Student', 'Duty start', 'Duty end', 'Preparation duration'].map(value),
+  ).toEqual(['2026-05-02', 'Earlier Student', '09:00', '11:00', '']);
+  expect(
+    ['type', 'registration', 'departure', 'arrival', 'block off', 'block on', 'landings'].map(
+      (field) => value(`Flight 2 ${field}`),
+    ),
+  ).toEqual(['dual', 'D-EKLM', 'EDFE', 'EDFZ', '09:30', '10:30', '1']);
+  expect(screen.getByLabelText('Block time total').textContent).toBe('1:20');
+  expect(within(form).queryByRole('button', { name: 'Save and add another' })).toBeNull();
+
+  await userEvent.fill(screen.getByLabelText('Student'), 'Corrected Student');
+  await userEvent.fill(screen.getByLabelText('Flight 2 block on'), '1040');
+  await userEvent.fill(screen.getByLabelText('Flight 2 landings'), '3');
+  await userEvent.keyboard('{Control>}{Enter}{/Control}');
+
+  await screen.findByRole('rowheader', { name: 'Corrected Student' });
+  expect(screen.queryByRole('form', { name: 'Edit session' })).toBeNull();
+  expect(fetch).toHaveBeenLastCalledWith('/api/sessions/previous', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'If-Match': '"previous"' },
+    body: expect.any(String),
+  });
+  expect(entries).toEqual([
+    {
+      id: 'previous',
+      dutyStart: '2026-05-02T09:00',
+      dutyEnd: '2026-05-02T11:00',
+      student: 'Corrected Student',
+      activities: [
+        {
+          ...previousSession.activities[0],
+          blockOff: '2026-05-02T09:00:00.000Z',
+          blockOn: '2026-05-02T09:20:00.000Z',
+        },
+        {
+          ...previousSession.activities[1],
+          blockOff: '2026-05-02T09:30:00.000Z',
+          blockOn: '2026-05-02T10:40:00.000Z',
+          landings: 3,
+        },
+      ],
+    },
+  ]);
+  expect(document.activeElement).toBe(editButton(/Edit session for Corrected Student/));
+  const subjects = document.querySelectorAll('.session-subject');
+  expect([...subjects].map((subject) => subject.textContent)).toEqual([
+    'Later Student',
+    'Corrected Student',
+    'Earliest Student',
+  ]);
+  await userEvent.click(screen.getByRole('button', { name: /Show flights for Corrected/ }));
+  const flights = screen.getByRole('table', { name: /Flights for Corrected Student/ });
+  expect(within(flights).getByText('1:10')).toBeTruthy();
+});
+
+// Times as instants, so 10:00:00Z and 10:00:00.000Z compare equal.
+const instants = (value: unknown) =>
+  JSON.parse(JSON.stringify(value), (_key, field) =>
+    typeof field === 'string' && /^\d{4}-\d\d-\d\dT.*Z$/.test(field)
+      ? new Date(field).toISOString()
+      : field,
+  );
+
+test('saving an overnight session in Berlin unchanged sends back exactly what is stored', async () => {
+  // Duty 23:00–03:00 in Berlin (UTC+2); the flights cross midnight UTC.
+  const night: Session = {
+    id: 'night',
+    etag: '"night"',
+    student: 'Night Student',
+    dutyStart: '2026-05-03T21:00:00Z',
+    dutyEnd: '2026-05-04T01:00:00Z',
+    activities: [
+      { id: 'night-briefing', type: 'preparation', minutes: 75 },
+      {
+        id: 'night-dual',
+        type: 'dual',
+        blockOff: '2026-05-03T23:40:00Z',
+        firstTakeoff: '2026-05-03T23:45:00Z',
+        lastLanding: '2026-05-04T00:20:00Z',
+        blockOn: '2026-05-04T00:25:00Z',
+        departure: 'EDFE',
+        arrival: 'EDFZ',
+        registration: 'D-EFTI',
+        landings: 4,
+      },
+      {
+        id: 'night-solo',
+        type: 'soloSupervision',
+        blockOff: '2026-05-04T00:30:00Z',
+        blockOn: '2026-05-04T00:50:00Z',
+        departure: 'EDFZ',
+        arrival: 'EDFE',
+        registration: 'D-EFTI',
+        landings: 1,
+      },
+    ],
+  };
+  const { entries } = sessionAPI([night], 'Europe/Berlin');
+  await openEditor('Night Student');
+  expect(['Session date', 'Duty start', 'Duty end', 'Preparation duration'].map(value)).toEqual([
+    '2026-05-03',
+    '23:00',
+    '03:00',
+    '1:15',
+  ]);
+  expect(screen.getByText(/Duty ends the next day/).querySelector('time')?.dateTime).toBe(
+    '2026-05-04',
+  );
+  expect(
+    ['block off', 'takeoff time', 'landing time', 'block on'].map((field) =>
+      value(`Flight 1 ${field}`),
+    ),
+  ).toEqual(['23:40', '23:45', '00:20', '00:25']);
+  expect(value('Flight 2 takeoff time')).toBe('');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  await screen.findByRole('rowheader', { name: 'Night Student' });
+
+  const { etag: _, ...stored } = night;
+  expect(entries).toHaveLength(1);
+  expect(instants(entries[0]!.activities)).toEqual(instants(stored.activities));
+  expect(entries[0]).toEqual({
+    ...stored,
+    dutyStart: '2026-05-03T23:00',
+    dutyEnd: '2026-05-04T03:00',
+    activities: entries[0]!.activities,
+  });
+});
+
+test('a save refused as outdated keeps the edits and explains why', async () => {
+  const { fetch, entries } = sessionAPI([previousSession]);
+  await openEditor('Earlier Student');
+  // Another window saved a newer version after this one loaded.
+  fetch.mockImplementationOnce(async () =>
+    Response.json(
+      { error: 'this session changed; reload the page and review it before saving' },
+      { status: 412 },
+    ),
+  );
+  await userEvent.fill(screen.getByLabelText('Flight 1 landings'), '2');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'this session changed; reload the page and review it before saving',
+  );
+  expect(value('Flight 1 landings')).toBe('2');
+  expect(screen.getByRole('form', { name: 'Edit session' })).toBeTruthy();
+  expect(entries).toHaveLength(0);
+});
+
+test('cancelling an edit restores the row without saving', async () => {
+  const { fetch } = sessionAPI([previousSession]);
+  await openEditor('Earlier Student');
+  await userEvent.fill(screen.getByLabelText('Student'), 'Discarded');
+  await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('form', { name: 'Edit session' })).toBeNull();
+  expect(screen.getByRole('rowheader', { name: 'Earlier Student' })).toBeTruthy();
+  expect(document.activeElement).toBe(editButton(/Edit session for Earlier/));
+  expect(fetch).toHaveBeenCalledTimes(1);
 });
