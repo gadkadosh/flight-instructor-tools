@@ -171,7 +171,7 @@ function SessionTable({
         </div>
       )}
       <p className="time-note">
-        Times: <span>{view.timeZone}</span> · Durations H:MM
+        Duty times: <span>{view.timeZone}</span> · Flight times: UTC · Durations H:MM
       </p>
       {deleteTarget && (
         <SessionDelete

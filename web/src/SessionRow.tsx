@@ -4,6 +4,7 @@ import {
   activityMinutes,
   dateInZone,
   flightColumns,
+  flightTimeFormat,
   formatDuration,
   type Session,
 } from './sessions';
@@ -182,13 +183,15 @@ export default function SessionRow({
                 {flightColumns.map((column) => (
                   <th key={column.label} scope="col" className={column.className}>
                     {column.label}
+                    {'utc' in column && <span className="time-zone"> UTC</span>}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {flights.map((flight) => {
-                const time = (value?: string) => (value ? timeFormat.format(new Date(value)) : '–');
+                const time = (value?: string) =>
+                  value ? flightTimeFormat.format(new Date(value)) : '–';
                 return (
                   <tr key={flight.id}>
                     <th scope="row">{activityKinds[flight.type].label}</th>

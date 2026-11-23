@@ -18,7 +18,7 @@ function sessionAPI(sessions: Session[] = []) {
     if (options?.method === 'POST') {
       const entry = JSON.parse(options.body as string) as Omit<Session, 'etag'>;
       entries.push(entry);
-      // Like the server, read wall-clock entry times as instants (in UTC here).
+      // Like the server, read wall-clock duty times as instants (in UTC here).
       const instant = (value: string) => `${value}:00Z`;
       sessions = [
         ...sessions,
@@ -27,15 +27,6 @@ function sessionAPI(sessions: Session[] = []) {
           etag: `"${entry.id}"`,
           dutyStart: instant(entry.dutyStart),
           dutyEnd: instant(entry.dutyEnd),
-          activities: entry.activities.map((activity) =>
-            activity.type === 'preparation'
-              ? activity
-              : {
-                  ...activity,
-                  blockOff: instant(activity.blockOff),
-                  blockOn: instant(activity.blockOn),
-                },
-          ),
         },
       ];
     }
@@ -43,6 +34,14 @@ function sessionAPI(sessions: Session[] = []) {
   });
   vi.stubGlobal('fetch', fetch);
   return { fetch, entries };
+}
+
+function berlinAPI() {
+  const fetch = vi.fn(async (_url: string, _options?: RequestInit) =>
+    Response.json({ sessions: [], timeZone: 'Europe/Berlin' }),
+  );
+  vi.stubGlobal('fetch', fetch);
+  return fetch;
 }
 
 async function openEntry() {
@@ -127,10 +126,10 @@ test('enters a session by keyboard, calculates block times, and saves individual
     'Aircraft',
     'From',
     'To',
-    'Block off',
-    'Takeoff',
-    'Landing',
-    'Block on',
+    'Block off UTC',
+    'Takeoff UTC',
+    'Landing UTC',
+    'Block on UTC',
     'Landings',
     'Block',
     'Actions',
@@ -185,26 +184,26 @@ test('enters a session by keyboard, calculates block times, and saves individual
       { type: 'preparation', minutes: 30 },
       {
         type: 'dual',
-        blockOff: '2026-05-03T09:45',
-        blockOn: '2026-05-03T10:30',
+        blockOff: '2026-05-03T09:45:00.000Z',
+        blockOn: '2026-05-03T10:30:00.000Z',
         arrival: 'EDFZ',
         landings: 5,
         ...carried,
       },
       {
         type: 'dual',
-        blockOff: '2026-05-03T10:40',
-        blockOn: '2026-05-03T11:55',
+        blockOff: '2026-05-03T10:40:00.000Z',
+        blockOn: '2026-05-03T11:55:00.000Z',
         arrival: 'EDFZ',
         landings: 1,
         ...carried,
       },
       {
         type: 'soloSupervision',
-        blockOff: '2026-05-03T12:00',
-        blockOn: '2026-05-03T12:20',
-        firstTakeoff: '2026-05-03T12:03',
-        lastLanding: '2026-05-03T12:18',
+        blockOff: '2026-05-03T12:00:00.000Z',
+        blockOn: '2026-05-03T12:20:00.000Z',
+        firstTakeoff: '2026-05-03T12:03:00.000Z',
+        lastLanding: '2026-05-03T12:18:00.000Z',
         arrival: 'EDFE',
         ...carried,
       },
@@ -269,10 +268,10 @@ test('rejects block times out of order without saving', async () => {
   await screen.findByRole('rowheader', { name: 'New Student' });
   expect(entries[0]!.activities).toEqual([
     expect.objectContaining({
-      blockOff: '2026-05-03T10:00',
-      firstTakeoff: '2026-05-03T10:00',
-      lastLanding: '2026-05-03T11:00',
-      blockOn: '2026-05-03T11:00',
+      blockOff: '2026-05-03T10:00:00.000Z',
+      firstTakeoff: '2026-05-03T10:00:00.000Z',
+      lastLanding: '2026-05-03T11:00:00.000Z',
+      blockOn: '2026-05-03T11:00:00.000Z',
       arrival: 'EDFZ',
     }),
   ]);
@@ -305,8 +304,8 @@ test.for([
 );
 
 test.for([
-  ['0900', '1200', '2026-05-03T09:00', '2026-05-03T12:00'],
-  ['2200', '0200', '2026-05-03T22:00', '2026-05-04T02:00'],
+  ['0900', '1200', '2026-05-03T09:00:00.000Z', '2026-05-03T12:00:00.000Z'],
+  ['2200', '0200', '2026-05-03T22:00:00.000Z', '2026-05-04T02:00:00.000Z'],
 ] as const)(
   'accepts a flight filling %s–%s duty',
   async ([dutyStart, dutyEnd, blockOff, blockOn]) => {
@@ -319,6 +318,69 @@ test.for([
     await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
     await screen.findByRole('rowheader', { name: 'New Student' });
     expect(entries[0]!.activities).toEqual([expect.objectContaining({ blockOff, blockOn })]);
+  },
+);
+
+test.for([
+  // Winter: UTC+1.
+  [
+    '2026-11-15',
+    '0830',
+    '1330',
+    '0838',
+    '0947',
+    '2026-11-15T08:38:00.000Z',
+    '2026-11-15T09:47:00.000Z',
+  ],
+  // Summer: UTC+2, so this duty starts on the previous UTC date.
+  [
+    '2026-05-03',
+    '0030',
+    '0230',
+    '2245',
+    '0015',
+    '2026-05-02T22:45:00.000Z',
+    '2026-05-03T00:15:00.000Z',
+  ],
+] as const)(
+  'enters flight times in UTC for a session in Berlin on %s, %s–%s',
+  async ([date, dutyStart, dutyEnd, blockOff, blockOn, savedOff, savedOn]) => {
+    const fetch = berlinAPI();
+    await openEntry();
+    await fillBasics();
+    await userEvent.fill(screen.getByLabelText('Session date'), date);
+    await userEvent.fill(screen.getByLabelText('Duty start'), dutyStart);
+    await userEvent.fill(screen.getByLabelText('Duty end'), dutyEnd);
+    await fillFlight(1, blockOff, blockOn);
+    expect(screen.getByLabelText('Flight 1 block time').textContent).not.toBe('0:00');
+    await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    await expect.poll(() => fetch.mock.calls.length).toBe(2);
+    const entry = JSON.parse(fetch.mock.calls[1]![1]!.body as string);
+    expect(entry).toMatchObject({
+      dutyStart: `${date}T${dutyStart.slice(0, 2)}:${dutyStart.slice(2)}`,
+      activities: [expect.objectContaining({ blockOff: savedOff, blockOn: savedOn })],
+    });
+  },
+);
+
+test.for([
+  ['0729', '0800', 'block off'],
+  ['1230', '1231', 'block on'],
+] as const)(
+  'rejects UTC flight times %s–%s outside 08:30–13:30 duty in Berlin',
+  async ([blockOff, blockOn, invalid]) => {
+    const fetch = berlinAPI();
+    await openEntry();
+    await fillBasics();
+    await userEvent.fill(screen.getByLabelText('Session date'), '2026-11-15');
+    await userEvent.fill(screen.getByLabelText('Duty start'), '0830');
+    await userEvent.fill(screen.getByLabelText('Duty end'), '1330');
+    await fillFlight(1, blockOff, blockOn);
+    await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      `${invalid === 'block off' ? 'Block off' : 'Block on'} must be within duty time.`,
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
   },
 );
 
@@ -376,10 +438,10 @@ test('save-and-add shortcut retains the date and aircraft, resets inputs, and fo
   expect(entries[0]!.activities).toContainEqual(
     expect.objectContaining({
       type: 'dual',
-      blockOff: '2026-05-03T23:30',
-      blockOn: '2026-05-04T00:35',
-      firstTakeoff: '2026-05-04T00:05',
-      lastLanding: '2026-05-04T00:30',
+      blockOff: '2026-05-03T23:30:00.000Z',
+      blockOn: '2026-05-04T00:35:00.000Z',
+      firstTakeoff: '2026-05-04T00:05:00.000Z',
+      lastLanding: '2026-05-04T00:30:00.000Z',
     }),
   );
   await expect.poll(() => document.activeElement).toBe(screen.getByLabelText('Student'));
@@ -488,7 +550,7 @@ test('saves unnamed special flights with preparation and includes them in block 
   expect(entries).toHaveLength(1);
   expect(entries[0]!.activities).toEqual([
     expect.objectContaining({ type: 'preparation', minutes: 15 }),
-    expect.objectContaining({ type: 'rundflug', blockOff: '2026-05-03T09:15' }),
+    expect.objectContaining({ type: 'rundflug', blockOff: '2026-05-03T09:15:00.000Z' }),
     expect.objectContaining({ type: 'schnupperflug', registration: 'D-EFTI' }),
   ]);
   expect(entries[0]).not.toHaveProperty('description');
@@ -665,8 +727,8 @@ test.each(['20260-05-03', '9999-12-31'])(
       activities: [
         expect.objectContaining({
           type: 'dual',
-          blockOff: '2026-05-03T23:15',
-          blockOn: '2026-05-04T00:00',
+          blockOff: '2026-05-03T23:15:00.000Z',
+          blockOn: '2026-05-04T00:00:00.000Z',
         }),
       ],
     });

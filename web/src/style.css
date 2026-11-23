@@ -600,6 +600,13 @@ td {
   width: 5.5rem;
 }
 
+/* Below the label, so the time columns keep their width. */
+.flight-table thead .time-zone {
+  display: block;
+  margin-left: 0;
+  font-size: inherit;
+}
+
 .flight-table .airfield {
   width: 4.75rem;
 }

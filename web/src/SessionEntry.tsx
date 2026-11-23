@@ -13,6 +13,7 @@ import {
   type FlightType,
   type Session,
   type SessionView,
+  zonedInstant,
 } from './sessions';
 
 type FlightDraft = {
@@ -31,12 +32,13 @@ type FlightDraft = {
 type FlightField = Exclude<keyof FlightDraft, 'id' | 'type' | 'edited'>;
 type Carried = Pick<FlightDraft, 'arrival' | 'registration'>;
 const clockHint = '24-hour time, for example 0930 or 9:30';
+const day = 24 * 60 * 60_000;
 const durationHint = 'Hours and two digits for minutes, for example 1:30 or 130';
 const airfieldPattern = /^[A-Za-z0-9]{4}$/;
 const landingsPattern = /^[1-9]\d*$/;
 const clockInput = {
   pattern: clockPattern.source,
-  title: clockHint,
+  title: `UTC, ${clockHint}`,
   inputMode: 'numeric',
 } as const;
 const airfieldInput = {
@@ -174,17 +176,21 @@ export default function SessionEntry({
         .filter((student): student is string => Boolean(student)),
     ),
   ].sort((a, b) => a.localeCompare(b));
-  // Flight times share the session date; when duty runs past midnight, those before duty start fall on the next day.
-  const nextDay = (clock: string) => overnight && clock < start!;
-  const clockMinutes = (clock: string) => {
+  const dutyStart = endDate && start ? zonedInstant(view.timeZone, date, start) : undefined;
+  const dutyEnd = endDate && end ? zonedInstant(view.timeZone, endDate, end) : undefined;
+  // A UTC flight time is its first occurrence from duty start. Flights lie within duty, which
+  // is shorter than a day, so that is the only occurrence that can be valid.
+  const flightInstant = (clock: string) => {
+    const from = dutyStart ?? 0;
     const [hours, minutes] = clock.split(':').map(Number);
-    return hours! * 60 + minutes! + (nextDay(clock) ? 24 * 60 : 0);
+    const instant = Math.floor(from / day) * day + (hours! * 60 + minutes!) * 60_000;
+    return instant < from ? instant + day : instant;
   };
   function blockMinutes(flight: FlightDraft) {
     const off = parseClock(flight.blockOff);
     const on = parseClock(flight.blockOn);
-    if (off && on && clockMinutes(on) > clockMinutes(off))
-      return clockMinutes(on) - clockMinutes(off);
+    const minutes = off && on && (flightInstant(on) - flightInstant(off)) / 60_000;
+    if (minutes && minutes > 0) return minutes;
   }
   const totals = { preparation: 0, block: 0, soloSupervision: 0 };
   for (const flight of flights) {
@@ -247,8 +253,7 @@ export default function SessionEntry({
     if (prep === undefined) {
       return invalid('Enter preparation as H:MM, such as 1:30 or 130.', 'preparation');
     }
-    const inDuty = (clock: string) =>
-      clockMinutes(start) <= clockMinutes(clock) && clockMinutes(clock) <= clockMinutes(end);
+    const inDuty = (clock: string) => flightInstant(clock) <= dutyEnd!;
     const activities: Activity[] =
       prep > 0 ? [{ id: `${id}-prep`, type: 'preparation', minutes: prep }] : [];
     for (const flight of flights) {
@@ -263,8 +268,12 @@ export default function SessionEntry({
         flight.landing,
       ].map(parseClock);
       if (!off)
-        return invalid('Enter block off as a 24-hour time, such as 0930.', field('blockOff'));
-      if (!on) return invalid('Enter block on as a 24-hour time, such as 1030.', field('blockOn'));
+        return invalid(
+          'Enter block off in UTC as a 24-hour time, such as 0930.',
+          field('blockOff'),
+        );
+      if (!on)
+        return invalid('Enter block on in UTC as a 24-hour time, such as 1030.', field('blockOn'));
       if (!inDuty(off)) return invalid('Block off must be within duty time.', field('blockOff'));
       if (!inDuty(on)) return invalid('Block on must be within duty time.', field('blockOn'));
       if (!blockMinutes(flight))
@@ -276,9 +285,9 @@ export default function SessionEntry({
         takeoff &&
         landing &&
         !(
-          clockMinutes(off) <= clockMinutes(takeoff) &&
-          clockMinutes(takeoff) < clockMinutes(landing) &&
-          clockMinutes(landing) <= clockMinutes(on)
+          flightInstant(off) <= flightInstant(takeoff) &&
+          flightInstant(takeoff) < flightInstant(landing) &&
+          flightInstant(landing) <= flightInstant(on)
         )
       ) {
         return invalid(
@@ -300,7 +309,7 @@ export default function SessionEntry({
       if (!flight.registration.trim()) {
         return invalid('Enter the aircraft registration.', field('registration'));
       }
-      const stamp = (clock: string) => `${nextDay(clock) ? endDate : date}T${clock}`;
+      const stamp = (clock: string) => new Date(flightInstant(clock)).toISOString();
       activities.push({
         id: flight.id,
         type: flight.type,
@@ -499,6 +508,7 @@ export default function SessionEntry({
                     {flightColumns.map((column) => (
                       <th key={column.label} scope="col" className={column.className}>
                         {column.label}
+                        {'utc' in column && <span className="time-zone"> UTC</span>}
                       </th>
                     ))}
                     <th scope="col">

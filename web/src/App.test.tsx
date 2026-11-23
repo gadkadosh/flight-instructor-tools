@@ -112,10 +112,10 @@ test('loads sessions and expands flights by clicking a data cell', async () => {
     'Aircraft',
     'From',
     'To',
-    'Block off',
-    'Takeoff',
-    'Landing',
-    'Block on',
+    'Block off UTC',
+    'Takeoff UTC',
+    'Landing UTC',
+    'Block on UTC',
     'Landings',
     'Block',
   ]);
@@ -123,9 +123,10 @@ test('loads sessions and expands flights by clicking a data cell', async () => {
   expect(
     flightRows.map((row) => [...row.querySelectorAll('th, td')].map((cell) => cell.textContent)),
   ).toEqual([
-    ['Dual', 'D-EFTI', 'EDFE', 'EDFE', '00:45', '00:50', '01:15', '01:20', '1', '0:35'],
-    ['Dual', 'D-EFTI', 'EDFE', 'EDFZ', '01:25', '–', '–', '01:55', '4', '0:30'],
-    ['Solo supervision', 'D-EFTI', 'EDFE', 'EDFE', '01:40', '–', '–', '01:45', '1', '0:05'],
+    // Duty is shown in Berlin time, flights in UTC.
+    ['Dual', 'D-EFTI', 'EDFE', 'EDFE', '22:45', '22:50', '23:15', '23:20', '1', '0:35'],
+    ['Dual', 'D-EFTI', 'EDFE', 'EDFZ', '23:25', '–', '–', '23:55', '4', '0:30'],
+    ['Solo supervision', 'D-EFTI', 'EDFE', 'EDFE', '23:40', '–', '–', '23:45', '1', '0:05'],
   ]);
   expect(within(flights).queryByText('Preparation')).toBeNull();
   expect(within(flights).queryByText('flight-1')).toBeNull();
@@ -496,7 +497,9 @@ test('shows the next-day marker with UTC duty times', async () => {
   respond({ timeZone: 'UTC', sessions: [{ ...session, dutyEnd: '2026-05-04T01:00:00Z' }] });
   render(<App />);
   await screen.findByRole('button', { name: /flights for/ });
-  expect(screen.getByText('UTC')).toBeTruthy();
+  expect(screen.getByText(/^Duty times:/).textContent).toBe(
+    'Duty times: UTC · Flight times: UTC · Durations H:MM',
+  );
   expect(screen.getByText('22:30').textContent).toBe('22:30 Z');
   expect(screen.getByText('01:00').textContent).toBe('01:00 Z');
   await expect
