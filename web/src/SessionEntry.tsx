@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState, type ComponentProps, type KeyboardEvent } from 'react';
+import FlightHeaderCells from './FlightHeaderCells';
 import {
   activityKinds,
   clockPattern,
   dateInZone,
   durationPattern,
-  flightColumns,
   formatDuration,
   normalizeDuration,
   parseClock,
@@ -49,7 +49,7 @@ const airfieldInput = {
 };
 const clock = (value: string) => parseClock(value) ?? value;
 
-// The inputs after the type, in the order of flightColumns. Leaving applies `tidy`.
+// The inputs after the type, in the order of FlightHeaderCells. Leaving applies `tidy`.
 const flightFields: {
   name: FlightField;
   label: string;
@@ -505,12 +505,7 @@ export default function SessionEntry({
               <table className="flight-table flight-entry-table" aria-label="New session flights">
                 <thead>
                   <tr>
-                    {flightColumns.map((column) => (
-                      <th key={column.label} scope="col" className={column.className}>
-                        {column.label}
-                        {'utc' in column && <span className="time-zone"> UTC</span>}
-                      </th>
-                    ))}
+                    <FlightHeaderCells />
                     <th scope="col">
                       <span className="visually-hidden">Actions</span>
                     </th>

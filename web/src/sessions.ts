@@ -54,20 +54,6 @@ export function activityMinutes(activity: Activity) {
   return Math.floor((Date.parse(activity.blockOn) - Date.parse(activity.blockOff)) / 60_000);
 }
 
-// Shared by the flight entry and flight details tables so their columns line up.
-export const flightColumns = [
-  { label: 'Type', className: 'type' },
-  { label: 'Aircraft', className: 'registration' },
-  { label: 'From', className: 'airfield' },
-  { label: 'To', className: 'airfield' },
-  { label: 'Block off', className: 'numeric clock', utc: true },
-  { label: 'Takeoff', className: 'numeric clock', utc: true },
-  { label: 'Landing', className: 'numeric clock', utc: true },
-  { label: 'Block on', className: 'numeric clock', utc: true },
-  { label: 'Landings', className: 'numeric count' },
-  { label: 'Block', className: 'numeric clock' },
-] as const;
-
 export function groupSessionsByMonth(sessions: Session[], timeZone: string) {
   const monthParts = new Intl.DateTimeFormat('en-GB', {
     timeZone,
