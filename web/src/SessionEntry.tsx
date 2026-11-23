@@ -33,6 +33,7 @@ const airfieldInput = {
   placeholder: 'EDFE',
 };
 const clock = (value: string) => parseClock(value) ?? value;
+const saveAnotherKeys = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘↵' : 'Ctrl ↵';
 
 // The inputs after the type, in the order of FlightHeaderCells. Leaving applies `tidy`.
 const flightFields: {
@@ -102,19 +103,21 @@ const endDateFormat = new Intl.DateTimeFormat('de-DE', {
   year: 'numeric',
 });
 
-// Adds a session, or with the etag of a stored session, replaces it.
+// Adds a session, or with the etag of a stored session, replaces or deletes it.
 export default function SessionEntry({
   view,
   initial,
   etag,
   onSaved,
   onClose,
+  onDelete,
 }: {
   view: SessionView;
   initial: SessionDraft;
   etag?: string;
   onSaved: (view: SessionView) => void;
   onClose: () => void;
+  onDelete?: (trigger: HTMLButtonElement) => void;
 }) {
   const formId = useId();
   const suggestionsId = useId();
@@ -122,7 +125,6 @@ export default function SessionEntry({
   const formRef = useRef<HTMLFormElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   const studentRef = useRef<HTMLInputElement>(null);
-  const repeatRef = useRef<HTMLButtonElement>(null);
   const savingRef = useRef(false);
   const focusStudent = useRef(false);
   const [draft, setDraft] = useState(initial);
@@ -207,10 +209,15 @@ export default function SessionEntry({
     setFocusFlight(`${flight.id}-blockOff`);
   }
 
+  function saveAnother() {
+    if (formRef.current?.reportValidity()) void save(true);
+  }
+
   function shortcut(event: KeyboardEvent) {
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
-      formRef.current?.requestSubmit(repeatRef.current);
+      if (etag) formRef.current?.requestSubmit();
+      else saveAnother();
     }
   }
 
@@ -477,9 +484,7 @@ export default function SessionEntry({
             aria-label={title}
             onSubmit={(event) => {
               event.preventDefault();
-              const { submitter } = event.nativeEvent as SubmitEvent;
-              const another = Boolean(submitter) && submitter === repeatRef.current;
-              void save(another);
+              void save(false);
             }}
           >
             <fieldset disabled={saving}>
@@ -540,9 +545,10 @@ export default function SessionEntry({
                       </td>
                       <td>
                         <button
-                          className="action-button secondary"
+                          className="action-button text icon"
                           type="button"
                           aria-label={`Remove flight ${index + 1}`}
+                          title="Remove flight"
                           onClick={() => {
                             const remaining = flights.filter((item) => item.id !== flight.id);
                             setFlights(() => remaining);
@@ -553,41 +559,92 @@ export default function SessionEntry({
                             else document.getElementById(`${formId}-add-flight`)?.focus();
                           }}
                         >
-                          Remove
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                            focusable="false"
+                          >
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                          </svg>
                         </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={11}>
+                      <button
+                        className="action-button link add-flight"
+                        type="button"
+                        id={`${formId}-add-flight`}
+                        onClick={addFlight}
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                          focusable="false"
+                        >
+                          <path d="M12 5v14" />
+                          <path d="M5 12h14" />
+                        </svg>
+                        Add flight
+                      </button>
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
-              <button
-                className="action-button secondary"
-                type="button"
-                id={`${formId}-add-flight`}
-                onClick={addFlight}
-              >
-                Add flight
-              </button>
               {error && (
                 <p role="alert" className="error">
                   {error}
                 </p>
               )}
               <div className="entry-actions">
-                <button type="submit" className="action-button">
-                  {saving ? 'Saving…' : 'Save session'}
-                </button>
-                {!etag && (
-                  <button className="action-button secondary" ref={repeatRef} type="submit">
-                    Save and add another
+                {onDelete && (
+                  <button
+                    className="action-button text danger"
+                    type="button"
+                    aria-haspopup="dialog"
+                    onClick={(event) => onDelete(event.currentTarget)}
+                  >
+                    Delete session…
                   </button>
                 )}
-                <button className="action-button text" type="button" onClick={onClose}>
-                  Cancel
-                </button>
-                <span className="entry-hint">
-                  Ctrl/⌘ + Enter: {etag ? 'save' : 'save and add another'}
-                </span>
+                {/* Save session is the only submit button, so Enter saves wherever it sits. */}
+                <div className="entry-submit">
+                  <button className="action-button text" type="button" onClick={onClose}>
+                    Cancel
+                  </button>
+                  {!etag && (
+                    <button
+                      className="action-button secondary"
+                      type="button"
+                      aria-keyshortcuts="Control+Enter Meta+Enter"
+                      onClick={saveAnother}
+                    >
+                      Save and add another
+                      <kbd aria-hidden="true">{saveAnotherKeys}</kbd>
+                    </button>
+                  )}
+                  <button type="submit" className="action-button">
+                    {saving ? 'Saving…' : 'Save session'}
+                  </button>
+                </div>
               </div>
             </fieldset>
           </form>

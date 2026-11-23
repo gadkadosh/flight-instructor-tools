@@ -3,9 +3,11 @@ import { flushSync } from 'react-dom';
 import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
 import SessionDelete from './SessionDelete';
-import SessionRow, { type DeleteTarget } from './SessionRow';
+import SessionRow, { sessionSummary } from './SessionRow';
 import { newSessionDraft, sessionDraft } from './sessionDraft';
 import { groupSessionsByMonth, type Session, type SessionView } from './sessions';
+
+type DeleteTarget = { session: Session; trigger: HTMLButtonElement };
 
 type LoadState =
   | { status: 'loading' }
@@ -74,9 +76,9 @@ function SessionTable({
   function updateView(nextView: SessionView) {
     setView(nextView);
     setDeleteNotice('');
-    setSelectedSessionIds(
-      (previous) => new Set(nextView.sessions.map(({ id }) => id).filter((id) => previous.has(id))),
-    );
+    const ids = new Set(nextView.sessions.map(({ id }) => id));
+    setSelectedSessionIds((previous) => new Set([...previous].filter((id) => ids.has(id))));
+    setEditing((previous) => new Map([...previous].filter(([id]) => ids.has(id))));
   }
 
   return (
@@ -180,6 +182,10 @@ function SessionTable({
                         etag={opened.etag}
                         onSaved={updateView}
                         onClose={() => closeEditor(session.id)}
+                        onDelete={(trigger) => {
+                          setDeleteNotice('');
+                          setDeleteTarget({ session: opened, trigger });
+                        }}
                       />
                     ) : (
                       <SessionRow
@@ -198,10 +204,6 @@ function SessionTable({
                         onEdit={() =>
                           setEditing((previous) => new Map(previous).set(session.id, session))
                         }
-                        onDelete={(target) => {
-                          setDeleteNotice('');
-                          setDeleteTarget(target);
-                        }}
                       />
                     );
                   })}
@@ -218,13 +220,14 @@ function SessionTable({
         <SessionDelete
           sessionId={deleteTarget.session.id}
           etag={deleteTarget.session.etag}
-          description={deleteTarget.description}
+          description={sessionSummary(deleteTarget.session, dateFormat, timeFormat).description}
           onCancel={() => {
             setDeleteTarget(null);
             deleteTarget.trigger.focus();
           }}
           onDeleted={(nextView) => {
-            // Closing the dialog returned focus to the deleted row, so move it before the update.
+            // Closing the dialog returned focus to the deleted session's editor, so move it before
+            // the update.
             if (nextView.sessions.length > 0) tableRegion.current?.focus({ preventScroll: true });
             else onFocusAdd();
             const update = () =>
