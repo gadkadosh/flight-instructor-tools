@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -140,18 +139,7 @@ func (source sessionSource) save(w http.ResponseWriter, view sessionView, status
 	writeSessionView(w, status, view)
 }
 
-// The tag ignores UTC offsets: a session read as 10:00Z is the same as one sent as 12:00+02:00.
 func sessionETag(session Session) (string, error) {
-	session.DutyStart, session.DutyEnd = session.DutyStart.UTC(), session.DutyEnd.UTC()
-	session.Activities = slices.Clone(session.Activities)
-	for index, activity := range session.Activities {
-		if activity.Flight != nil {
-			flight := *activity.Flight
-			flight.BlockOff, flight.BlockOn = flight.BlockOff.UTC(), flight.BlockOn.UTC()
-			flight.FirstTakeoff, flight.LastLanding = flight.FirstTakeoff.UTC(), flight.LastLanding.UTC()
-			session.Activities[index].Flight = &flight
-		}
-	}
 	data, err := json.Marshal(session)
 	if err != nil {
 		return "", err

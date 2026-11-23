@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Duty times are wall-clock values in the configured timezone, not the browser's.
+// Duty times are wall-clock values in the configured timezone, not the browser's; they are stored in UTC.
 // Flight times are absolute, because the form enters them in UTC as logbooks do.
 type sessionEntry struct {
 	ID         string     `json:"id"`
@@ -62,7 +62,7 @@ func (source sessionSource) readEntry(w http.ResponseWriter, r *http.Request) (s
 		return sessionView{}, Session{}, false
 	}
 	session := Session{
-		ID: entry.ID, DutyStart: start, DutyEnd: end,
+		ID: entry.ID, DutyStart: start.UTC(), DutyEnd: end.UTC(),
 		Student:    strings.TrimSpace(entry.Student),
 		Activities: entry.Activities,
 	}

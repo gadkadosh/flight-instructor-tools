@@ -110,7 +110,7 @@ func TestCreateSessionPersistsAndRetries(t *testing.T) {
 		}
 		saved := persisted.Sessions[len(persisted.Sessions)-1]
 		if saved.Student != "New Student" || len(saved.Activities) != 4 ||
-			saved.DutyStart.UTC().Format(time.RFC3339) != "2026-05-03T21:00:00Z" ||
+			saved.DutyStart.Format(time.RFC3339) != "2026-05-03T21:00:00Z" ||
 			saved.DutyEnd.Sub(saved.DutyStart) != 2*time.Hour {
 			t.Fatalf("wrong persisted session: %+v", saved)
 		}
