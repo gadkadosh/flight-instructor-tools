@@ -54,20 +54,6 @@ export function activityMinutes(activity: Activity) {
   return Math.floor((Date.parse(activity.blockOn) - Date.parse(activity.blockOff)) / 60_000);
 }
 
-// Shared by the flight entry and flight details tables so their columns line up.
-export const flightColumns = [
-  { label: 'Type', className: 'type' },
-  { label: 'Aircraft', className: 'registration' },
-  { label: 'From', className: 'airfield' },
-  { label: 'To', className: 'airfield' },
-  { label: 'Block off', className: 'numeric clock' },
-  { label: 'Takeoff', className: 'numeric clock' },
-  { label: 'Landing', className: 'numeric clock' },
-  { label: 'Block on', className: 'numeric clock' },
-  { label: 'Landings', className: 'numeric count' },
-  { label: 'Block', className: 'numeric clock' },
-] as const;
-
 export function groupSessionsByMonth(sessions: Session[], timeZone: string) {
   const monthParts = new Intl.DateTimeFormat('en-GB', {
     timeZone,
@@ -121,14 +107,41 @@ export function parseClock(value: string): string | undefined {
   if (match) return `${match[1]!.padStart(2, '0')}:${match[2] ?? '00'}`;
 }
 
-export function dateInZone(timeZone: string, date = new Date()) {
+// Flight times are shown and entered in UTC, as pilot logbooks record them.
+export const flightTimeFormat = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'UTC',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function wallClock(timeZone: string, instant: number) {
   const parts = new Intl.DateTimeFormat('en', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).formatToParts(date);
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(instant);
   const value = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((part) => part.type === type)!.value;
-  return `${value('year').padStart(4, '0')}-${value('month')}-${value('day')}`;
+  return `${value('year').padStart(4, '0')}-${value('month')}-${value('day')}T${value('hour')}:${value('minute')}:${value('second')}`;
+}
+
+export function dateInZone(timeZone: string, date = new Date()) {
+  return wallClock(timeZone, date.getTime()).slice(0, 10);
+}
+
+// The instant that a date and H:MM clock time name in timeZone. During a clock change this
+// settles on one candidate; the server rejects ambiguous and skipped times.
+export function zonedInstant(timeZone: string, date: string, clock: string) {
+  const wall = Date.parse(`${date}T${clock}Z`);
+  let instant = wall;
+  for (let pass = 0; pass < 2; pass++) {
+    instant = wall - (Date.parse(`${wallClock(timeZone, instant)}Z`) - instant);
+  }
+  return instant;
 }

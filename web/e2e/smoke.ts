@@ -41,8 +41,9 @@ await test('create, invoice, report, and delete a session', { timeout: 30_000 },
   await field('Student').fill('Smoke Test');
   await field('Duty start').fill('0900');
   await field('Duty end').fill('1200');
-  await field('Flight 1 block off').fill('1000');
-  await field('Flight 1 block on').fill('1100');
+  // Flight times are UTC; duty is 09:00–12:00 in Berlin, so 07:00–10:00 UTC.
+  await field('Flight 1 block off').fill('0730');
+  await field('Flight 1 block on').fill('0830');
   await field('Flight 1 departure').fill('EDFE');
   await field('Flight 1 arrival').fill('EDFE');
   await field('Flight 1 registration').fill('D-EFTI');

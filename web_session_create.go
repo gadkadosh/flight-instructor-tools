@@ -8,62 +8,14 @@ import (
 	"time"
 )
 
-// Duty and flight times are wall-clock values in the configured timezone, not the browser's.
+// Duty times are wall-clock values in the configured timezone, not the browser's.
+// Flight times are absolute, because the form enters them in UTC as logbooks do.
 type sessionEntry struct {
-	ID         string          `json:"id"`
-	DutyStart  string          `json:"dutyStart"`
-	DutyEnd    string          `json:"dutyEnd"`
-	Student    string          `json:"student"`
-	Activities []activityEntry `json:"activities"`
-}
-
-type activityEntry struct {
-	ID      string       `json:"id"`
-	Type    ActivityType `json:"type"`
-	Minutes int          `json:"minutes,omitempty"`
-	flightEntry
-}
-
-// flightEntry is a Flight with wall-clock times; validateSessionFile checks the result.
-type flightEntry struct {
-	BlockOff     string `json:"blockOff,omitempty"`
-	BlockOn      string `json:"blockOn,omitempty"`
-	FirstTakeoff string `json:"firstTakeoff,omitempty"`
-	LastLanding  string `json:"lastLanding,omitempty"`
-	Departure    string `json:"departure,omitempty"`
-	Arrival      string `json:"arrival,omitempty"`
-	Registration string `json:"registration,omitempty"`
-	Landings     int    `json:"landings,omitempty"`
-}
-
-func (entry activityEntry) activity(location *time.Location) (Activity, error) {
-	activity := Activity{ID: entry.ID, Type: entry.Type, Minutes: entry.Minutes}
-	if entry.flightEntry == (flightEntry{}) {
-		return activity, nil
-	}
-	activity.Flight = &Flight{
-		Departure: entry.Departure, Arrival: entry.Arrival,
-		Registration: strings.TrimSpace(entry.Registration), Landings: entry.Landings,
-	}
-	for _, field := range []struct {
-		name, value string
-		time        *time.Time
-	}{
-		{"blockOff", entry.BlockOff, &activity.BlockOff},
-		{"blockOn", entry.BlockOn, &activity.BlockOn},
-		{"firstTakeoff", entry.FirstTakeoff, &activity.FirstTakeoff},
-		{"lastLanding", entry.LastLanding, &activity.LastLanding},
-	} {
-		if field.value == "" {
-			continue
-		}
-		parsed, err := parseSessionTime(field.value, location)
-		if err != nil {
-			return Activity{}, fmt.Errorf("%s: %w", field.name, err)
-		}
-		*field.time = parsed
-	}
-	return activity, nil
+	ID         string     `json:"id"`
+	DutyStart  string     `json:"dutyStart"`
+	DutyEnd    string     `json:"dutyEnd"`
+	Student    string     `json:"student"`
+	Activities []Activity `json:"activities"`
 }
 
 func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request) {
@@ -88,14 +40,15 @@ func (source sessionSource) createSession(w http.ResponseWriter, r *http.Request
 		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("duty end: %w", err))
 		return
 	}
-	session := Session{ID: entry.ID, DutyStart: start, DutyEnd: end, Student: strings.TrimSpace(entry.Student)}
-	for index, activityEntry := range entry.Activities {
-		activity, err := activityEntry.activity(location)
-		if err != nil {
-			writeJSONError(w, http.StatusBadRequest, fmt.Errorf("activities[%d].%w", index, err))
-			return
+	session := Session{
+		ID: entry.ID, DutyStart: start, DutyEnd: end,
+		Student:    strings.TrimSpace(entry.Student),
+		Activities: entry.Activities,
+	}
+	for _, activity := range session.Activities {
+		if activity.Flight != nil {
+			activity.Registration = strings.TrimSpace(activity.Registration)
 		}
-		session.Activities = append(session.Activities, activity)
 	}
 	for _, existing := range view.Sessions {
 		if existing.ID == session.ID {

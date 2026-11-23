@@ -33,24 +33,33 @@ func sessionWriter(t *testing.T) (http.Handler, string) {
 	return webHandler(fstest.MapFS{}, sessionSource{sessionsPath: path, configPath: config}), path
 }
 
-func entryFlight(id string, activityType ActivityType, blockOff, blockOn string) activityEntry {
-	return activityEntry{ID: id, Type: activityType, flightEntry: flightEntry{
-		BlockOff: blockOff, BlockOn: blockOn,
+func utc(value string) time.Time {
+	parsed, err := time.Parse("2006-01-02T15:04", value)
+	if err != nil {
+		panic(err)
+	}
+	return parsed
+}
+
+func entryFlight(id string, activityType ActivityType, blockOff, blockOn string) Activity {
+	return Activity{ID: id, Type: activityType, Flight: &Flight{
+		BlockOff: utc(blockOff), BlockOn: utc(blockOn),
 		Departure: "EDFE", Arrival: "EDFZ", Registration: " D-EFTI ", Landings: 2,
 	}}
 }
 
+// Duty is 23:00–01:00 in Berlin (UTC+2); flights are in UTC.
 func validSessionEntry() sessionEntry {
-	airborne := entryFlight("dual-1", ActivityDual, "2026-05-03T23:10", "2026-05-03T23:55")
-	airborne.FirstTakeoff, airborne.LastLanding = "2026-05-03T23:15", "2026-05-03T23:50"
+	airborne := entryFlight("dual-1", ActivityDual, "2026-05-03T21:10", "2026-05-03T21:55")
+	airborne.FirstTakeoff, airborne.LastLanding = utc("2026-05-03T21:15"), utc("2026-05-03T21:50")
 	return sessionEntry{
 		ID: "new-session", DutyStart: "2026-05-03T23:00", DutyEnd: "2026-05-04T01:00",
 		Student: " New Student ",
-		Activities: []activityEntry{
+		Activities: []Activity{
 			{ID: "prep", Type: ActivityPreparation, Minutes: 30},
 			airborne,
-			entryFlight("dual-2", ActivityDual, "2026-05-03T23:55", "2026-05-04T00:10"),
-			entryFlight("solo", ActivitySoloSupervision, "2026-05-04T00:20", "2026-05-04T00:40"),
+			entryFlight("dual-2", ActivityDual, "2026-05-03T21:55", "2026-05-03T22:10"),
+			entryFlight("solo", ActivitySoloSupervision, "2026-05-03T22:20", "2026-05-03T22:40"),
 		},
 	}
 }
@@ -61,6 +70,10 @@ func postSession(t *testing.T, handler http.Handler, entry sessionEntry) *httpte
 	if err != nil {
 		t.Fatal(err)
 	}
+	return postBody(handler, body)
+}
+
+func postBody(handler http.Handler, body []byte) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/sessions", bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Origin", "http://127.0.0.1")
@@ -132,24 +145,25 @@ func TestCreateSessionRejectsInvalidRecordsWithoutChangingFile(t *testing.T) {
 		{"missing ID", func(e *sessionEntry) { e.ID = "" }},
 		{"no activities", func(e *sessionEntry) { e.Activities = nil }},
 		{"zero preparation", func(e *sessionEntry) { e.Activities[0].Minutes = 0 }},
-		{"preparation with block times", func(e *sessionEntry) { e.Activities[0].BlockOff = "2026-05-03T23:00" }},
+		{"preparation with block times", func(e *sessionEntry) {
+			e.Activities[0].Flight = entryFlight("", ActivityPreparation, "2026-05-03T21:00", "2026-05-03T21:30").Flight
+		}},
 		{"flight minutes instead of block times", func(e *sessionEntry) {
-			e.Activities[2] = activityEntry{ID: "dual-2", Type: ActivityDual, Minutes: 15}
+			e.Activities[2] = Activity{ID: "dual-2", Type: ActivityDual, Minutes: 15}
 		}},
-		{"block on before block off", func(e *sessionEntry) { e.Activities[2].BlockOn = "2026-05-03T23:50" }},
-		{"block off before duty", func(e *sessionEntry) { e.Activities[1].BlockOff = "2026-05-03T22:59" }},
-		{"block on after duty", func(e *sessionEntry) { e.Activities[3].BlockOn = "2026-05-04T01:01" }},
+		{"block on before block off", func(e *sessionEntry) { e.Activities[2].BlockOn = utc("2026-05-03T21:50") }},
+		{"block off before duty", func(e *sessionEntry) { e.Activities[1].BlockOff = utc("2026-05-03T20:59") }},
+		{"block on after duty", func(e *sessionEntry) { e.Activities[3].BlockOn = utc("2026-05-03T23:01") }},
 		{"flight on the wrong day", func(e *sessionEntry) {
-			e.Activities[3].BlockOff, e.Activities[3].BlockOn = "2026-05-04T21:00", "2026-05-04T21:50"
+			e.Activities[3].BlockOff, e.Activities[3].BlockOn = utc("2026-05-04T21:00"), utc("2026-05-04T21:50")
 		}},
-		{"takeoff without landing", func(e *sessionEntry) { e.Activities[1].LastLanding = "" }},
-		{"landing after block on", func(e *sessionEntry) { e.Activities[1].LastLanding = "2026-05-03T23:56" }},
+		{"takeoff without landing", func(e *sessionEntry) { e.Activities[1].LastLanding = time.Time{} }},
+		{"landing after block on", func(e *sessionEntry) { e.Activities[1].LastLanding = utc("2026-05-03T21:56") }},
 		{"airfield with a leading extra character", func(e *sessionEntry) { e.Activities[1].Departure = "XEDFE" }},
 		{"airfield with a trailing extra character", func(e *sessionEntry) { e.Activities[1].Departure = "EDFEX" }},
 		{"lowercase airfield", func(e *sessionEntry) { e.Activities[1].Arrival = "edfe" }},
 		{"missing registration", func(e *sessionEntry) { e.Activities[1].Registration = " " }},
 		{"zero landings", func(e *sessionEntry) { e.Activities[1].Landings = 0 }},
-		{"invalid block time", func(e *sessionEntry) { e.Activities[1].BlockOff = "2026-02-30T12:00" }},
 		{"unknown activity type", func(e *sessionEntry) { e.Activities[0].Type = "unknown" }},
 		{"backwards duty", func(e *sessionEntry) { e.DutyEnd = "2026-05-03T22:00" }},
 		{"invalid date", func(e *sessionEntry) { e.DutyStart = "2026-02-30T12:00" }},
@@ -173,14 +187,44 @@ func TestCreateSessionRejectsInvalidRecordsWithoutChangingFile(t *testing.T) {
 	}
 }
 
+func TestCreateSessionRejectsFlightTimesThatAreNotInstants(t *testing.T) {
+	valid, err := json.Marshal(validSessionEntry())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const blockOff = `"2026-05-03T21:10:00Z"`
+	for name, replacement := range map[string]string{
+		"wall-clock time": `"2026-05-03T21:10"`,
+		"invalid date":    `"2026-02-30T21:10:00Z"`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			handler, path := sessionWriter(t)
+			before, _ := os.ReadFile(path)
+			body := bytes.Replace(valid, []byte(blockOff), []byte(replacement), 1)
+			if bytes.Equal(body, valid) {
+				t.Fatalf("%s not found in %s", blockOff, valid)
+			}
+			if response := postBody(handler, body); response.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, body = %s", response.Code, response.Body)
+			}
+			if after, _ := os.ReadFile(path); !bytes.Equal(before, after) {
+				t.Fatal("invalid save modified the file")
+			}
+			if response := postBody(handler, valid); response.Code != http.StatusCreated {
+				t.Fatalf("unchanged request: status = %d, body = %s", response.Code, response.Body)
+			}
+		})
+	}
+}
+
 func TestCreateSessionPersistsUnnamedSpecialFlights(t *testing.T) {
 	handler, path := sessionWriter(t)
 	entry := validSessionEntry()
 	entry.Student = ""
-	entry.Activities = []activityEntry{
+	entry.Activities = []Activity{
 		{ID: "prep", Type: ActivityPreparation, Minutes: 15},
-		entryFlight("rundflug", ActivityRundflug, "2026-05-03T23:15", "2026-05-04T00:00"),
-		entryFlight("schnupperflug", ActivitySchnupperflug, "2026-05-04T00:10", "2026-05-04T00:40"),
+		entryFlight("rundflug", ActivityRundflug, "2026-05-03T21:15", "2026-05-03T22:00"),
+		entryFlight("schnupperflug", ActivitySchnupperflug, "2026-05-03T22:10", "2026-05-03T22:40"),
 	}
 	for _, status := range []int{http.StatusCreated, http.StatusOK} {
 		response := postSession(t, handler, entry)

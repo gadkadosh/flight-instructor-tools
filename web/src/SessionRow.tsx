@@ -1,9 +1,10 @@
 import { useId, useState } from 'react';
+import FlightHeaderCells from './FlightHeaderCells';
 import {
   activityKinds,
   activityMinutes,
   dateInZone,
-  flightColumns,
+  flightTimeFormat,
   formatDuration,
   type Session,
 } from './sessions';
@@ -179,16 +180,13 @@ export default function SessionRow({
           <table className="flight-table" aria-label={`Flights for ${subject} on ${startDate}`}>
             <thead>
               <tr>
-                {flightColumns.map((column) => (
-                  <th key={column.label} scope="col" className={column.className}>
-                    {column.label}
-                  </th>
-                ))}
+                <FlightHeaderCells />
               </tr>
             </thead>
             <tbody>
               {flights.map((flight) => {
-                const time = (value?: string) => (value ? timeFormat.format(new Date(value)) : '–');
+                const time = (value?: string) =>
+                  value ? flightTimeFormat.format(new Date(value)) : '–';
                 return (
                   <tr key={flight.id}>
                     <th scope="row">{activityKinds[flight.type].label}</th>
