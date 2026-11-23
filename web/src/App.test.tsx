@@ -402,36 +402,35 @@ test('preparation-only sessions have no flight expansion', async () => {
   expect(screen.getByRole('status').textContent).toBe('1 of 1 session selected');
 });
 
-test('confirms the row being deleted and preserves other selected sessions', async () => {
+test('confirms the session being deleted from its editor and preserves other selected sessions', async () => {
   const target = { ...session, id: 'session/1' };
   const other = { ...session, id: 'session-2', student: 'Sam Beispiel' };
   const fetch = respond({ timeZone: 'UTC', sessions: [target, other] });
   render(<App />);
-  const trigger = await screen.findByRole('button', { name: /Delete session for Alex/ });
+  const edit = await screen.findByRole('button', { name: /Edit session for Alex/ });
   const heading = page.getByRole('heading', { name: 'Sessions' });
   await heading.hover();
-  expect(getComputedStyle(trigger).opacity).toBe('0');
+  expect(getComputedStyle(edit).opacity).toBe('0');
   await page.getByRole('rowheader', { name: session.student }).hover();
-  expect(getComputedStyle(trigger).opacity).toBe('1');
-  const otherTrigger = screen.getByRole('button', { name: /Delete session for Sam/ });
-  expect(getComputedStyle(otherTrigger).opacity).toBe('0');
-  const mutedColor = getComputedStyle(trigger).color;
-  await page.getByRole('button', { name: /Delete session for Alex/ }).hover();
-  expect(getComputedStyle(trigger).color).not.toBe(mutedColor);
-  expect(getComputedStyle(trigger).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+  expect(getComputedStyle(edit).opacity).toBe('1');
+  const otherEdit = screen.getByRole('button', { name: /Edit session for Sam/ });
+  expect(getComputedStyle(otherEdit).opacity).toBe('0');
+  const mutedColor = getComputedStyle(edit).color;
+  await page.getByRole('button', { name: /Edit session for Alex/ }).hover();
+  expect(getComputedStyle(edit).color).not.toBe(mutedColor);
+  expect(getComputedStyle(edit).backgroundColor).toBe('rgba(0, 0, 0, 0)');
 
   await userEvent.click(screen.getByRole('checkbox', { name: /Select session for Alex/ }));
   await userEvent.click(screen.getByRole('checkbox', { name: /Select session for Sam/ }));
   const expand = screen.getByRole('button', { name: /Show flights for Alex/ });
   expand.focus();
   await userEvent.keyboard('{Tab}');
-  expect(document.activeElement).toBe(
-    screen.getByRole('button', { name: /Edit session for Alex/ }),
-  );
-  await userEvent.keyboard('{Tab}');
-  expect(document.activeElement).toBe(trigger);
-  expect(getComputedStyle(trigger).opacity).toBe('1');
+  expect(document.activeElement).toBe(edit);
+  expect(getComputedStyle(edit).opacity).toBe('1');
   await userEvent.keyboard('{Enter}');
+  const editor = within(screen.getByRole('form', { name: 'Edit session' }));
+  const trigger = editor.getByRole('button', { name: 'Delete session…' });
+  await userEvent.click(trigger);
   const dialog = screen.getByRole('dialog', { name: 'Delete session?' });
   expect(within(dialog).getByText('Alex Beispiel · 03.05.2026, 22:30 Z')).toBeTruthy();
   expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Cancel' }));
@@ -451,6 +450,7 @@ test('confirms the row being deleted and preserves other selected sessions', asy
     method: 'DELETE',
     headers: { 'If-Match': target.etag },
   });
+  expect(screen.queryByRole('form', { name: 'Edit session' })).toBeNull();
   expect(screen.queryByRole('rowheader', { name: session.student })).toBeNull();
   expect(
     screen.getByRole<HTMLInputElement>('checkbox', { name: /Select session for Sam/ }).checked,
@@ -461,8 +461,10 @@ test('confirms the row being deleted and preserves other selected sessions', asy
 test('keeps the session on a failed deletion and shows the empty state after a retry', async () => {
   const fetch = respond({ timeZone: 'UTC', sessions: [{ ...session, id: 'a/b' }] });
   render(<App />);
-  const trigger = await screen.findByRole('button', { name: /Delete session for Alex/ });
+  const edit = await screen.findByRole('button', { name: /Edit session for Alex/ });
   await page.getByRole('rowheader', { name: session.student }).hover();
+  await userEvent.click(edit);
+  const trigger = screen.getByRole('button', { name: 'Delete session…' });
   await userEvent.click(trigger);
   const dialog = within(screen.getByRole('dialog'));
   const confirm = dialog.getByRole('button', { name: 'Delete session' });
@@ -476,7 +478,7 @@ test('keeps the session on a failed deletion and shows the empty state after a r
     method: 'DELETE',
     headers: { 'If-Match': session.etag },
   });
-  expect(screen.getByText(session.student)).toBeTruthy();
+  expect(screen.getByRole('form', { name: 'Edit session' })).toBeTruthy();
 
   fetch.mockResolvedValueOnce(new Response('Forbidden', { status: 403 }));
   await userEvent.click(confirm);
@@ -485,7 +487,7 @@ test('keeps the session on a failed deletion and shows the empty state after a r
   // A close the dialog did not start, such as a forced Escape, must still allow reopening it.
   screen.getByRole<HTMLDialogElement>('dialog').close();
   await expect.poll(() => document.querySelector('dialog')).toBeNull();
-  await page.getByRole('rowheader', { name: session.student }).hover();
+  expect(document.activeElement).toBe(trigger);
   await userEvent.click(trigger);
   const reopened = within(screen.getByRole('dialog'));
   expect(reopened.queryByRole('alert')).toBeNull();

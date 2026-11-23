@@ -147,6 +147,7 @@ test('enters a session by keyboard, calculates block times, and saves individual
     'Actions',
   ]);
   const editorColumns = flightColumns(editor);
+  expect(screen.queryByRole('button', { name: /Delete session/ })).toBeNull();
   expect(document.activeElement).toBe(screen.getByLabelText('Session date'));
   await userEvent.fill(screen.getByLabelText('Session date'), '2026-05-03');
   await userEvent.fill(screen.getByLabelText('Student'), 'New Student');

@@ -150,6 +150,26 @@ p {
   background: var(--color-danger-hover-bg);
 }
 
+.action-button.text.danger:enabled {
+  background: transparent;
+  color: var(--color-danger);
+}
+
+.action-button.text.danger:hover:enabled {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.action-button kbd {
+  margin-left: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  padding: 0 0.25rem;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.75rem;
+}
+
 .action-button:disabled,
 :is(.document-form, .entry-row, .entry-details)
   :where(input:not([type='checkbox']), select):disabled {
@@ -294,7 +314,7 @@ table {
 
 .sessions-table {
   table-layout: fixed;
-  min-width: 70.75rem;
+  min-width: 68.75rem;
 }
 
 .select-column {
@@ -365,7 +385,7 @@ table {
 }
 
 .actions-column {
-  width: 4.75rem;
+  width: 2.75rem;
 }
 
 .row-actions {
@@ -385,10 +405,6 @@ table {
 .row-actions .action-button:is(:hover, :focus-visible):enabled {
   background: transparent;
   color: var(--color-accent-strong);
-}
-
-.row-actions .action-button.danger:is(:hover, :focus-visible):enabled {
-  color: var(--color-danger);
 }
 
 /* Touchscreens, including hybrid laptops, cannot hover to reveal the button. */
@@ -425,7 +441,7 @@ td {
   background: #f5f6f8;
 }
 
-/* Same height as the row delete button, so it fits the row height. */
+/* Same height as the row edit button, so it fits the row height. */
 .month-heading .action-button {
   --control-height: 2rem;
   margin-left: 0.25rem;
@@ -789,12 +805,6 @@ td {
   border: 0;
 }
 
-.entry-hint {
-  margin: 0.5rem 0;
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
-}
-
 .flight-entry-table {
   margin-bottom: 0.5rem;
 }
@@ -811,9 +821,13 @@ td {
 }
 
 .flight-entry-table .action-button {
-  height: 1.875rem;
-  padding: 0 0.5rem;
+  --control-height: 1.875rem;
   font-size: 0.8125rem;
+}
+
+.flight-entry-table .add-flight {
+  gap: 0.375rem;
+  padding-inline: 0.25rem;
 }
 
 .entry-actions {
@@ -821,7 +835,16 @@ td {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--color-divider);
+  padding-top: 0.75rem;
+}
+
+.entry-submit {
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 0.75rem;
+  margin-left: auto;
 }
 
 .visually-hidden {

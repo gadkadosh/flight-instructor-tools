@@ -109,10 +109,10 @@ await test('create, edit, document, and delete a session', { timeout: 30_000 }, 
   assert.match(report, /<td>29<\/td><td>09:00<\/td><td>12:00<\/td>/);
   assert.match(report, /123:45/);
 
-  await row.hover();
-  await row.getByRole('button', { name: /^Delete session/ }).click();
+  await edit(row);
+  await editor.getByRole('button', { name: 'Delete session…' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Delete session' }).click();
-  await row.waitFor({ state: 'detached' });
+  await editor.waitFor({ state: 'detached' });
   await page.reload();
   await page.getByRole('button', { name: 'Add session', exact: true }).waitFor();
   assert.equal(await row.count(), 0);

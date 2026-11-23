@@ -9,11 +9,24 @@ import {
   type Session,
 } from './sessions';
 
-export type DeleteTarget = {
-  session: Session;
-  description: string;
-  trigger: HTMLButtonElement;
-};
+export function sessionSummary(
+  session: Session,
+  dateFormat: Intl.DateTimeFormat,
+  timeFormat: Intl.DateTimeFormat,
+) {
+  const start = new Date(session.dutyStart);
+  const flights = session.activities.flatMap((activity) =>
+    activity.type === 'preparation' ? [] : [activity],
+  );
+  const subject =
+    session.student?.trim() ||
+    [...new Set(flights.map((activity) => activityKinds[activity.type].label))].sort().join(' / ');
+  const startDate = dateFormat.format(start);
+  const startTime = timeFormat.format(start);
+  const timeSuffix = timeFormat.resolvedOptions().timeZone === 'UTC' ? 'Z' : 'LT';
+  const description = `${subject} · ${startDate}, ${startTime} ${timeSuffix}`;
+  return { flights, subject, startDate, startTime, timeSuffix, description };
+}
 
 export default function SessionRow({
   session,
@@ -23,7 +36,6 @@ export default function SessionRow({
   onSelect,
   editButtonRef,
   onEdit,
-  onDelete,
 }: {
   session: Session;
   dateFormat: Intl.DateTimeFormat;
@@ -32,30 +44,24 @@ export default function SessionRow({
   onSelect: () => void;
   editButtonRef: Ref<HTMLButtonElement>;
   onEdit: () => void;
-  onDelete: (target: DeleteTarget) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
   const endDateId = useId();
+  const { flights, subject, startDate, startTime, timeSuffix, description } = sessionSummary(
+    session,
+    dateFormat,
+    timeFormat,
+  );
   const start = new Date(session.dutyStart);
   const end = new Date(session.dutyEnd);
-  const startDate = dateFormat.format(start);
   const endDate = dateFormat.format(end);
   const { timeZone } = timeFormat.resolvedOptions();
-  const timeSuffix = timeZone === 'UTC' ? 'Z' : 'LT';
   // Comparing local dates as UTC midnights keeps clock changes out of the day count.
   const endsNextDay =
     endDate !== startDate &&
     Date.parse(dateInZone(timeZone, end)) - Date.parse(dateInZone(timeZone, start)) ===
       24 * 60 * 60 * 1000;
-  const flights = session.activities.flatMap((activity) =>
-    activity.type === 'preparation' ? [] : [activity],
-  );
-  const subject =
-    session.student?.trim() ||
-    [...new Set(flights.map((activity) => activityKinds[activity.type].label))].sort().join(' / ');
-  const startTime = timeFormat.format(start);
-  const description = `${subject} · ${startDate}, ${startTime} ${timeSuffix}`;
   const totals = { preparation: 0, block: 0, soloSupervision: 0 };
   for (const activity of session.activities) {
     totals[activityKinds[activity.type].summary] += activityMinutes(activity);
@@ -172,33 +178,6 @@ export default function SessionRow({
             >
               <path d="M12 20h9" />
               <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-            </svg>
-          </button>
-          <button
-            className="action-button icon danger"
-            type="button"
-            aria-label={`Delete session for ${description}`}
-            aria-haspopup="dialog"
-            title="Delete session"
-            onClick={(event) => onDelete({ session, description, trigger: event.currentTarget })}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d="M10 11v6" />
-              <path d="M14 11v6" />
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-              <path d="M3 6h18" />
-              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
             </svg>
           </button>
         </td>
