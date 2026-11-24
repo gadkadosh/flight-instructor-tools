@@ -8,14 +8,14 @@ export default function InvoiceForm({
   selectedSessionIds,
   timeZone,
   onClose,
-  pdf,
+  documents,
 }: {
   id: string;
   open: boolean;
   selectedSessionIds: ReadonlySet<string>;
   timeZone: string;
   onClose: () => void;
-  pdf: DocumentDownload;
+  documents: DocumentDownload;
 }) {
   const [number, setNumber] = useState('');
   const [issueDate, setIssueDate] = useState(() => dateInZone(timeZone));
@@ -35,18 +35,18 @@ export default function InvoiceForm({
       className="document-form"
       data-kind="invoice"
       aria-label="Generate invoice"
-      aria-busy={pdf.generating}
+      aria-busy={documents.generating}
       onSubmit={(event) => {
         event.preventDefault();
         if (!hasSelection) return;
-        void pdf.download(
+        void documents.download(
           '/api/invoice',
           { sessionIds: [...selectedSessionIds], number: number.trim(), issueDate },
           'invoice',
         );
       }}
     >
-      <fieldset disabled={pdf.generating}>
+      <fieldset disabled={documents.generating}>
         <label>
           Invoice number
           <input
@@ -81,16 +81,16 @@ export default function InvoiceForm({
               type="submit"
               className="action-button"
               aria-describedby={`${id}-scope`}
-              disabled={!hasSelection || pdf.generating}
+              disabled={!hasSelection || documents.generating}
             >
-              {pdf.generating ? 'Generating…' : 'Download PDF'}
+              {documents.generating ? 'Generating…' : 'Download PDF'}
             </button>
           </div>
         </div>
       </fieldset>
-      {pdf.error && (
+      {documents.error && (
         <p role="alert" className="error">
-          {pdf.error}
+          {documents.error}
         </p>
       )}
     </form>

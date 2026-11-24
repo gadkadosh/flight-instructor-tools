@@ -925,6 +925,7 @@ test('duty report download ignores table selection and preserves details after a
   expect(screen.getByLabelText<HTMLInputElement>('Month').matches(':disabled')).toBe(true);
   expect((await screen.findByRole('alert')).textContent).toBe('Install WeasyPrint');
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('alert')).toBeNull();
   fireEvent.click(trigger);
   expect(screen.queryByRole('alert')).toBeNull();
   expect(trigger.disabled).toBe(false);

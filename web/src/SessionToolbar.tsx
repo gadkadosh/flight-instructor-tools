@@ -29,6 +29,7 @@ export default function SessionToolbar({
 
   function close() {
     setExpanded(null);
+    documents.clearError();
     if (invoiceOpen && !hasSelection) selectionStatus.current?.focus();
     else (invoiceOpen ? invoiceTrigger : reportTrigger).current?.focus();
   }
@@ -130,7 +131,7 @@ export default function SessionToolbar({
         selectedSessionIds={selectedSessionIds}
         timeZone={timeZone}
         onClose={close}
-        pdf={documents}
+        documents={documents}
       />
       <DutyReportForm
         id={`${formId}-duty-report`}
@@ -138,7 +139,7 @@ export default function SessionToolbar({
         countSessionsInMonth={countSessionsInMonth}
         timeZone={timeZone}
         onClose={close}
-        pdf={documents}
+        documents={documents}
       />
     </div>
   );
