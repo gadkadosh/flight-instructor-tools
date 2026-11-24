@@ -585,8 +585,9 @@ td {
   outline: none;
 }
 
+/* Lines the flight table's first column up with the Date column. */
 .activity-details > td {
-  padding: 0.5rem 1rem 0.75rem 4.25rem;
+  padding: 0.5rem 1rem 0.5rem 4rem;
 }
 
 .flight-table {
@@ -595,7 +596,7 @@ td {
 
 .flight-table th,
 .flight-table td {
-  padding: 0.3rem 1rem;
+  padding: 0.5rem 0.75rem;
   border-bottom: 0;
 }
 
@@ -605,35 +606,55 @@ td {
 
 .flight-table thead th {
   box-sizing: border-box;
+  padding-block: 0.375rem;
   color: var(--color-text-muted);
   font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .flight-table thead th[class] {
   border-bottom: 1px solid var(--color-divider);
 }
 
-.flight-table .type {
-  width: 10.5rem;
-}
-
-.flight-table :is(.clock, .count) {
-  width: 5.5rem;
-}
-
-/* Below the label, so the time columns keep their width. */
 .flight-table thead .time-zone {
-  display: block;
   margin-left: 0;
   font-size: inherit;
+}
+
+/* Smaller than the session rows, so the flights read as their details. */
+.flight-table:not(.flight-entry-table) {
+  font-size: 0.8125rem;
+}
+
+.flight-table:not(.flight-entry-table) > tbody > tr:not(:last-child) > * {
+  border-bottom: 1px solid #eef1f5;
+}
+
+/* With the editor's remove column, these fill the sessions table's minimum width. Wider
+   columns squeeze the editor's columns out of line with the flights table's. */
+.flight-table .type {
+  /* Fits "Solo supervision" in the editor's type select. */
+  width: 10rem;
+}
+
+.flight-table .registration {
+  width: 6rem;
 }
 
 .flight-table .airfield {
   width: 4.75rem;
 }
 
-.flight-table .registration {
+.flight-table .clock {
   width: 6.5rem;
+}
+
+.flight-table .count {
+  width: 5rem;
+}
+
+.flight-table .duration {
+  width: 4rem;
 }
 
 .error {
@@ -818,6 +839,11 @@ td {
 
 .flight-entry-table td {
   padding-inline: 0.5rem;
+}
+
+/* Lines the values up with the header labels. */
+.flight-entry-table :is(input, select) {
+  padding-inline: 0.25rem;
 }
 
 .flight-entry-table .action-button {
