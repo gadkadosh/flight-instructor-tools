@@ -23,23 +23,5 @@
   "rates": {
     "preparationCentsPerHour": 2500,
     "blockCentsPerHour": 3000
-  },
-  "aircraft": {
-    "D-EFTI": {
-      "typeCode": "C172",
-      "make": "Cessna",
-      "model": "172S",
-      "gearType": "FT",
-      "engineType": "Piston",
-      "categoryClass": "ASEL"
-    },
-    "D-EKLM": {
-      "typeCode": "P28A",
-      "make": "Piper",
-      "model": "PA-28-181",
-      "gearType": "FT",
-      "engineType": "Piston",
-      "categoryClass": "ASEL"
-    }
   }
 }

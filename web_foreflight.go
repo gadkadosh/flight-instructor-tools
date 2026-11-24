@@ -17,12 +17,7 @@ func (source sessionSource) serveForeFlight(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	config, err := readConfig(source.configPath)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err)
-		return
-	}
-	data, filename, err := foreFlightLogbook(selected, config.Aircraft)
+	data, filename, err := foreFlightLogbook(selected)
 	if err != nil {
 		writeJSONError(w, http.StatusUnprocessableEntity, err)
 		return

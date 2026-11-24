@@ -12,10 +12,6 @@ import (
 	"time"
 )
 
-var testAircraft = map[string]Aircraft{
-	"D-EFTI": {TypeCode: "C172", Make: "Cessna", Model: "172S", GearType: "FT", EngineType: "Piston", CategoryClass: "ASEL"},
-}
-
 // foreFlightTables splits a ForeFlight logbook file into its tables, each a
 // format row, a header row and entries keyed by trimmed column name.
 func foreFlightTables(t *testing.T, data []byte) map[string][][]string {
@@ -61,18 +57,18 @@ func entries(table [][]string) []map[string]string {
 }
 
 func TestForeFlightLogbookMatchesTemplateColumns(t *testing.T) {
-	sample, err := os.ReadFile("testdata/foreflight-sample-logbook.csv")
+	template, err := os.ReadFile("testdata/foreflight-logbook-template-easa.csv")
 	if err != nil {
 		t.Fatal(err)
 	}
 	session := Session{ID: "s", Student: "Alex", Activities: []Activity{testFlight("f", ActivityDual, 55)}}
-	data, _, err := foreFlightLogbook([]Session{session}, testAircraft)
+	data, _, err := foreFlightLogbook([]Session{session})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, got := foreFlightTables(t, sample), foreFlightTables(t, data)
+	want, got := foreFlightTables(t, template), foreFlightTables(t, data)
 	for _, table := range []string{"Aircraft Table", "Flights Table"} {
-		// The sample's custom field columns are placeholders, not template fields.
+		// The template's custom field columns are placeholders, not template fields.
 		wantHeader := slices.DeleteFunc(slices.Clone(want[table][1]), func(name string) bool {
 			return name == "" || strings.HasPrefix(name, "[")
 		})
@@ -97,7 +93,7 @@ func TestForeFlightLogbookEntries(t *testing.T) {
 			{ID: "prep", Type: ActivityPreparation, Minutes: 30}, dual, solo,
 		}},
 	}
-	data, filename, err := foreFlightLogbook(sessions, testAircraft)
+	data, filename, err := foreFlightLogbook(sessions)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,25 +104,21 @@ func TestForeFlightLogbookEntries(t *testing.T) {
 		t.Error("rows must end in CRLF like ForeFlight's template")
 	}
 	tables := foreFlightTables(t, data)
-	aircraft := entries(tables["Aircraft Table"])
-	wantAircraft := []map[string]string{{
-		"AircraftID": "D-EFTI", "EquipmentType": "aircraft", "TypeCode": "C172", "Make": "Cessna",
-		"Model": "172S", "GearType": "FT", "EngineType": "Piston", "Category/Class": "ASEL",
-	}}
-	if !slices.EqualFunc(aircraft, wantAircraft, maps.Equal) {
-		t.Errorf("aircraft = %v, want %v", aircraft, wantAircraft)
+	// ForeFlight links flights to the logbook's aircraft; the file must not redefine them.
+	if aircraft := entries(tables["Aircraft Table"]); len(aircraft) != 0 {
+		t.Errorf("aircraft = %v, want none", aircraft)
 	}
 	flights := entries(tables["Flights Table"])
 	wantFlights := []map[string]string{
 		{
-			"Date": "2026-05-03", "AircraftID": "D-EFTI", "From": "EDFE", "To": "EDFE",
+			"Date": "2026-05-03", "AircraftID": "DEFTI", "From": "EDFE", "To": "EDFE",
 			"TimeOut": "10:00", "TimeOff": "10:07", "TimeOn": "10:51", "TimeIn": "10:55",
-			"TotalTime": "00:55", "PIC": "00:55", "DualGiven": "00:55", "AllLandings": "4",
+			"TotalTime": "00:55", "PIC": "00:55", "DualGiven": "00:55", "Person1": "Alex;Student", "Takeoff Day": "4", "Landing Day": "4",
 		},
 		{
-			"Date": "2026-05-04", "AircraftID": "D-EFTI", "From": "EDFE", "To": "EDFE",
+			"Date": "2026-05-04", "AircraftID": "DEFTI", "From": "EDFE", "To": "EDFE",
 			"TimeOut": "12:00", "TimeIn": "12:30",
-			"TotalTime": "00:30", "PIC": "00:30", "AllLandings": "1",
+			"TotalTime": "00:30", "PIC": "00:30", "Takeoff Day": "1", "Landing Day": "1",
 		},
 	}
 	if !slices.EqualFunc(flights, wantFlights, maps.Equal) {
@@ -139,6 +131,7 @@ func TestForeFlightLogbookEntries(t *testing.T) {
 		"Decimal or HH:MM": regexp.MustCompile(`^\d+:[0-5]\d$`),
 		"Number":           regexp.MustCompile(`^\d+$`),
 		"Text":             regexp.MustCompile(`.`),
+		"Packed Detail":    regexp.MustCompile(`^[^;]+(;[^;]*){1,3}$`), // name;role;email;phone
 	}
 	format, header := tables["Flights Table"][0], tables["Flights Table"][1]
 	for _, flight := range flights {
@@ -150,23 +143,9 @@ func TestForeFlightLogbookEntries(t *testing.T) {
 	}
 }
 
-func TestForeFlightLogbookErrors(t *testing.T) {
-	unknown := testFlight("dual", ActivityDual, 55)
-	unknown.Registration = "D-EXYZ"
-	for _, test := range []struct {
-		name     string
-		activity Activity
-		want     string
-	}{
-		{"only solo supervision", testFlight("solo", ActivitySoloSupervision, 40), "no flights for your logbook"},
-		{"unknown registration", unknown, "aircraft D-EXYZ is not in the config"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			session := Session{ID: "s", Student: "Alex", Activities: []Activity{test.activity}}
-			_, _, err := foreFlightLogbook([]Session{session}, testAircraft)
-			if err == nil || !strings.Contains(err.Error(), test.want) {
-				t.Fatalf("error = %v, want containing %q", err, test.want)
-			}
-		})
+func TestForeFlightLogbookWithoutLogbookFlights(t *testing.T) {
+	session := Session{ID: "s", Student: "Alex", Activities: []Activity{testFlight("solo", ActivitySoloSupervision, 40)}}
+	if _, _, err := foreFlightLogbook([]Session{session}); err == nil || !strings.Contains(err.Error(), "no flights for your logbook") {
+		t.Fatalf("error = %v, want no flights for your logbook", err)
 	}
 }

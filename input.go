@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
 	"os"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 )
@@ -160,8 +158,6 @@ type Config struct {
 	DutyReportTemplateFile string      `json:"dutyReportTemplateFile,omitempty"`
 	TimeZone               string      `json:"timeZone"`
 	Rates                  Rates       `json:"rates"`
-	// Aircraft by registration, for logbook exports.
-	Aircraft map[string]Aircraft `json:"aircraft,omitempty"`
 	// location is TimeZone, resolved by validateConfig. Every date and month
 	// the app reads or defaults is in this zone.
 	location *time.Location
@@ -324,11 +320,6 @@ func validateConfig(config *Config) error {
 	}
 	if config.Rates.BlockCentsPerHour <= 0 {
 		return fmt.Errorf("rates.blockCentsPerHour: must be positive")
-	}
-	for _, registration := range slices.Sorted(maps.Keys(config.Aircraft)) {
-		if err := config.Aircraft[registration].validate(); err != nil {
-			return fmt.Errorf("aircraft[%q].%w", registration, err)
-		}
 	}
 	location, err := loadTimeZone(config.TimeZone)
 	if err != nil {

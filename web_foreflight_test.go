@@ -3,30 +3,21 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
 )
 
 func TestForeFlightDownload(t *testing.T) {
-	config, err := readConfig("examples/config.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	configWithout := filepath.Join(t.TempDir(), "config.json")
-	config.Aircraft = nil
-	writeTestConfig(t, configWithout, config)
 	for _, test := range []struct {
-		name, config, body, want string
-		status                   int
+		name, body, want string
+		status           int
 	}{
-		{"selected sessions", "examples/config.json", `{"sessionIds":["2026-05-03-alex"]}`, "2026-05-03,D-EFTI,EDFE,EDFE,,10:30,10:37,11:31,11:35,,,01:05,01:05", 200},
-		{"unknown aircraft", configWithout, `{"sessionIds":["2026-05-03-alex"]}`, "aircraft D-EFTI is not in the config", 422},
-		{"stale selection", "examples/config.json", `{"sessionIds":["missing"]}`, "no longer exist", 400},
+		{"selected sessions", `{"sessionIds":["2026-05-03-alex"]}`, "2026-05-03,DEFTI,EDFE,EDFE,,10:30,10:37,11:31,11:35,,,01:05,01:05", 200},
+		{"stale selection", `{"sessionIds":["missing"]}`, "no longer exist", 400},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: "testdata/minimal-sessions.json", configPath: test.config})
+			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: "testdata/minimal-sessions.json", configPath: "examples/config.json"})
 			response := httptest.NewRecorder()
 			r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/foreflight", strings.NewReader(test.body))
 			r.Header.Set("Content-Type", "application/json")

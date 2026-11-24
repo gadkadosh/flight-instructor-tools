@@ -984,9 +984,12 @@ test('exports the selected sessions to ForeFlight and shows export errors', asyn
   expect(exportButton.disabled).toBe(true);
   fireEvent.click(screen.getByRole('checkbox', { name: /Select session for Sam/ }));
   fetch.mockResolvedValueOnce(
-    new Response(JSON.stringify({ error: 'aircraft D-EFTI is not in the config' }), {
-      status: 422,
-    }),
+    new Response(
+      JSON.stringify({ error: 'the selected sessions contain no flights for your logbook' }),
+      {
+        status: 422,
+      },
+    ),
   );
   fireEvent.click(exportButton);
   expect(fetch).toHaveBeenLastCalledWith('/api/foreflight', {
@@ -995,7 +998,7 @@ test('exports the selected sessions to ForeFlight and shows export errors', asyn
     body: JSON.stringify({ sessionIds: ['session-2'] }),
   });
   expect((await screen.findByRole('alert')).textContent).toBe(
-    'aircraft D-EFTI is not in the config',
+    'the selected sessions contain no flights for your logbook',
   );
   fetch.mockResolvedValueOnce(
     new Response('ForeFlight Logbook Import\r\n', {
