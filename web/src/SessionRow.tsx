@@ -28,6 +28,19 @@ export function sessionSummary(
   return { flights, subject, startDate, startTime, timeSuffix, description };
 }
 
+// A dash keeps the many empty totals quiet; screen readers still hear 0:00.
+function Total({ minutes }: { minutes: number }) {
+  if (minutes > 0) return formatDuration(minutes);
+  return (
+    <>
+      <span className="empty-total" aria-hidden="true">
+        –
+      </span>
+      <span className="visually-hidden">{formatDuration(0)}</span>
+    </>
+  );
+}
+
 export default function SessionRow({
   session,
   dateFormat,
@@ -152,9 +165,15 @@ export default function SessionRow({
             </>
           )}
         </td>
-        <td className="numeric">{formatDuration(totals.preparation)}</td>
-        <td className="numeric">{formatDuration(totals.block)}</td>
-        <td className="numeric">{formatDuration(totals.soloSupervision)}</td>
+        <td className="numeric">
+          <Total minutes={totals.preparation} />
+        </td>
+        <td className="numeric">
+          <Total minutes={totals.block} />
+        </td>
+        <td className="numeric">
+          <Total minutes={totals.soloSupervision} />
+        </td>
         <td className="row-actions" onClick={(event) => event.stopPropagation()}>
           <button
             className="action-button icon"

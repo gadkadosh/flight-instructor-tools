@@ -10,7 +10,7 @@ const flightColumns: FlightColumn[] = [
   { label: 'Landing', className: 'numeric clock', utc: true },
   { label: 'Block on', className: 'numeric clock', utc: true },
   { label: 'Landings', className: 'numeric count' },
-  { label: 'Block', className: 'numeric clock' },
+  { label: 'Block', className: 'numeric duration' },
 ];
 
 // Shared by the flight entry and flight details tables so their columns line up.
