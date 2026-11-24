@@ -6,8 +6,9 @@ export function useDocumentDownload() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
 
+  /** Resolves to whether the file was handed to the browser. */
   async function download(endpoint: string, request: unknown, name: string) {
-    if (generating) return;
+    if (generating) return false;
     setGenerating(true);
     setError('');
     try {
@@ -31,8 +32,10 @@ export function useDocumentDownload() {
       link.remove();
       // Give the browser time to start reading the blob before releasing it.
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return true;
     } catch (error) {
       setError(error instanceof Error ? error.message : `Could not generate ${name}.`);
+      return false;
     } finally {
       setGenerating(false);
     }

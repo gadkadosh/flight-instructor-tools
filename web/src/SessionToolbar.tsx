@@ -5,6 +5,8 @@ import { useDocumentDownload } from './documents';
 
 type DocumentKind = 'invoice' | 'dutyReport';
 
+const foreflightImportUrl = 'https://plan.foreflight.com/logbook#/import';
+
 export default function SessionToolbar({
   selectedSessionIds,
   sessionCount,
@@ -108,13 +110,14 @@ export default function SessionToolbar({
           type="button"
           className="action-button secondary"
           disabled={documents.generating || !hasSelection}
-          onClick={() => {
+          onClick={async () => {
             setExpanded(null);
-            void documents.download(
+            const downloaded = await documents.download(
               '/api/foreflight',
               { sessionIds: [...selectedSessionIds] },
               'ForeFlight logbook',
             );
+            if (downloaded) window.open(foreflightImportUrl, '_blank', 'noopener');
           }}
         >
           Export to ForeFlight

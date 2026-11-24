@@ -978,6 +978,7 @@ test('exports the selected sessions to ForeFlight and shows export errors', asyn
   ) {
     downloads.push(this.download);
   });
+  const open = vi.spyOn(window, 'open').mockReturnValue(null);
   render(<App />);
   const exportButton = await screen.findByRole<HTMLButtonElement>('button', {
     name: 'Export to ForeFlight',
@@ -1001,6 +1002,7 @@ test('exports the selected sessions to ForeFlight and shows export errors', asyn
   expect((await screen.findByRole('alert')).textContent).toBe(
     'the selected sessions contain no flights for your logbook',
   );
+  expect(open).not.toHaveBeenCalled();
   fetch.mockResolvedValueOnce(
     new Response('ForeFlight Logbook Import\r\n', {
       headers: {
@@ -1011,5 +1013,12 @@ test('exports the selected sessions to ForeFlight and shows export errors', asyn
   );
   fireEvent.click(exportButton);
   await waitFor(() => expect(downloads).toEqual(['ForeFlight-2026-05-03.csv']));
+  await waitFor(() =>
+    expect(open).toHaveBeenCalledWith(
+      'https://plan.foreflight.com/logbook#/import',
+      '_blank',
+      'noopener',
+    ),
+  );
   expect(screen.queryByRole('alert')).toBeNull();
 });
