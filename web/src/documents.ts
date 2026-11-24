@@ -6,7 +6,7 @@ export function useDocumentDownload() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
 
-  async function download(endpoint: string, request: unknown, filename: string, name: string) {
+  async function download(endpoint: string, request: unknown, name: string) {
     if (generating) return;
     setGenerating(true);
     setError('');
@@ -20,10 +20,12 @@ export function useDocumentDownload() {
         const body = await response.json();
         throw new Error(body.error || `Could not generate ${name}.`);
       }
+      const disposition = response.headers.get('Content-Disposition') ?? '';
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement('a');
       link.href = url;
-      link.download = filename;
+      // The server names the file; an empty name lets the browser choose.
+      link.download = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? '';
       document.body.append(link);
       link.click();
       link.remove();

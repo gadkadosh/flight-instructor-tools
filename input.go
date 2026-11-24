@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -38,16 +40,17 @@ const (
 type activityKind struct {
 	invoiceLabel    string
 	flight          bool // Records block times and logbook details instead of minutes.
-	ownBlock        bool
+	pic             bool // I'm on board as pilot in command: my own block time and a logbook entry.
+	dualGiven       bool // Logged as instruction given.
 	studentRequired bool
 }
 
 var activityKinds = map[ActivityType]activityKind{
 	ActivityPreparation:     {invoiceLabel: "Flugvorbereitung"},
-	ActivityDual:            {invoiceLabel: "Blockzeit", flight: true, ownBlock: true, studentRequired: true},
+	ActivityDual:            {invoiceLabel: "Blockzeit", flight: true, pic: true, dualGiven: true, studentRequired: true},
 	ActivitySoloSupervision: {invoiceLabel: "Blockzeit", flight: true, studentRequired: true},
-	ActivityRundflug:        {invoiceLabel: "Rundflug", flight: true, ownBlock: true},
-	ActivitySchnupperflug:   {invoiceLabel: "Schnupperflug", flight: true, ownBlock: true},
+	ActivityRundflug:        {invoiceLabel: "Rundflug", flight: true, pic: true},
+	ActivitySchnupperflug:   {invoiceLabel: "Schnupperflug", flight: true, pic: true},
 }
 
 // Activity is preparation with Minutes, or a flight with Flight.
@@ -157,6 +160,8 @@ type Config struct {
 	DutyReportTemplateFile string      `json:"dutyReportTemplateFile,omitempty"`
 	TimeZone               string      `json:"timeZone"`
 	Rates                  Rates       `json:"rates"`
+	// Aircraft by registration, for logbook exports.
+	Aircraft map[string]Aircraft `json:"aircraft,omitempty"`
 	// location is TimeZone, resolved by validateConfig. Every date and month
 	// the app reads or defaults is in this zone.
 	location *time.Location
@@ -319,6 +324,11 @@ func validateConfig(config *Config) error {
 	}
 	if config.Rates.BlockCentsPerHour <= 0 {
 		return fmt.Errorf("rates.blockCentsPerHour: must be positive")
+	}
+	for _, registration := range slices.Sorted(maps.Keys(config.Aircraft)) {
+		if err := config.Aircraft[registration].validate(); err != nil {
+			return fmt.Errorf("aircraft[%q].%w", registration, err)
+		}
 	}
 	location, err := loadTimeZone(config.TimeZone)
 	if err != nil {

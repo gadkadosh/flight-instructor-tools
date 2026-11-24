@@ -42,7 +42,6 @@ export default function InvoiceForm({
         void pdf.download(
           '/api/invoice',
           { sessionIds: [...selectedSessionIds], number: number.trim(), issueDate },
-          `Rechnung-${number.trim()}.pdf`,
           'invoice',
         );
       }}

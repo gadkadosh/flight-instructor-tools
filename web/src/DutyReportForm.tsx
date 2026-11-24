@@ -58,7 +58,6 @@ export default function DutyReportForm({
         void pdf.download(
           '/api/duty-report',
           { month, carryOverFlightDuty: normalizeDuration(carryOver), issueDate },
-          `Dienstzeitnachweis-${month}.pdf`,
           'duty report',
         );
       }}

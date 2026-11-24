@@ -17,28 +17,8 @@ func (source sessionSource) serveInvoice(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	request.Number = strings.TrimSpace(request.Number)
-	if len(request.SessionIDs) == 0 {
-		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("select at least one session"))
-		return
-	}
-	input, err := readSessionFile(source.sessionsPath)
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err)
-		return
-	}
-	selectedIDs := make(map[string]bool, len(request.SessionIDs))
-	for _, id := range request.SessionIDs {
-		selectedIDs[id] = true
-	}
-	var selected []Session
-	for _, session := range input.Sessions {
-		if selectedIDs[session.ID] {
-			selected = append(selected, session)
-			delete(selectedIDs, session.ID)
-		}
-	}
-	if len(selectedIDs) > 0 {
-		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("selected sessions no longer exist; reload the page and select again"))
+	selected, ok := source.readSelectedSessions(w, request.SessionIDs)
+	if !ok {
 		return
 	}
 	config, err := readConfig(source.configPath)
@@ -62,4 +42,33 @@ func (source sessionSource) serveInvoice(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	servePDF(w, pdf, "Rechnung-"+request.Number+".pdf")
+}
+
+// readSelectedSessions returns the sessions with the given IDs, in file order.
+func (source sessionSource) readSelectedSessions(w http.ResponseWriter, ids []string) ([]Session, bool) {
+	if len(ids) == 0 {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("select at least one session"))
+		return nil, false
+	}
+	input, err := readSessionFile(source.sessionsPath)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err)
+		return nil, false
+	}
+	selectedIDs := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		selectedIDs[id] = true
+	}
+	var selected []Session
+	for _, session := range input.Sessions {
+		if selectedIDs[session.ID] {
+			selected = append(selected, session)
+			delete(selectedIDs, session.ID)
+		}
+	}
+	if len(selectedIDs) > 0 {
+		writeJSONError(w, http.StatusBadRequest, fmt.Errorf("selected sessions no longer exist; reload the page and select again"))
+		return nil, false
+	}
+	return selected, true
 }

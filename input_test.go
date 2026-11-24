@@ -255,7 +255,7 @@ func TestSessionStudentRequirements(t *testing.T) {
 	}
 }
 
-func TestReadConfigValidatesRateAndTimeZone(t *testing.T) {
+func TestReadConfigValidatesRatesTimeZoneAndAircraft(t *testing.T) {
 	fixture, err := os.ReadFile(filepath.Join("examples", "config.json"))
 	if err != nil {
 		t.Fatalf("read valid config fixture: %v", err)
@@ -274,6 +274,14 @@ func TestReadConfigValidatesRateAndTimeZone(t *testing.T) {
 		{"missing timezone", `"timeZone": "Europe/Berlin",`, ``, "timeZone: required"},
 		{"computer timezone", `"Europe/Berlin"`, `"Local"`, "timeZone: required"},
 		{"invalid timezone", `"Europe/Berlin"`, `"Not/AZone"`, `timeZone "Not/AZone"`},
+		{"aircraft without type", `"typeCode": "P28A"`, `"typeCode": ""`, `aircraft["D-EKLM"].typeCode: must not be empty`},
+		{"unknown aircraft class", `"model": "PA-28-181",
+      "gearType": "FT",
+      "engineType": "Piston",
+      "categoryClass": "ASEL"`, `"model": "PA-28-181",
+      "gearType": "FT",
+      "engineType": "Piston",
+      "categoryClass": "SEP"`, `aircraft["D-EKLM"].categoryClass: got "SEP", want one of ASEL`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if strings.Count(string(fixture), test.find) != 1 {

@@ -647,7 +647,14 @@ test('downloads the generated PDF for exactly the sessions selected across month
     screen.getByRole<HTMLButtonElement>('button', { name: 'Generate duty report…' }).disabled,
   ).toBe(true);
   expect(downloads).toEqual([]);
-  finish(new Response(pdf, { headers: { 'Content-Type': 'application/pdf' } }));
+  finish(
+    new Response(pdf, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename=Rechnung-2026-12.pdf',
+      },
+    }),
+  );
   await waitFor(() => expect(downloads).toHaveLength(1));
   expect(downloads).toEqual([
     { href: 'blob:invoice', name: 'Rechnung-2026-12.pdf', connected: true },
@@ -926,7 +933,12 @@ test('duty report download ignores table selection and preserves details after a
     '12045',
   );
   fetch.mockResolvedValueOnce(
-    new Response('%PDF-1.7\nduty report', { headers: { 'Content-Type': 'application/pdf' } }),
+    new Response('%PDF-1.7\nduty report', {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename=Dienstzeitnachweis-2026-05.pdf',
+      },
+    }),
   );
   fireEvent.click(
     screen.getByRole('button', {
@@ -948,4 +960,52 @@ test('duty report download ignores table selection and preserves details after a
   expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-06-09');
   expect(juneSession.checked).toBe(true);
   expect(screen.getByRole('status').textContent).toBe('1 of 3 sessions selected');
+});
+
+test('exports the selected sessions to ForeFlight and shows export errors', async () => {
+  const fetch = respond({
+    timeZone: 'UTC',
+    sessions: [session, { ...session, id: 'session-2', student: 'Sam Beispiel' }],
+  });
+  vi.stubGlobal('URL', {
+    createObjectURL: vi.fn().mockReturnValue('blob:logbook'),
+    revokeObjectURL: vi.fn(),
+  });
+  const downloads: string[] = [];
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+    this: HTMLAnchorElement,
+  ) {
+    downloads.push(this.download);
+  });
+  render(<App />);
+  const exportButton = await screen.findByRole<HTMLButtonElement>('button', {
+    name: 'Export to ForeFlight',
+  });
+  expect(exportButton.disabled).toBe(true);
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select session for Sam/ }));
+  fetch.mockResolvedValueOnce(
+    new Response(JSON.stringify({ error: 'aircraft D-EFTI is not in the config' }), {
+      status: 422,
+    }),
+  );
+  fireEvent.click(exportButton);
+  expect(fetch).toHaveBeenLastCalledWith('/api/foreflight', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionIds: ['session-2'] }),
+  });
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'aircraft D-EFTI is not in the config',
+  );
+  fetch.mockResolvedValueOnce(
+    new Response('ForeFlight Logbook Import\r\n', {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename=ForeFlight-2026-05-03.csv',
+      },
+    }),
+  );
+  fireEvent.click(exportButton);
+  await waitFor(() => expect(downloads).toEqual(['ForeFlight-2026-05-03.csv']));
+  expect(screen.queryByRole('alert')).toBeNull();
 });
