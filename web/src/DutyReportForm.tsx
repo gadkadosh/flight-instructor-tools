@@ -21,14 +21,14 @@ export default function DutyReportForm({
   countSessionsInMonth,
   timeZone,
   onClose,
-  pdf,
+  documents,
 }: {
   id: string;
   open: boolean;
   countSessionsInMonth: (month: string) => number;
   timeZone: string;
   onClose: () => void;
-  pdf: DocumentDownload;
+  documents: DocumentDownload;
 }) {
   const [issueDate, setIssueDate] = useState(() => dateInZone(timeZone));
   const [month, setMonth] = useState(() => previousMonth(dateInZone(timeZone)));
@@ -52,18 +52,17 @@ export default function DutyReportForm({
       className="document-form"
       data-kind="dutyReport"
       aria-label="Generate duty report"
-      aria-busy={pdf.generating}
+      aria-busy={documents.generating}
       onSubmit={(event) => {
         event.preventDefault();
-        void pdf.download(
+        void documents.download(
           '/api/duty-report',
           { month, carryOverFlightDuty: normalizeDuration(carryOver), issueDate },
-          `Dienstzeitnachweis-${month}.pdf`,
           'duty report',
         );
       }}
     >
-      <fieldset disabled={pdf.generating}>
+      <fieldset disabled={documents.generating}>
         <label>
           Month
           <input
@@ -115,16 +114,16 @@ export default function DutyReportForm({
               type="submit"
               className="action-button"
               aria-describedby={monthLabel ? `${id}-scope` : undefined}
-              disabled={pdf.generating}
+              disabled={documents.generating}
             >
-              {pdf.generating ? 'Generating…' : 'Download PDF'}
+              {documents.generating ? 'Generating…' : 'Download PDF'}
             </button>
           </div>
         </div>
       </fieldset>
-      {pdf.error && (
+      {documents.error && (
         <p role="alert" className="error">
-          {pdf.error}
+          {documents.error}
         </p>
       )}
     </form>

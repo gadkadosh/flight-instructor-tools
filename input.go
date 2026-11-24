@@ -38,16 +38,17 @@ const (
 type activityKind struct {
 	invoiceLabel    string
 	flight          bool // Records block times and logbook details instead of minutes.
-	ownBlock        bool
+	pic             bool // I'm on board as pilot in command: my own block time and a logbook entry.
+	dualGiven       bool // Logged as instruction given.
 	studentRequired bool
 }
 
 var activityKinds = map[ActivityType]activityKind{
 	ActivityPreparation:     {invoiceLabel: "Flugvorbereitung"},
-	ActivityDual:            {invoiceLabel: "Blockzeit", flight: true, ownBlock: true, studentRequired: true},
+	ActivityDual:            {invoiceLabel: "Blockzeit", flight: true, pic: true, dualGiven: true, studentRequired: true},
 	ActivitySoloSupervision: {invoiceLabel: "Blockzeit", flight: true, studentRequired: true},
-	ActivityRundflug:        {invoiceLabel: "Rundflug", flight: true, ownBlock: true},
-	ActivitySchnupperflug:   {invoiceLabel: "Schnupperflug", flight: true, ownBlock: true},
+	ActivityRundflug:        {invoiceLabel: "Rundflug", flight: true, pic: true},
+	ActivitySchnupperflug:   {invoiceLabel: "Schnupperflug", flight: true, pic: true},
 }
 
 // Activity is preparation with Minutes, or a flight with Flight.

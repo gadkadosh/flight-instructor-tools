@@ -68,7 +68,7 @@ func buildDutyReport(sessions []Session, config Config, first time.Time, issueDa
 			line.End = end
 		}
 		for _, activity := range session.Activities {
-			if activityKinds[activity.Type].ownBlock {
+			if activityKinds[activity.Type].pic {
 				line.BlockMinutes += activity.durationMinutes()
 			}
 		}

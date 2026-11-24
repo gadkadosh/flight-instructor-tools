@@ -19,7 +19,7 @@ export default function SessionToolbar({
   onClearSelection: () => void;
 }) {
   const [expanded, setExpanded] = useState<DocumentKind | null>(null);
-  const pdf = useDocumentDownload();
+  const documents = useDocumentDownload();
   const formId = useId();
   const selectionStatus = useRef<HTMLParagraphElement>(null);
   const invoiceTrigger = useRef<HTMLButtonElement>(null);
@@ -29,6 +29,7 @@ export default function SessionToolbar({
 
   function close() {
     setExpanded(null);
+    documents.clearError();
     if (invoiceOpen && !hasSelection) selectionStatus.current?.focus();
     else (invoiceOpen ? invoiceTrigger : reportTrigger).current?.focus();
   }
@@ -37,7 +38,7 @@ export default function SessionToolbar({
     if (expanded === kind) close();
     else {
       setExpanded(kind);
-      pdf.clearError();
+      documents.clearError();
     }
   }
 
@@ -47,7 +48,7 @@ export default function SessionToolbar({
       event.defaultPrevented ||
       event.nativeEvent.isComposing ||
       event.repeat ||
-      pdf.generating
+      documents.generating
     )
       return;
 
@@ -85,7 +86,7 @@ export default function SessionToolbar({
           ref={invoiceTrigger}
           type="button"
           className="action-button secondary"
-          disabled={pdf.generating || (!invoiceOpen && !hasSelection)}
+          disabled={documents.generating || (!invoiceOpen && !hasSelection)}
           aria-expanded={invoiceOpen}
           aria-controls={`${formId}-invoice`}
           onClick={() => toggle('invoice')}
@@ -96,21 +97,41 @@ export default function SessionToolbar({
           ref={reportTrigger}
           type="button"
           className="action-button secondary"
-          disabled={pdf.generating}
+          disabled={documents.generating}
           aria-expanded={expanded === 'dutyReport'}
           aria-controls={`${formId}-duty-report`}
           onClick={() => toggle('dutyReport')}
         >
           Generate duty report…
         </button>
+        <button
+          type="button"
+          className="action-button secondary"
+          disabled={documents.generating || !hasSelection}
+          onClick={() => {
+            setExpanded(null);
+            void documents.download(
+              '/api/foreflight',
+              { sessionIds: [...selectedSessionIds] },
+              'ForeFlight logbook',
+            );
+          }}
+        >
+          Export to ForeFlight
+        </button>
       </div>
+      {expanded === null && documents.error && (
+        <p role="alert" className="error">
+          {documents.error}
+        </p>
+      )}
       <InvoiceForm
         id={`${formId}-invoice`}
         open={invoiceOpen}
         selectedSessionIds={selectedSessionIds}
         timeZone={timeZone}
         onClose={close}
-        pdf={pdf}
+        documents={documents}
       />
       <DutyReportForm
         id={`${formId}-duty-report`}
@@ -118,7 +139,7 @@ export default function SessionToolbar({
         countSessionsInMonth={countSessionsInMonth}
         timeZone={timeZone}
         onClose={close}
-        pdf={pdf}
+        documents={documents}
       />
     </div>
   );
