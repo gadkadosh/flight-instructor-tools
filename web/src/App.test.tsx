@@ -255,7 +255,8 @@ test('special flights count as own block time and retain their types in flight r
       .map((cell) => cell.textContent);
   expect(totals(alex)).toEqual(['0:15', '1:35', '0:05']);
   const unnamed = screen.getByRole('rowheader', { name: 'Rundflug / Schnupperflug' });
-  expect(totals(unnamed)).toEqual(['0:00', '0:45', '0:00']);
+  // Empty totals show a dash, followed by 0:00 for screen readers.
+  expect(totals(unnamed)).toEqual(['–0:00', '0:45', '–0:00']);
   fireEvent.click(screen.getByRole('button', { name: /Show flights for Rundflug/ }));
   const flights = screen.getByRole('table', {
     name: 'Flights for Rundflug / Schnupperflug on 03.05.2026',

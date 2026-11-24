@@ -546,6 +546,10 @@ td {
   white-space: nowrap;
 }
 
+.empty-total {
+  color: var(--color-text-muted);
+}
+
 .row-toggle {
   display: flex;
   align-items: center;
