@@ -33,7 +33,7 @@ func TestInvoiceDownloadUsesSelectedSessions(t *testing.T) {
 	if err := os.WriteFile(sessionsPath, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: sessionsPath, configPath: "examples/config.json"})
+	handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: sessionsPath, configPath: "examples/config.json"}, &openTabs{})
 	request := `{"sessionIds":["second","2026-05-03-alex","second"],"number":"2026-07","issueDate":"2026-07-01"}`
 	for attempt := 0; attempt < 2; attempt++ {
 		response := httptest.NewRecorder()
@@ -88,7 +88,7 @@ func TestInvoiceDownloadErrors(t *testing.T) {
 			if contentType == "" {
 				contentType = "application/json"
 			}
-			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: "testdata/minimal-sessions.json", configPath: config})
+			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: "testdata/minimal-sessions.json", configPath: config}, &openTabs{})
 			response := httptest.NewRecorder()
 			r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/invoice", strings.NewReader(test.body))
 			r.Header.Set("Content-Type", contentType)

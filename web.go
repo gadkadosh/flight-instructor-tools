@@ -91,7 +91,7 @@ func runServe(ctx context.Context, arguments []string, stdout io.Writer) error {
 		flags.PrintDefaults()
 	}
 	port := flags.Int("port", 0, "localhost port (0 chooses an available port)")
-	noOpen := flags.Bool("no-open", false, "do not open the browser")
+	noOpen := flags.Bool("no-open", false, "do not open the browser, and keep running after UI tabs close")
 	sessionsPath := flags.String("sessions", defaultSessionsPath, "session JSON file")
 	configPath := flags.String("config", defaultConfigPath, "configuration JSON file (optional by default; used for timeZone)")
 	if err := flags.Parse(arguments); err != nil {
@@ -122,9 +122,15 @@ func runServe(ctx context.Context, arguments []string, stdout io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("listen for web UI: %w", err)
 	}
+	tabs := &openTabs{}
+	if !*noOpen {
+		tabs.stop = stop
+	}
 	server := &http.Server{
-		Handler:           webHandler(assets, source),
+		Handler:           webHandler(assets, source, tabs),
 		ReadHeaderTimeout: 5 * time.Second,
+		// Requests end with the server, so open tabs do not hold up shutdown.
+		BaseContext: func(net.Listener) context.Context { return ctx },
 	}
 	serveError := make(chan error, 1)
 	go func() { serveError <- server.Serve(listener) }()

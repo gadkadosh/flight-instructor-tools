@@ -89,6 +89,8 @@ func TestRunWithoutArgumentsServesEmbeddedUIAndOpensBrowser(t *testing.T) {
 	if response.StatusCode != http.StatusNotFound {
 		t.Fatalf("source file request status = %d, want 404", response.StatusCode)
 	}
+	// An open tab must not hold up Ctrl+C.
+	defer openTab(t, url)()
 	cancel()
 	select {
 	case err := <-done:

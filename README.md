@@ -19,8 +19,8 @@ make build
 
 This opens the session UI with the [example data](examples/) in your browser.
 Adding or deleting a session writes to the file selected by `--sessions`,
-including the example file when using the command above. Press Ctrl+C in the
-terminal to stop the server.
+including the example file when using the command above. The server stops when
+you close the tab, or press Ctrl+C in the terminal.
 
 To use your own data, run `make install` and put Go's binary directory
 (`~/go/bin` by default) on your `PATH`. Keep `sessions.json` and `config.json`
