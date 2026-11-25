@@ -227,8 +227,8 @@ export default function LogbookPrintout({
       </div>
       {entries.length > 0 && (
         <div className="logbook-scroll">
-          <table className="logbook-table">
-            <caption className="visually-hidden">Logbook entries</caption>
+          {/* Labelled by the dialog title: a visually hidden caption opens a gap under the header. */}
+          <table className="logbook-table" aria-labelledby={`${id}-title`}>
             {pages.map((page, index) => (
               <colgroup key={index} span={span(page.flatMap(sectionColumns))} />
             ))}
