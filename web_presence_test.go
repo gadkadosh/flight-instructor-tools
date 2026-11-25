@@ -52,6 +52,8 @@ func TestServerStopsAfterItsLastTabCloses(t *testing.T) {
 		t.Fatal("server stopped while a tab was still open")
 	}
 	closeSecond()
+	// Reopen only once the server has seen no tabs and started its grace period.
+	time.Sleep(tabCloseGrace / 2)
 	closeReloaded := openTab(t, server.URL)
 	if stopsWithin(500 * time.Millisecond) {
 		t.Fatal("server stopped although the tab reloaded")
