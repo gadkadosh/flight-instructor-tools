@@ -39,13 +39,45 @@ export interface SessionView {
 
 export const activityKinds: Record<
   ActivityType,
-  { label: string; summary: 'preparation' | 'block' | 'soloSupervision'; studentRequired: boolean }
+  {
+    label: string;
+    summary: 'preparation' | 'block' | 'soloSupervision';
+    studentRequired: boolean;
+    // I'm on board as pilot in command, so the flight goes in my logbook.
+    pic: boolean;
+    // Logged as instructor time.
+    dualGiven: boolean;
+  }
 > = {
-  preparation: { label: 'Preparation', summary: 'preparation', studentRequired: false },
-  dual: { label: 'Dual', summary: 'block', studentRequired: true },
-  soloSupervision: { label: 'Solo supervision', summary: 'soloSupervision', studentRequired: true },
-  rundflug: { label: 'Rundflug', summary: 'block', studentRequired: false },
-  schnupperflug: { label: 'Schnupperflug', summary: 'block', studentRequired: false },
+  preparation: {
+    label: 'Preparation',
+    summary: 'preparation',
+    studentRequired: false,
+    pic: false,
+    dualGiven: false,
+  },
+  dual: { label: 'Dual', summary: 'block', studentRequired: true, pic: true, dualGiven: true },
+  soloSupervision: {
+    label: 'Solo supervision',
+    summary: 'soloSupervision',
+    studentRequired: true,
+    pic: false,
+    dualGiven: false,
+  },
+  rundflug: {
+    label: 'Rundflug',
+    summary: 'block',
+    studentRequired: false,
+    pic: true,
+    dualGiven: false,
+  },
+  schnupperflug: {
+    label: 'Schnupperflug',
+    summary: 'block',
+    studentRequired: false,
+    pic: true,
+    dualGiven: false,
+  },
 };
 
 // Block minutes are calculated from the block times, never stored.

@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
 import SessionDelete from './SessionDelete';
+import LogbookPrintout from './LogbookPrintout';
 import SessionRow, { sessionSummary } from './SessionRow';
 import { newSessionDraft, sessionDraft } from './sessionDraft';
 import { groupSessionsByMonth, type Session, type SessionView } from './sessions';
@@ -29,6 +30,7 @@ function SessionTable({
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteNotice, setDeleteNotice] = useState('');
+  const [showingLogbook, setShowingLogbook] = useState(false);
   // Each open editor keeps the session as it was opened, so saving cannot overwrite a newer version.
   const [editing, setEditing] = useState<ReadonlyMap<string, Session>>(() => new Map());
   const editButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -91,6 +93,7 @@ function SessionTable({
         }
         timeZone={view.timeZone}
         onClearSelection={() => setSelectedSessionIds(new Set())}
+        onShowLogbook={() => setShowingLogbook(true)}
       />
       <div className="visually-hidden" aria-live="polite">
         {deleteNotice}
@@ -216,6 +219,12 @@ function SessionTable({
       <p className="time-note">
         Duty times: <span>{view.timeZone}</span> · Flight times: UTC · Durations H:MM
       </p>
+      {showingLogbook && (
+        <LogbookPrintout
+          sessions={view.sessions.filter(({ id }) => selectedSessionIds.has(id))}
+          onClose={() => setShowingLogbook(false)}
+        />
+      )}
       {deleteTarget && (
         <SessionDelete
           sessionId={deleteTarget.session.id}

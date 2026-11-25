@@ -13,12 +13,14 @@ export default function SessionToolbar({
   countSessionsInMonth,
   timeZone,
   onClearSelection,
+  onShowLogbook,
 }: {
   selectedSessionIds: ReadonlySet<string>;
   sessionCount: number;
   countSessionsInMonth: (month: string) => number;
   timeZone: string;
   onClearSelection: () => void;
+  onShowLogbook: () => void;
 }) {
   const [expanded, setExpanded] = useState<DocumentKind | null>(null);
   const documents = useDocumentDownload();
@@ -121,6 +123,15 @@ export default function SessionToolbar({
           }}
         >
           Export to ForeFlight
+        </button>
+        <button
+          type="button"
+          className="action-button secondary"
+          disabled={!hasSelection}
+          aria-haspopup="dialog"
+          onClick={onShowLogbook}
+        >
+          Show logbook entries
         </button>
       </div>
       {expanded === null && documents.error && (
