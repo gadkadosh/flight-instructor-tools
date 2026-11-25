@@ -80,6 +80,9 @@ func TestRunWithoutArgumentsServesEmbeddedUIAndOpensBrowser(t *testing.T) {
 	if !bytes.Contains(js, []byte("/api/sessions")) {
 		t.Fatal("JavaScript bundle does not contain the React application")
 	}
+	if !bytes.Contains(js, []byte("/api/presence")) {
+		t.Fatal("JavaScript bundle does not hold a presence stream, so the server would never stop with its tabs")
+	}
 	get(string(style[1]), "text/css")
 	response, err := client.Get(url + "/input.go")
 	if err != nil {
@@ -90,7 +93,7 @@ func TestRunWithoutArgumentsServesEmbeddedUIAndOpensBrowser(t *testing.T) {
 		t.Fatalf("source file request status = %d, want 404", response.StatusCode)
 	}
 	// An open tab must not hold up Ctrl+C.
-	defer openTab(t, url)()
+	openTab(t, url)
 	cancel()
 	select {
 	case err := <-done:
