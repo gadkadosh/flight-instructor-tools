@@ -17,7 +17,7 @@ func TestForeFlightDownload(t *testing.T) {
 		{"stale selection", `{"sessionIds":["missing"]}`, "no longer exist", 400},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: "testdata/minimal-sessions.json", configPath: "examples/config.json"})
+			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: "testdata/minimal-sessions.json", configPath: "examples/config.json"}, &openTabs{})
 			response := httptest.NewRecorder()
 			r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/foreflight", strings.NewReader(test.body))
 			r.Header.Set("Content-Type", "application/json")

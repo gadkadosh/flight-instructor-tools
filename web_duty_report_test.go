@@ -51,7 +51,7 @@ func TestDutyReportDownloadIncludesWholeMonth(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: path, configPath: configPath})
+			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: path, configPath: configPath}, &openTabs{})
 			for attempt := 0; attempt < 2; attempt++ {
 				body := `{"month":"` + test.month + `","carryOverFlightDuty":"120:00","issueDate":"2026-06-09"}`
 				r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/duty-report", strings.NewReader(body))
@@ -137,7 +137,7 @@ func TestDutyReportDownloadErrors(t *testing.T) {
 			if contentType == "" {
 				contentType = "application/json"
 			}
-			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: sessionsPath, configPath: configPath})
+			handler := webHandler(fstest.MapFS{}, sessionSource{sessionsPath: sessionsPath, configPath: configPath}, &openTabs{})
 			r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/duty-report", strings.NewReader(test.body))
 			r.Header.Set("Content-Type", contentType)
 			if test.origin != "" {

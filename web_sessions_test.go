@@ -69,7 +69,7 @@ func TestSessionsAPI(t *testing.T) {
 					}
 				}
 			}
-			handler := webHandler(fstest.MapFS{}, source)
+			handler := webHandler(fstest.MapFS{}, source, &openTabs{})
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/sessions", nil))
 			if response.Header().Get("Cache-Control") != "no-store" || response.Header().Get("Content-Type") != "application/json" {

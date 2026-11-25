@@ -26,8 +26,9 @@ type sessionView struct {
 	TimeZone string    `json:"timeZone"`
 }
 
-func webHandler(assets fs.FS, source sessionSource) http.Handler {
+func webHandler(assets fs.FS, source sessionSource, tabs *openTabs) http.Handler {
 	mux := http.NewServeMux()
+	mux.Handle("GET /api/presence", tabs)
 	mux.HandleFunc("GET /api/sessions", source.serveSessions)
 	var saveMu sync.Mutex
 	sessionWrite := func(handler http.HandlerFunc) http.HandlerFunc {
