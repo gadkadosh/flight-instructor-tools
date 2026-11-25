@@ -1013,3 +1013,142 @@ test('exports the selected sessions to ForeFlight and shows export errors', asyn
   await waitFor(() => expect(downloads).toEqual(['ForeFlight-2026-05-03.csv']));
   expect(screen.queryByRole('alert')).toBeNull();
 });
+
+test('shows the selected flights laid out like the paper logbook', async () => {
+  respond({
+    timeZone: 'Europe/Berlin',
+    sessions: [
+      session,
+      {
+        ...session,
+        id: 'session-2',
+        student: undefined,
+        activities: [flight('sightseeing', 'rundflug', '2026-04-01T10:05:00Z', 65)],
+        dutyStart: '2026-04-01T10:00:00Z',
+        dutyEnd: '2026-04-01T11:30:00Z',
+      },
+      {
+        ...session,
+        id: 'session-3',
+        student: 'Sam Beispiel',
+        activities: [flight('solo-only', 'soloSupervision', '2026-03-01T10:05:00Z', 30)],
+        dutyStart: '2026-03-01T10:00:00Z',
+        dutyEnd: '2026-03-01T11:00:00Z',
+      },
+    ],
+  });
+  render(<App />);
+  const show = await screen.findByRole<HTMLButtonElement>('button', {
+    name: 'Show logbook entries',
+  });
+  expect(show.disabled).toBe(true);
+
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select session for Sam/ }));
+  show.focus();
+  fireEvent.click(show);
+  const empty = screen.getByRole('dialog', { name: 'Logbook entries' });
+  expect(within(empty).getByText(/contain no flights for your logbook/)).toBeTruthy();
+  expect(within(empty).queryByRole('table')).toBeNull();
+  await userEvent.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(document.activeElement).toBe(show);
+
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select session for Alex/ }));
+  fireEvent.click(screen.getByRole('checkbox', { name: /Select session for Rundflug/ }));
+  fireEvent.click(show);
+  const dialog = screen.getByRole('dialog', { name: 'Logbook entries' });
+  expect(within(dialog).getByText('3 flights, oldest first · Times in UTC')).toBeTruthy();
+  // Three header rows (section numbers, groups, columns), then one row per flight.
+  const [numbers, groups, columns, ...flights] = within(
+    within(dialog).getByRole('table', { name: 'Logbook entries' }),
+  )
+    .getAllByRole('row')
+    .map((row) => [...row.querySelectorAll('th, td')].map((cell) => cell.textContent));
+  expect(numbers).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']);
+  expect(groups).toEqual([
+    'Date (dd/mm/yy)',
+    'Departure',
+    'Arrival',
+    'Aircraft',
+    'Single pilot time',
+    'Multi-pilot time',
+    'Total time of flight',
+    'Name PIC',
+    'Takeoffs',
+    'Landings',
+    'Operational condition time',
+    'Pilot function time',
+    'Synthetic training devices session',
+    'Remarks and endorsements',
+  ]);
+  expect(columns).toEqual([
+    'Place',
+    'Time',
+    'Place',
+    'Time',
+    'Make, model, variant',
+    'Registration',
+    'SE',
+    'ME',
+    '',
+    '',
+    'Day',
+    'Night',
+    'Day',
+    'Night',
+    'Night',
+    'IFR',
+    'Pilot-in-command',
+    'Co-pilot',
+    'Dual',
+    'Instructor',
+    'Date (dd/mm/yy)',
+    'Type',
+    'Total time of session',
+  ]);
+  // Solo supervision and preparation stay out; dates and times are UTC, durations split H | MM.
+  const noTime = ['', ''];
+  const departures = [
+    ['01.04.26', 'EDFE', '10:05', 'EDFE', '11:10', '', 'D-EFTI'],
+    ['03.05.26', 'EDFE', '22:45', 'EDFE', '23:20', '', 'D-EFTI'],
+    ['03.05.26', 'EDFE', '23:25', 'EDFZ', '23:55', '', 'D-EFTI'],
+  ];
+  const blocks = [
+    ['1', '05'],
+    ['0', '35'],
+    ['0', '30'],
+  ];
+  const landings = ['1', '1', '4'];
+  // Only dual flights log instructor time.
+  const instructor = [noTime, blocks[1]!, blocks[2]!];
+  expect(flights).toEqual(
+    departures.map((departure, index) => [
+      ...departure,
+      '✓',
+      '',
+      '',
+      '',
+      ...noTime,
+      ...blocks[index]!,
+      'SELF',
+      landings[index],
+      '',
+      landings[index],
+      '',
+      ...noTime,
+      ...noTime,
+      ...blocks[index]!,
+      ...noTime,
+      ...noTime,
+      ...instructor[index]!,
+      '',
+      '',
+      ...noTime,
+      '',
+    ]),
+  );
+
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(document.activeElement).toBe(show);
+});

@@ -759,6 +759,92 @@ td {
   margin-top: 1rem;
 }
 
+/* Logbook entries, laid out like the paper logbook's open spread */
+
+.logbook-dialog {
+  box-sizing: border-box;
+  width: calc(100% - 2rem);
+  max-width: none;
+  max-height: calc(100% - 2rem);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 1rem 3rem rgb(34 49 69 / 18%);
+}
+
+.logbook-dialog::backdrop {
+  background: rgb(34 49 69 / 40%);
+}
+
+.logbook-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.logbook-heading h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.logbook-heading p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+}
+
+.logbook-scroll {
+  overflow-x: auto;
+  margin-top: 1.25rem;
+}
+
+.logbook-table {
+  --logbook-ink: #334155;
+
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+/* The book's spine, between columns 8 and 9. */
+.logbook-table colgroup + colgroup {
+  border-left: 3px solid var(--logbook-ink);
+}
+
+.logbook-table :is(th, td) {
+  border: 1px solid var(--logbook-ink);
+  padding: 0.375rem 0.3125rem;
+}
+
+.logbook-table th {
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.logbook-table thead tr:first-child th {
+  font-weight: 400;
+}
+
+.logbook-table td {
+  height: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Hours and minutes share one time column, as on paper. */
+.logbook-table td.hours {
+  border-right-style: dotted;
+  text-align: right;
+}
+
+.logbook-table td.minutes {
+  border-left-style: dotted;
+  text-align: left;
+}
+
 /* Session entry */
 
 .entry-row {
