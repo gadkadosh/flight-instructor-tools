@@ -202,7 +202,10 @@ export default function LogbookPrintout({
       className="logbook-dialog"
       ref={dialog}
       aria-labelledby={`${id}-title`}
-      // Escape and the Close button both close the dialog; the browser returns focus to the trigger.
+      // Nothing here can be lost, so a click outside closes it too.
+      closedby="any"
+
+      // Every way of closing ends here; the browser returns focus to the trigger.
       onClose={onClose}
     >
       <div className="logbook-heading">

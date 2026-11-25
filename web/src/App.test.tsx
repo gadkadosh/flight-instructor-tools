@@ -1151,4 +1151,8 @@ test('shows the selected flights laid out like the paper logbook', async () => {
   fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(document.activeElement).toBe(show);
+
+  fireEvent.click(show);
+  await userEvent.click(screen.getByRole('dialog'), { position: { x: -8, y: -8 } });
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 });
