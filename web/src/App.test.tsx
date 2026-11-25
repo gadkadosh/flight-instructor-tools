@@ -1057,7 +1057,7 @@ test('shows the selected flights laid out like the paper logbook', async () => {
   fireEvent.click(screen.getByRole('checkbox', { name: /Select session for Rundflug/ }));
   fireEvent.click(show);
   const dialog = screen.getByRole('dialog', { name: 'Logbook entries' });
-  expect(within(dialog).getByText('3 flights, oldest first · Times in UTC')).toBeTruthy();
+  expect(within(dialog).getByText('3 flights')).toBeTruthy();
   // Three header rows (section numbers, groups, columns), then one row per flight.
   const [numbers, groups, columns, ...flights] = within(
     within(dialog).getByRole('table', { name: 'Logbook entries' }),

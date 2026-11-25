@@ -214,7 +214,7 @@ export default function LogbookPrintout({
           <p>
             {entries.length === 0
               ? 'The selected sessions contain no flights for your logbook.'
-              : `${entries.length} ${entries.length === 1 ? 'flight' : 'flights'}, oldest first · Times in UTC`}
+              : `${entries.length} ${entries.length === 1 ? 'flight' : 'flights'}`}
           </p>
         </div>
         <button
