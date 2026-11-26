@@ -570,6 +570,12 @@ test('shows file errors returned by the server', async () => {
   expect(screen.queryByRole('table')).toBeNull();
 });
 
+test('shows a fallback message for plain-text errors', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Forbidden', { status: 403 })));
+  render(<App />);
+  expect((await screen.findByRole('alert')).textContent).toBe('Could not load sessions.');
+});
+
 test('shows network errors', async () => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Connection lost')));
   render(<App />);
@@ -742,10 +748,15 @@ test('invoice errors preserve form details and allow retrying', async () => {
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Download PDF' }).disabled).toBe(
     false,
   );
+  fetch.mockResolvedValueOnce(new Response('Forbidden', { status: 403 }));
+  fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
+  await expect
+    .poll(() => screen.getByRole('alert').textContent)
+    .toBe('Could not generate invoice.');
   fetch.mockRejectedValueOnce(new Error('Connection lost'));
   fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }));
   expect((await screen.findByRole('alert')).textContent).toBe('Connection lost');
-  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(fetch).toHaveBeenCalledTimes(4);
   fireEvent.click(screen.getByRole('button', { name: 'Generate duty report…' }));
   expect(screen.queryByRole('alert')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Generate invoice…' }));

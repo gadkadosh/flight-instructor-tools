@@ -7,6 +7,7 @@ import LogbookPrintout from './LogbookPrintout';
 import SessionRow, { sessionSummary, TotalCells } from './SessionRow';
 import { newSessionDraft, sessionDraft } from './sessionDraft';
 import { groupSessionsByYear, type Session, type SessionView } from './sessions';
+import { request } from './request';
 
 type DeleteTarget = { session: Session; trigger: HTMLButtonElement };
 
@@ -289,13 +290,14 @@ export default function App() {
     const controller = new AbortController();
     async function load() {
       try {
-        const response = await fetch('/api/sessions', { signal: controller.signal });
-        const body = await response.json();
-        if (!response.ok) {
-          throw new Error(body.error || 'Could not load sessions.');
-        }
+        const response = await request(
+          '/api/sessions',
+          { signal: controller.signal },
+          'Could not load sessions.',
+        );
+        const view = await response.json();
         if (!controller.signal.aborted) {
-          setState({ status: 'ready', view: body });
+          setState({ status: 'ready', view });
         }
       } catch (error) {
         if (!controller.signal.aborted) {
