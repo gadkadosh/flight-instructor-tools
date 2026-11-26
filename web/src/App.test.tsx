@@ -338,7 +338,7 @@ test('clears selected sessions across months and keeps keyboard focus in the too
   );
 });
 
-test('groups sessions newest first by local month and toggles selection from a month heading', async () => {
+test('groups sessions newest first by local year and month and toggles selection from a month heading', async () => {
   await page.viewport(568, 720);
   const dates = [
     ['Last January', '2025-01-11T12:00:00Z'],
@@ -358,13 +358,15 @@ test('groups sessions newest first by local month and toggles selection from a m
   });
   render(<App />);
   const table = await screen.findByRole('table', { name: 'Sessions by month' });
-  const groups = within(table).getAllByRole('rowgroup').slice(1);
   expect(
-    groups.map((group) =>
-      within(group)
-        .getByRole('button', { name: /^Select \d/ })
-        .getAttribute('aria-label'),
-    ),
+    within(table)
+      .getAllByRole('rowheader', { name: /^(\d{4}|\w+ \d{4})$/ })
+      .map((heading) => heading.getAttribute('aria-label') ?? heading.textContent),
+  ).toEqual(['2026', 'January 2026', '2025', 'December 2025', 'January 2025']);
+  expect(
+    within(table)
+      .getAllByRole('button', { name: /^Select \d/ })
+      .map((button) => button.getAttribute('aria-label')),
   ).toEqual([
     'Select 2 sessions in January 2026',
     'Select 1 session in December 2025',
@@ -393,11 +395,50 @@ test('groups sessions newest first by local month and toggles selection from a m
   expect(selected()).toEqual(['December lesson']);
 });
 
+test('totals each month and year under the duration columns', async () => {
+  respond({
+    timeZone: 'Europe/Berlin',
+    sessions: [
+      session,
+      {
+        ...session,
+        id: 'april',
+        dutyStart: '2026-04-01T08:00:00Z',
+        dutyEnd: '2026-04-01T10:00:00Z',
+        activities: [
+          { id: 'briefing', type: 'preparation', minutes: 30 },
+          flight('sightseeing', 'rundflug', '2026-04-01T08:30:00Z', 45),
+        ],
+      },
+      { ...session, id: 'last-year', dutyStart: '2025-12-01T08:00:00Z' },
+    ],
+  });
+  render(<App />);
+  const table = await screen.findByRole('table', { name: 'Sessions by month' });
+  const columns = ['Preparation', 'Block time', 'Solo supervision'].map((name) =>
+    within(table).getByRole('columnheader', { name }).getBoundingClientRect(),
+  );
+  const totals = (heading: string) => {
+    const row = within(table).getByRole('rowheader', { name: heading }).closest('tr')!;
+    return columns.map(
+      (column) =>
+        [...row.cells].find((cell) => cell.getBoundingClientRect().left === column.left)
+          ?.textContent,
+    );
+  };
+
+  expect(totals('2026')).toEqual(['0:45', '1:50', '0:05']);
+  expect(totals('May 2026')).toEqual(['0:15', '1:05', '0:05']);
+  expect(totals('April 2026')).toEqual(['0:30', '0:45', '–0:00']);
+  expect(totals('2025')).toEqual(['0:15', '1:05', '0:05']);
+  expect(totals('December 2025')).toEqual(['0:15', '1:05', '0:05']);
+});
+
 test('preparation-only sessions have no flight expansion', async () => {
   respond({ timeZone: 'UTC', sessions: [{ ...session, activities: [session.activities[0]] }] });
   render(<App />);
-  await screen.findByText('Alex Beispiel');
-  expect(screen.getByText('0:15')).toBeTruthy();
+  const subject = await screen.findByRole('rowheader', { name: 'Alex Beispiel' });
+  expect(within(subject.closest('tr')!).getByText('0:15')).toBeTruthy();
   expect(screen.queryByRole('button', { name: /flights for/ })).toBeNull();
   fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
   expect(screen.getByRole('status').textContent).toBe('1 of 1 session selected');

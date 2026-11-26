@@ -442,9 +442,33 @@ td {
   white-space: nowrap;
 }
 
+.year-heading > *,
+.month-heading > * {
+  padding-block: 0.25rem;
+}
+
+.year-heading th,
 .month-heading th {
-  padding: 0.25rem 0.75rem 0.25rem 1.125rem;
+  padding-left: 1.125rem;
+}
+
+.year-heading > * {
+  font-weight: 600;
+}
+
+.year-heading th {
+  font-size: 1rem;
+}
+
+.month-heading > * {
   background: #f5f6f8;
+}
+
+/* Quieter than the sessions they total, so the table stays calm. */
+.month-heading > td {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
 }
 
 /* Same height as the row edit button, so it fits the row height. */
@@ -477,6 +501,10 @@ td {
 
 .sessions-table > tbody > tr:is([data-selected], .month-heading) {
   height: 2.625rem;
+}
+
+.sessions-table > tbody > .year-heading {
+  height: 2.875rem;
 }
 
 .sessions-table > tbody > tr[data-selected='true'] {
