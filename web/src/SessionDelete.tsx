@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { request } from './request';
 import type { SessionView } from './sessions';
 
 export default function SessionDelete({
@@ -32,13 +33,12 @@ export default function SessionDelete({
     setDeleting(true);
     setError('');
     try {
-      const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
-        method: 'DELETE',
-        headers: { 'If-Match': etag },
-      });
-      // The host check and the router can answer with plain text.
-      const body = await response.json().catch(() => null);
-      if (!response.ok || !body) throw new Error(body?.error || 'Could not delete session.');
+      const response = await request(
+        `/api/sessions/${encodeURIComponent(sessionId)}`,
+        { method: 'DELETE', headers: { 'If-Match': etag } },
+        'Could not delete session.',
+      );
+      const body = await response.json();
       deleted.current = true;
       dialog.current?.close();
       onDeleted(body);

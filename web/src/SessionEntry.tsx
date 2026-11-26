@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ComponentProps, type KeyboardEvent } from 'react';
 import FlightHeaderCells from './FlightHeaderCells';
+import { request } from './request';
 import { newFlight, newSessionDraft, type FlightDraft, type SessionDraft } from './sessionDraft';
 import {
   activityKinds,
@@ -326,7 +327,7 @@ export default function SessionEntry({
     savingRef.current = true;
     setSaving(true);
     try {
-      const response = await fetch(
+      const response = await request(
         etag ? `/api/sessions/${encodeURIComponent(draft.id)}` : '/api/sessions',
         {
           method: etag ? 'PUT' : 'POST',
@@ -339,10 +340,9 @@ export default function SessionEntry({
             activities,
           }),
         },
+        'Could not save session.',
       );
-      // The host check and the router can answer with plain text.
-      const body = await response.json().catch(() => null);
-      if (!response.ok || !body) throw new Error(body?.error || 'Could not save session.');
+      const body = await response.json();
       onSaved(body);
       if (another) {
         setDraft(newSessionDraft(body, date));
