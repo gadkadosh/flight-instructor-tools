@@ -452,12 +452,20 @@ td {
   padding-left: 1.125rem;
 }
 
+/* The column-header band, so the year visibly contains its months. */
 .year-heading > * {
-  font-weight: 600;
+  background: #edf1f6;
+  font-weight: 500;
 }
 
 .year-heading th {
   font-size: 1rem;
+  font-weight: 700;
+}
+
+/* A dash on every heading row would only add noise; sessions keep theirs. */
+:is(.year-heading, .month-heading) .empty-total {
+  display: none;
 }
 
 .month-heading > * {
