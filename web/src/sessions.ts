@@ -86,30 +86,48 @@ export function activityMinutes(activity: Activity) {
   return Math.floor((Date.parse(activity.blockOn) - Date.parse(activity.blockOff)) / 60_000);
 }
 
-export function groupSessionsByMonth(sessions: Session[], timeZone: string) {
+export function sessionTotals(sessions: Session[]) {
+  const totals = { preparation: 0, block: 0, soloSupervision: 0 };
+  for (const session of sessions) {
+    for (const activity of session.activities) {
+      totals[activityKinds[activity.type].summary] += activityMinutes(activity);
+    }
+  }
+  return totals;
+}
+
+type MonthGroup = { key: string; label: string; sessions: Session[] };
+
+// Newest first: years, the months within each year, and the sessions within each month.
+export function groupSessionsByYear(sessions: Session[], timeZone: string) {
   const monthParts = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
   });
   const monthLabel = new Intl.DateTimeFormat('en-GB', { timeZone, month: 'long', year: 'numeric' });
-  const groups = new Map<string, { label: string; sessions: Session[] }>();
+  const months = new Map<string, MonthGroup>();
   for (const session of sessions) {
     const date = new Date(session.dutyStart);
     const parts = monthParts.formatToParts(date);
     const year = parts.find((part) => part.type === 'year')!.value;
     const month = parts.find((part) => part.type === 'month')!.value;
-    const monthKey = `${year.padStart(4, '0')}-${month}`;
-    const group = groups.get(monthKey);
+    const key = `${year.padStart(4, '0')}-${month}`;
+    const group = months.get(key);
     if (group) group.sessions.push(session);
-    else groups.set(monthKey, { label: monthLabel.format(date), sessions: [session] });
+    else months.set(key, { key, label: monthLabel.format(date), sessions: [session] });
   }
-  for (const group of groups.values()) {
-    group.sessions.sort(
+  const years = new Map<string, MonthGroup[]>();
+  for (const month of [...months.values()].sort((first, second) =>
+    second.key.localeCompare(first.key),
+  )) {
+    month.sessions.sort(
       (first, second) => Date.parse(second.dutyStart) - Date.parse(first.dutyStart),
     );
+    const year = month.key.slice(0, 4);
+    years.set(year, [...(years.get(year) ?? []), month]);
   }
-  return [...groups].sort(([first], [second]) => second.localeCompare(first));
+  return [...years].map(([year, months]) => ({ year, months }));
 }
 
 export function formatDuration(minutes: number) {

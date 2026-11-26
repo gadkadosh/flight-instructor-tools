@@ -6,6 +6,7 @@ import {
   dateInZone,
   flightTimeFormat,
   formatDuration,
+  sessionTotals,
   type Session,
 } from './sessions';
 
@@ -37,6 +38,24 @@ function Total({ minutes }: { minutes: number }) {
         –
       </span>
       <span className="visually-hidden">{formatDuration(0)}</span>
+    </>
+  );
+}
+
+// The Preparation, Block time and Solo supervision cells, for a session or a group of sessions.
+export function TotalCells({ sessions }: { sessions: Session[] }) {
+  const totals = sessionTotals(sessions);
+  return (
+    <>
+      <td className="numeric">
+        <Total minutes={totals.preparation} />
+      </td>
+      <td className="numeric">
+        <Total minutes={totals.block} />
+      </td>
+      <td className="numeric">
+        <Total minutes={totals.soloSupervision} />
+      </td>
     </>
   );
 }
@@ -75,10 +94,6 @@ export default function SessionRow({
     endDate !== startDate &&
     Date.parse(dateInZone(timeZone, end)) - Date.parse(dateInZone(timeZone, start)) ===
       24 * 60 * 60 * 1000;
-  const totals = { preparation: 0, block: 0, soloSupervision: 0 };
-  for (const activity of session.activities) {
-    totals[activityKinds[activity.type].summary] += activityMinutes(activity);
-  }
   return (
     <>
       <tr
@@ -165,15 +180,7 @@ export default function SessionRow({
             </>
           )}
         </td>
-        <td className="numeric">
-          <Total minutes={totals.preparation} />
-        </td>
-        <td className="numeric">
-          <Total minutes={totals.block} />
-        </td>
-        <td className="numeric">
-          <Total minutes={totals.soloSupervision} />
-        </td>
+        <TotalCells sessions={[session]} />
         <td className="row-actions" onClick={(event) => event.stopPropagation()}>
           <button
             className="action-button icon"

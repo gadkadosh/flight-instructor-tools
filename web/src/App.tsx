@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import SessionToolbar from './SessionToolbar';
 import SessionEntry from './SessionEntry';
 import SessionDelete from './SessionDelete';
 import LogbookPrintout from './LogbookPrintout';
-import SessionRow, { sessionSummary } from './SessionRow';
+import SessionRow, { sessionSummary, TotalCells } from './SessionRow';
 import { newSessionDraft, sessionDraft } from './sessionDraft';
-import { groupSessionsByMonth, type Session, type SessionView } from './sessions';
+import { groupSessionsByYear, type Session, type SessionView } from './sessions';
 
 type DeleteTarget = { session: Session; trigger: HTMLButtonElement };
 
@@ -35,8 +35,8 @@ function SessionTable({
   const [editing, setEditing] = useState<ReadonlyMap<string, Session>>(() => new Map());
   const editButtons = useRef(new Map<string, HTMLButtonElement>());
   const tableRegion = useRef<HTMLDivElement>(null);
-  const monthGroups = useMemo(
-    () => groupSessionsByMonth(view.sessions, view.timeZone),
+  const years = useMemo(
+    () => groupSessionsByYear(view.sessions, view.timeZone),
     [view.sessions, view.timeZone],
   );
   const dateFormat = new Intl.DateTimeFormat('de-DE', {
@@ -89,7 +89,8 @@ function SessionTable({
         selectedSessionIds={selectedSessionIds}
         sessionCount={view.sessions.length}
         countSessionsInMonth={(month) =>
-          monthGroups.find(([key]) => key === month)?.[1].sessions.length ?? 0
+          years.flatMap(({ months }) => months).find(({ key }) => key === month)?.sessions.length ??
+          0
         }
         timeZone={view.timeZone}
         onClearSelection={() => setSelectedSessionIds(new Set())}
@@ -157,62 +158,79 @@ function SessionTable({
                 />
               </tbody>
             )}
-            {monthGroups.map(([month, { label, sessions }]) => {
-              const allSelected = sessions.every((session) => selectedSessionIds.has(session.id));
-              const selectionLabel = `${allSelected ? 'Deselect' : 'Select'} ${sessions.length} ${sessions.length === 1 ? 'session' : 'sessions'}`;
-              return (
-                <tbody key={month}>
-                  <tr className="month-heading">
-                    <th scope="rowgroup" colSpan={10} aria-label={label}>
-                      {label}
-                      <button
-                        type="button"
-                        className="action-button link"
-                        aria-label={`${selectionLabel} in ${label}`}
-                        onClick={() => toggleSessions(sessions)}
-                      >
-                        {selectionLabel}
-                      </button>
+            {years.map(({ year, months }) => (
+              <Fragment key={year}>
+                <tbody>
+                  <tr className="year-heading">
+                    <th scope="row" colSpan={6}>
+                      {year}
                     </th>
+                    <TotalCells sessions={months.flatMap(({ sessions }) => sessions)} />
+                    <td />
                   </tr>
-                  {sessions.map((session) => {
-                    const opened = editing.get(session.id);
-                    return opened ? (
-                      <SessionEntry
-                        key={session.id}
-                        view={view}
-                        initial={sessionDraft(opened, view.timeZone)}
-                        etag={opened.etag}
-                        onSaved={updateView}
-                        onClose={() => closeEditor(session.id)}
-                        onDelete={(trigger) => {
-                          setDeleteNotice('');
-                          setDeleteTarget({ session: opened, trigger });
-                        }}
-                      />
-                    ) : (
-                      <SessionRow
-                        key={session.id}
-                        session={session}
-                        dateFormat={dateFormat}
-                        timeFormat={timeFormat}
-                        selected={selectedSessionIds.has(session.id)}
-                        onSelect={() => toggleSessions([session])}
-                        editButtonRef={(button) => {
-                          if (button) editButtons.current.set(session.id, button);
-                          return () => {
-                            editButtons.current.delete(session.id);
-                          };
-                        }}
-                        onEdit={() =>
-                          setEditing((previous) => new Map(previous).set(session.id, session))
-                        }
-                      />
-                    );
-                  })}
                 </tbody>
-              );
-            })}
+                {months.map(({ key, label, sessions }) => {
+                  const allSelected = sessions.every((session) =>
+                    selectedSessionIds.has(session.id),
+                  );
+                  const selectionLabel = `${allSelected ? 'Deselect' : 'Select'} ${sessions.length} ${sessions.length === 1 ? 'session' : 'sessions'}`;
+                  return (
+                    <tbody key={key}>
+                      <tr className="month-heading">
+                        <th scope="rowgroup" colSpan={6} aria-label={label}>
+                          {label}
+                          <button
+                            type="button"
+                            className="action-button link"
+                            aria-label={`${selectionLabel} in ${label}`}
+                            onClick={() => toggleSessions(sessions)}
+                          >
+                            {selectionLabel}
+                          </button>
+                        </th>
+                        <TotalCells sessions={sessions} />
+                        <td />
+                      </tr>
+                      {sessions.map((session) => {
+                        const opened = editing.get(session.id);
+                        return opened ? (
+                          <SessionEntry
+                            key={session.id}
+                            view={view}
+                            initial={sessionDraft(opened, view.timeZone)}
+                            etag={opened.etag}
+                            onSaved={updateView}
+                            onClose={() => closeEditor(session.id)}
+                            onDelete={(trigger) => {
+                              setDeleteNotice('');
+                              setDeleteTarget({ session: opened, trigger });
+                            }}
+                          />
+                        ) : (
+                          <SessionRow
+                            key={session.id}
+                            session={session}
+                            dateFormat={dateFormat}
+                            timeFormat={timeFormat}
+                            selected={selectedSessionIds.has(session.id)}
+                            onSelect={() => toggleSessions([session])}
+                            editButtonRef={(button) => {
+                              if (button) editButtons.current.set(session.id, button);
+                              return () => {
+                                editButtons.current.delete(session.id);
+                              };
+                            }}
+                            onEdit={() =>
+                              setEditing((previous) => new Map(previous).set(session.id, session))
+                            }
+                          />
+                        );
+                      })}
+                    </tbody>
+                  );
+                })}
+              </Fragment>
+            ))}
           </table>
         </div>
       )}
