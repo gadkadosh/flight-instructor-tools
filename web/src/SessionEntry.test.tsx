@@ -598,6 +598,16 @@ test('lists every missing time of a flight at once', async () => {
   expect(entries).toHaveLength(0);
 });
 
+test('a duty that ends when it starts adds no problems for its flights', async () => {
+  sessionAPI();
+  await openEntry();
+  await fillBasics();
+  await fillFlight(1, '0930', '1000');
+  await userEvent.fill(screen.getByLabelText('Duty end'), '0900');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  expect(problems()).toEqual(['Duty end must differ from duty start.']);
+});
+
 test('lists the problems of every flight, numbered by flight', async () => {
   const { entries } = sessionAPI();
   await openEntry();

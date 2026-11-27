@@ -325,7 +325,8 @@ export default function SessionEntry({
         off &&
         on &&
         dutyStart !== undefined &&
-        dutyEnd !== undefined
+        dutyEnd !== undefined &&
+        start !== end
       ) {
         const inDuty = (clock: string) => flightInstant(clock) <= dutyEnd;
         const dutyWindow = `${utcClock(dutyStart)}–${utcClock(dutyEnd)} UTC`;
