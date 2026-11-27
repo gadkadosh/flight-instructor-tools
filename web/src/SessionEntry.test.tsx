@@ -559,10 +559,14 @@ test('the save buttons follow their on-screen order and list every problem befor
     'Enter a student for training or preparation-only sessions.',
   );
 
-  // Changing a field clears its problem; the rest wait for the next save.
+  // Changing a field clears its problem; the rest wait for the next save, untouched so the alert
+  // doesn't read them out again.
+  const items = () => within(screen.getByRole('alert')).getAllByRole('listitem');
+  const rest = items().slice(1);
   await userEvent.fill(student, 'New Student');
   expect(invalid()).toEqual(['Duty start', 'Duty end', 'Preparation duration']);
-  expect(problems()).toHaveLength(3);
+  expect(items()).toHaveLength(3);
+  items().forEach((item, index) => expect(item).toBe(rest[index]));
 
   await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
   await userEvent.click(saveAnother);

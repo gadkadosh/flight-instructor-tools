@@ -25,7 +25,8 @@ import {
 } from './sessions';
 
 type FlightField = Exclude<keyof FlightDraft, 'id' | 'type' | 'untouched'>;
-// A problem shows under the flights; `name` is its input, and `flight` numbers the message.
+// A problem shows under the flights; `name` is its input, which has at most one problem, and
+// `flight` numbers the message.
 type Problem = { name: string; message: string; flight?: string };
 const clockHint = '24-hour time, for example 0930 or 9:30';
 const dayMs = 24 * 60 * 60_000;
@@ -239,12 +240,11 @@ export default function SessionEntry({
     setProblems((previous) => previous.filter((problem) => problem.name !== name));
   }
 
-  // Marks an input with problems and points it to their messages.
+  // Marks an input with a problem and points it to the message.
   function invalidProps(name: string) {
-    const ids = problems.flatMap((problem, index) =>
-      problem.name === name ? [`${formId}-problem-${index}`] : [],
-    );
-    return ids.length > 0 ? { 'aria-invalid': true, 'aria-describedby': ids.join(' ') } : {};
+    return problems.some((problem) => problem.name === name)
+      ? { 'aria-invalid': true, 'aria-describedby': `${formId}-problem-${name}` }
+      : {};
   }
 
   function updateOvernightHint() {
@@ -667,10 +667,12 @@ export default function SessionEntry({
               </table>
               {problems.length > 0 && (
                 <ul role="alert" className="error problems">
-                  {problems.map((problem, index) => {
+                  {problems.map((problem) => {
                     const number = flights.findIndex(({ id }) => id === problem.flight) + 1;
                     return (
-                      <li key={index} id={`${formId}-problem-${index}`}>
+                      // Keyed by input, so clearing one problem doesn't rewrite the others, which
+                      // the alert would read out again.
+                      <li key={problem.name} id={`${formId}-problem-${problem.name}`}>
                         {number > 0 && flights.length > 1 && `Flight ${number}: `}
                         {problem.message}
                       </li>
