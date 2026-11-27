@@ -900,6 +900,11 @@ td {
 
 /* Session entry */
 
+.problems {
+  margin: 0 0 0.5rem;
+  padding-inline-start: 2rem;
+}
+
 .entry-row {
   background: #f0f6ff;
 }
@@ -921,7 +926,7 @@ td {
   background: #ffffff80;
 }
 
-:is(.entry-row, .flight-entry-table) input:enabled:user-invalid {
+:is(.entry-row, .flight-entry-table) :is(input:user-invalid, [aria-invalid='true']):enabled {
   border-bottom-color: var(--color-danger);
   background: var(--color-danger-bg);
 }
@@ -930,6 +935,10 @@ td {
   border-color: var(--color-field-border);
   border-radius: var(--control-radius);
   background: var(--color-surface);
+}
+
+:is(.entry-row, .flight-entry-table) [aria-invalid='true']:enabled:focus-visible {
+  border-color: var(--color-danger);
 }
 
 .entry-row input[inputmode='numeric'],

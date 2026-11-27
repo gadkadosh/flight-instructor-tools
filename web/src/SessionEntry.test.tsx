@@ -527,7 +527,12 @@ test.for(['arrival', 'type'])('reports a flight with an edited %s but no times',
   expect(entries).toHaveLength(0);
 });
 
-test('the save buttons follow their on-screen order and check the fields before saving', async () => {
+const problems = () =>
+  within(screen.getByRole('alert'))
+    .getAllByRole('listitem')
+    .map((item) => item.textContent);
+
+test('the save buttons follow their on-screen order and list every problem before saving', async () => {
   const { entries } = sessionAPI();
   await openEntry();
   const saveAnother = screen.getByRole('button', { name: /Save and add another/ });
@@ -536,9 +541,54 @@ test('the save buttons follow their on-screen order and check the fields before 
   expect(document.activeElement).toBe(saveAnother);
   await userEvent.keyboard('{Tab}');
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save session' }));
-  // The browser's field checks focus the first missing field.
   await userEvent.click(saveAnother);
-  expect(document.activeElement).toBe(screen.getByLabelText('Duty start'));
+  expect(problems()).toEqual([
+    'Enter a student for training or preparation-only sessions.',
+    'Enter duty start as a 24-hour time, such as 0900.',
+    'Enter duty end as a 24-hour time, such as 1730.',
+    'Enter preparation time or at least one flight.',
+  ]);
+  const student = screen.getByLabelText('Student');
+  expect(document.activeElement).toBe(student);
+  const invalid = () =>
+    ['Student', 'Duty start', 'Duty end', 'Preparation duration'].filter(
+      (label) => screen.getByLabelText(label).getAttribute('aria-invalid') === 'true',
+    );
+  expect(invalid()).toEqual(['Student', 'Duty start', 'Duty end', 'Preparation duration']);
+  expect(document.getElementById(student.getAttribute('aria-describedby')!)?.textContent).toBe(
+    'Enter a student for training or preparation-only sessions.',
+  );
+
+  // Changing a field clears its problem; the rest wait for the next save.
+  await userEvent.fill(student, 'New Student');
+  expect(invalid()).toEqual(['Duty start', 'Duty end', 'Preparation duration']);
+  expect(problems()).toHaveLength(3);
+  expect(entries).toHaveLength(0);
+});
+
+test('lists the problems of every flight, numbered by flight', async () => {
+  const { entries } = sessionAPI();
+  await openEntry();
+  await fillBasics();
+  await fillFlight(1, '0930', '1000');
+  await userEvent.fill(screen.getByLabelText('Flight 1 registration'), '');
+  await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
+  await fillFlight(2, '1300', '1330');
+  await userEvent.fill(screen.getByLabelText('Flight 2 landings'), '0');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  expect(problems()).toEqual([
+    'Flight 1: Enter the aircraft registration.',
+    'Flight 2: Block off must be within duty, 09:00–12:30 UTC.',
+    'Flight 2: Enter landings as a positive whole number.',
+  ]);
+  expect(document.activeElement).toBe(screen.getByLabelText('Flight 1 registration'));
+
+  // The remaining flight is the only one, so its problems need no number.
+  await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
+  expect(problems()).toEqual([
+    'Block off must be within duty, 09:00–12:30 UTC.',
+    'Enter landings as a positive whole number.',
+  ]);
   expect(entries).toHaveLength(0);
 });
 
