@@ -1242,3 +1242,22 @@ test('shows the selected flights laid out like the paper logbook', async () => {
   await userEvent.click(screen.getByRole('dialog'), { position: { x: -8, y: -8 } });
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 });
+
+test('shows month and year totals only while pointing at or focused in their row', async () => {
+  respond({ timeZone: 'UTC', sessions: [session] });
+  render(<App />);
+  const month = (await screen.findByRole('rowheader', { name: 'May 2026' })).closest('tr')!;
+  const year = screen.getByRole('rowheader', { name: '2026' }).closest('tr')!;
+  const shown = (row: HTMLElement) =>
+    getComputedStyle(row.querySelector('td')!).color !== 'rgba(0, 0, 0, 0)';
+  expect([shown(year), shown(month)]).toEqual([false, false]);
+  await userEvent.hover(month);
+  expect([shown(year), shown(month)]).toEqual([false, true]);
+  await userEvent.hover(year);
+  expect([shown(year), shown(month)]).toEqual([true, false]);
+  await userEvent.unhover(year);
+  within(month)
+    .getByRole('button', { name: /Select 1 session/ })
+    .focus();
+  expect(shown(month)).toBe(true);
+});
