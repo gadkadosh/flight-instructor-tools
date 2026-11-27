@@ -308,8 +308,9 @@ test.for([
     await userEvent.fill(screen.getByLabelText('Duty end'), dutyEnd);
     await fillFlight(1, blockOff, blockOn);
     await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    const clock = (time: string) => `${time.slice(0, 2)}:${time.slice(2)}`;
     expect((await screen.findByRole('alert')).textContent).toBe(
-      `${invalid === 'block off' ? 'Block off' : 'Block on'} must be within duty time.`,
+      `${invalid === 'block off' ? 'Block off' : 'Block on'} must be within duty, ${clock(dutyStart)}–${clock(dutyEnd)} UTC.`,
     );
     expect(document.activeElement).toBe(screen.getByLabelText(`Flight 1 ${invalid}`));
     expect(entries).toHaveLength(0);
@@ -390,8 +391,9 @@ test.for([
     await userEvent.fill(screen.getByLabelText('Duty end'), '1330');
     await fillFlight(1, blockOff, blockOn);
     await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    // Duty is 08:30–13:30 in Berlin in winter, so the message gives it in UTC.
     expect((await screen.findByRole('alert')).textContent).toBe(
-      `${invalid === 'block off' ? 'Block off' : 'Block on'} must be within duty time.`,
+      `${invalid === 'block off' ? 'Block off' : 'Block on'} must be within duty, 07:30–12:30 UTC.`,
     );
     expect(fetch).toHaveBeenCalledTimes(1);
   },

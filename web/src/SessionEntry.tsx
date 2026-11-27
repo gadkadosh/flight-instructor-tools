@@ -245,6 +245,8 @@ export default function SessionEntry({
       return invalid('Enter preparation as H:MM, such as 1:30 or 130.', 'preparation');
     }
     const inDuty = (clock: string) => flightInstant(clock) <= dutyEnd!;
+    const utcClock = (instant: number) => new Date(instant).toISOString().slice(11, 16);
+    const dutyWindow = `${utcClock(dutyStart!)}–${utcClock(dutyEnd!)} UTC`;
     const activities: Activity[] =
       prep > 0 ? [{ id: draft.preparationId, type: 'preparation', minutes: prep }] : [];
     for (const flight of flights) {
@@ -264,8 +266,12 @@ export default function SessionEntry({
         );
       if (!on)
         return invalid('Enter block on in UTC as a 24-hour time, such as 1030.', field('blockOn'));
-      if (!inDuty(off)) return invalid('Block off must be within duty time.', field('blockOff'));
-      if (!inDuty(on)) return invalid('Block on must be within duty time.', field('blockOn'));
+      if (!inDuty(off)) {
+        return invalid(`Block off must be within duty, ${dutyWindow}.`, field('blockOff'));
+      }
+      if (!inDuty(on)) {
+        return invalid(`Block on must be within duty, ${dutyWindow}.`, field('blockOn'));
+      }
       if (!blockMinutes(flight))
         return invalid('Block on must be after block off.', field('blockOn'));
       if (!takeoff !== !landing) {
