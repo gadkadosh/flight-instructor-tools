@@ -243,7 +243,7 @@ test('rejects block times out of order without saving', async () => {
   for (const [label, time, message, focus] of [
     ['block on', '1000', 'Block on must be after block off.', 'block on'],
     ['block on', '0930', 'Block on must be after block off.', 'block on'],
-    ['takeoff time', '1005', 'Enter both takeoff and landing times, or neither.', 'takeoff time'],
+    ['takeoff time', '1005', 'Enter both takeoff and landing times, or neither.', 'landing time'],
     ['landing time', '1005', 'Takeoff and landing must be within the block', 'takeoff time'],
     ['takeoff time', '0955', 'Takeoff and landing must be within the block', 'takeoff time'],
     ['landing time', '1101', 'Takeoff and landing must be within the block', 'takeoff time'],
@@ -528,7 +528,7 @@ test.for(['arrival', 'type'])('reports a flight with an edited %s but no times',
 });
 
 const problems = () =>
-  within(screen.getByRole('alert'))
+  within(within(screen.getByRole('alert')).getByRole('list'))
     .getAllByRole('listitem')
     .map((item) => item.textContent);
 
@@ -579,6 +579,22 @@ test('the save buttons follow their on-screen order and list every problem befor
   await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
   await userEvent.click(saveAnother);
   expect(problems()).toContain('Enter preparation time or add a flight.');
+  expect(entries).toHaveLength(0);
+});
+
+test('lists every missing time of a flight at once', async () => {
+  const { entries } = sessionAPI();
+  await openEntry();
+  await fillBasics();
+  await fillFlight(1, '', '');
+  await userEvent.fill(screen.getByLabelText('Flight 1 takeoff time'), '1005');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  expect(problems()).toEqual([
+    'Enter block off in UTC as a 24-hour time, such as 0930.',
+    'Enter block on in UTC as a 24-hour time, such as 1030.',
+    'Enter both takeoff and landing times, or neither.',
+  ]);
+  expect(screen.getByLabelText('Flight 1 landing time').getAttribute('aria-invalid')).toBe('true');
   expect(entries).toHaveLength(0);
 });
 

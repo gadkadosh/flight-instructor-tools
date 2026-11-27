@@ -302,23 +302,37 @@ export default function SessionEntry({
         flight.takeoff,
         flight.landing,
       ].map(parseClock);
+      const times = problems.length;
       const malformed = (value: string, clock?: string) => Boolean(value.trim()) && !clock;
-      // Each time check needs the ones before it to pass, so only the first problem shows.
       if (!off) field('blockOff', 'Enter block off in UTC as a 24-hour time, such as 0930.');
-      else if (malformed(flight.takeoff, takeoff)) {
+      if (malformed(flight.takeoff, takeoff)) {
         field('takeoff', 'Enter takeoff in UTC as a 24-hour time, such as 0940.');
-      } else if (malformed(flight.landing, landing)) {
+      }
+      if (malformed(flight.landing, landing)) {
         field('landing', 'Enter landing in UTC as a 24-hour time, such as 1020.');
-      } else if (!on) field('blockOn', 'Enter block on in UTC as a 24-hour time, such as 1030.');
-      else if (dutyStart !== undefined && dutyEnd !== undefined) {
+      }
+      if (!on) field('blockOn', 'Enter block on in UTC as a 24-hour time, such as 1030.');
+      // Marks the blank one, which has no other problem.
+      if (!flight.takeoff.trim() !== !flight.landing.trim()) {
+        field(
+          flight.takeoff.trim() ? 'landing' : 'takeoff',
+          'Enter both takeoff and landing times, or neither.',
+        );
+      }
+      // Comparing times needs all of them valid, so only the first such problem shows.
+      if (
+        problems.length === times &&
+        off &&
+        on &&
+        dutyStart !== undefined &&
+        dutyEnd !== undefined
+      ) {
         const inDuty = (clock: string) => flightInstant(clock) <= dutyEnd;
         const dutyWindow = `${utcClock(dutyStart)}–${utcClock(dutyEnd)} UTC`;
         if (!inDuty(off)) field('blockOff', `Block off must be within duty, ${dutyWindow}.`);
         else if (!inDuty(on)) field('blockOn', `Block on must be within duty, ${dutyWindow}.`);
         else if (!blockMinutes(flight)) field('blockOn', 'Block on must be after block off.');
-        else if (!takeoff !== !landing) {
-          field('takeoff', 'Enter both takeoff and landing times, or neither.');
-        } else if (
+        else if (
           takeoff &&
           landing &&
           !(
@@ -666,19 +680,22 @@ export default function SessionEntry({
                 </tfoot>
               </table>
               {problems.length > 0 && (
-                <ul role="alert" className="error problems">
-                  {problems.map((problem) => {
-                    const number = flights.findIndex(({ id }) => id === problem.flight) + 1;
-                    return (
-                      // Keyed by input, so clearing one problem doesn't rewrite the others, which
-                      // the alert would read out again.
-                      <li key={problem.name} id={`${formId}-problem-${problem.name}`}>
-                        {number > 0 && flights.length > 1 && `Flight ${number}: `}
-                        {problem.message}
-                      </li>
-                    );
-                  })}
-                </ul>
+                // On a wrapper, since the role would hide the list from screen readers.
+                <div role="alert">
+                  <ul className="error problems">
+                    {problems.map((problem) => {
+                      const number = flights.findIndex(({ id }) => id === problem.flight) + 1;
+                      return (
+                        // Keyed by input, so clearing one problem doesn't rewrite the others, which
+                        // the alert would read out again.
+                        <li key={problem.name} id={`${formId}-problem-${problem.name}`}>
+                          {number > 0 && flights.length > 1 && `Flight ${number}: `}
+                          {problem.message}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               )}
               {error && (
                 <p role="alert" className="error">
