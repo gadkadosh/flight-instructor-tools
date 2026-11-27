@@ -310,6 +310,15 @@ test('clears selected sessions across months and keeps keyboard focus in the too
   expect([alex.checked, sam.checked]).toEqual([false, false]);
   expect(count.textContent).toBe('0 of 2 sessions selected');
   expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
+  // Actions on the selection come first; the duty report, which covers a month, comes last.
+  expect(
+    [...document.querySelectorAll('.document-buttons button')].map((button) => button.textContent),
+  ).toEqual([
+    'Show logbook entries',
+    'Export to ForeFlight',
+    'Generate invoice…',
+    'Generate duty report…',
+  ]);
 
   await userEvent.click(alex.closest('td')!, { position: { x: 5, y: 5 } });
   expect([alex.checked, sam.checked]).toEqual([true, false]);

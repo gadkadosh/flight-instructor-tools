@@ -105,26 +105,13 @@ export default function SessionToolbar({
       </div>
       <div className="document-buttons">
         <button
-          ref={invoiceTrigger}
           type="button"
           className="action-button secondary"
-          disabled={documents.generating || (!invoiceOpen && !hasSelection)}
-          aria-expanded={invoiceOpen}
-          aria-controls={`${formId}-invoice`}
-          onClick={() => toggle('invoice')}
+          disabled={!hasSelection}
+          aria-haspopup="dialog"
+          onClick={onShowLogbook}
         >
-          Generate invoice…
-        </button>
-        <button
-          ref={reportTrigger}
-          type="button"
-          className="action-button secondary"
-          disabled={documents.generating}
-          aria-expanded={expanded === 'dutyReport'}
-          aria-controls={`${formId}-duty-report`}
-          onClick={() => toggle('dutyReport')}
-        >
-          Generate duty report…
+          Show logbook entries
         </button>
         <button
           type="button"
@@ -143,13 +130,28 @@ export default function SessionToolbar({
           Export to ForeFlight
         </button>
         <button
+          ref={invoiceTrigger}
           type="button"
           className="action-button secondary"
-          disabled={!hasSelection}
-          aria-haspopup="dialog"
-          onClick={onShowLogbook}
+          disabled={documents.generating || (!invoiceOpen && !hasSelection)}
+          aria-expanded={invoiceOpen}
+          aria-controls={`${formId}-invoice`}
+          onClick={() => toggle('invoice')}
         >
-          Show logbook entries
+          Generate invoice…
+        </button>
+        {/* The buttons before it use the selection; the duty report covers a month. */}
+        <span className="toolbar-separator" aria-hidden="true" />
+        <button
+          ref={reportTrigger}
+          type="button"
+          className="action-button secondary"
+          disabled={documents.generating}
+          aria-expanded={expanded === 'dutyReport'}
+          aria-controls={`${formId}-duty-report`}
+          onClick={() => toggle('dutyReport')}
+        >
+          Generate duty report…
         </button>
       </div>
       {expanded === null && documents.error && (
