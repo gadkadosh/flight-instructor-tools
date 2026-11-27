@@ -144,8 +144,8 @@ export default function SessionEntry({
   const [focusFlight, setFocusFlight] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  // As found by the last save, minus those whose input has changed since.
-  const [problems, setProblems] = useState<Problem[]>([]);
+  // The inputs with problems at the last save, minus those changed since.
+  const [flagged, setFlagged] = useState<ReadonlySet<string>>(() => new Set());
   const overnightDateLabel = overnightHintDate
     ? endDateFormat.format(new Date(`${overnightHintDate}T00:00:00Z`))
     : undefined;
@@ -237,7 +237,7 @@ export default function SessionEntry({
 
   function clearProblem({ target }: ChangeEvent) {
     const { name } = target as HTMLInputElement;
-    setProblems((previous) => previous.filter((problem) => problem.name !== name));
+    setFlagged((previous) => new Set([...previous].filter((flag) => flag !== name)));
   }
 
   // Marks an input with a problem and points it to the message.
@@ -357,9 +357,9 @@ export default function SessionEntry({
     updateOvernightHint();
     setError('');
     const { problems, activities } = check();
-    setProblems(problems);
+    const names = new Set(problems.map(({ name }) => name));
+    setFlagged(names);
     if (problems.length > 0) {
-      const names = new Set(problems.map(({ name }) => name));
       const first = [...(formRef.current?.elements ?? [])].find((element) =>
         names.has((element as HTMLInputElement).name),
       );
@@ -401,6 +401,9 @@ export default function SessionEntry({
       setSaving(false);
     }
   }
+
+  // Checked again on every change, so a problem fixed through another input goes away.
+  const problems = check().problems.filter(({ name }) => flagged.has(name));
 
   return (
     <>
@@ -604,9 +607,6 @@ export default function SessionEntry({
                           title="Remove flight"
                           onClick={() => {
                             const remaining = flights.filter((item) => item.id !== flight.id);
-                            setProblems((previous) =>
-                              previous.filter((problem) => problem.flight !== flight.id),
-                            );
                             setFlights(() => remaining);
                             if (remaining.length > 0)
                               setFocusFlight(

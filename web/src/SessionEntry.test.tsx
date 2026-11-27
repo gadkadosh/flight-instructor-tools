@@ -568,6 +568,14 @@ test('the save buttons follow their on-screen order and list every problem befor
   expect(items()).toHaveLength(3);
   items().forEach((item, index) => expect(item).toBe(rest[index]));
 
+  // A problem fixed through another input goes away too, without new ones for the flight.
+  await userEvent.fill(screen.getByLabelText('Flight 1 block off'), '0930');
+  expect(invalid()).toEqual(['Duty start', 'Duty end']);
+  expect(problems()).toEqual([
+    'Enter duty start as a 24-hour time, such as 0900.',
+    'Enter duty end as a 24-hour time, such as 1730.',
+  ]);
+
   await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
   await userEvent.click(saveAnother);
   expect(problems()).toContain('Enter preparation time or add a flight.');
