@@ -314,6 +314,8 @@ test('clears selected sessions across months and keeps keyboard focus in the too
   await userEvent.click(alex.closest('td')!, { position: { x: 5, y: 5 } });
   expect([alex.checked, sam.checked]).toEqual([true, false]);
   expect(count.textContent).toBe('1 of 2 sessions selected');
+  const hours = () => document.querySelector('.selection-hours')?.textContent;
+  expect(hours()).toBe('· 0:15 preparation · 1:05 block · 0:05 solo supervision');
   expect(alex.closest('tr')?.getAttribute('data-selected')).toBe('true');
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
 
@@ -323,11 +325,13 @@ test('clears selected sessions across months and keeps keyboard focus in the too
   await userEvent.click(sam);
   expect([alex.checked, sam.checked]).toEqual([true, true]);
   expect(count.textContent).toBe('2 of 2 sessions selected');
+  expect(hours()).toBe('· 0:30 preparation · 2:10 block · 0:10 solo supervision');
 
   screen.getByRole('button', { name: 'Clear selection' }).focus();
   await userEvent.keyboard('{Enter}');
   expect([alex.checked, sam.checked]).toEqual([false, false]);
   expect(count.textContent).toBe('0 of 2 sessions selected');
+  expect(hours()).toBeUndefined();
   expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
   expect(alex.closest('tr')?.getAttribute('data-selected')).toBe('false');
   expect(toggle.getAttribute('aria-expanded')).toBe('true');

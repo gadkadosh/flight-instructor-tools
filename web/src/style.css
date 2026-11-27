@@ -186,9 +186,14 @@ p {
 
 /* Session toolbar and document forms */
 
-.selection-count {
+:is(.selection-count, .selection-hours) {
   margin: 0;
   font-size: 0.875rem;
+}
+
+.selection-hours {
+  margin-inline-end: 0.5rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .session-selection {

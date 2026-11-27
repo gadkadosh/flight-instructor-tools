@@ -6,7 +6,7 @@ import SessionDelete from './SessionDelete';
 import LogbookPrintout from './LogbookPrintout';
 import SessionRow, { sessionSummary, TotalCells } from './SessionRow';
 import { newSessionDraft, sessionDraft } from './sessionDraft';
-import { groupSessionsByYear, type Session, type SessionView } from './sessions';
+import { groupSessionsByYear, sessionTotals, type Session, type SessionView } from './sessions';
 import { request } from './request';
 
 type DeleteTarget = { session: Session; trigger: HTMLButtonElement };
@@ -88,6 +88,9 @@ function SessionTable({
     <>
       <SessionToolbar
         selectedSessionIds={selectedSessionIds}
+        selectionTotals={sessionTotals(
+          view.sessions.filter(({ id }) => selectedSessionIds.has(id)),
+        )}
         sessionCount={view.sessions.length}
         countSessionsInMonth={(month) =>
           years.flatMap(({ months }) => months).find(({ key }) => key === month)?.sessions.length ??

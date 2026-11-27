@@ -2,13 +2,21 @@ import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import InvoiceForm from './InvoiceForm';
 import DutyReportForm from './DutyReportForm';
 import { useDocumentDownload } from './documents';
+import { formatDuration, type sessionTotals } from './sessions';
 
 type DocumentKind = 'invoice' | 'dutyReport';
+
+const totalLabels = {
+  preparation: 'preparation',
+  block: 'block',
+  soloSupervision: 'solo supervision',
+};
 
 const foreflightImportUrl = 'https://plan.foreflight.com/logbook#/import';
 
 export default function SessionToolbar({
   selectedSessionIds,
+  selectionTotals,
   sessionCount,
   countSessionsInMonth,
   timeZone,
@@ -16,6 +24,7 @@ export default function SessionToolbar({
   onShowLogbook,
 }: {
   selectedSessionIds: ReadonlySet<string>;
+  selectionTotals: ReturnType<typeof sessionTotals>;
   sessionCount: number;
   countSessionsInMonth: (month: string) => number;
   timeZone: string;
@@ -30,6 +39,12 @@ export default function SessionToolbar({
   const reportTrigger = useRef<HTMLButtonElement>(null);
   const hasSelection = selectedSessionIds.size > 0;
   const invoiceOpen = expanded === 'invoice';
+  const selectionHours = Object.entries(selectionTotals)
+    .filter(([, minutes]) => minutes > 0)
+    .map(
+      ([kind, minutes]) =>
+        `${formatDuration(minutes)} ${totalLabels[kind as keyof typeof totalLabels]}`,
+    );
 
   function close() {
     setExpanded(null);
@@ -72,6 +87,9 @@ export default function SessionToolbar({
           {selectedSessionIds.size} of {sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}{' '}
           selected
         </p>
+        {selectionHours.length > 0 && (
+          <p className="selection-hours">· {selectionHours.join(' · ')}</p>
+        )}
         {hasSelection && (
           <button
             type="button"
