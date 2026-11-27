@@ -1138,5 +1138,5 @@ test('placeholders describe the format rather than look like typed values', asyn
       'Flight 1 block off',
       'Flight 1 block on',
     ].map(placeholder),
-  ).toEqual(['HH:MM', 'HH:MM', 'H:MM', '', 'ICAO', 'HH:MM', 'HH:MM']);
+  ).toEqual(['HHMM', 'HHMM', 'H:MM', '', 'ICAO', 'HHMM', 'HHMM']);
 });

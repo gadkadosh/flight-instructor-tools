@@ -59,7 +59,7 @@ const flightFields: {
   {
     name: 'blockOff',
     label: 'block off',
-    input: { ...clockInput, placeholder: 'HH:MM' },
+    input: { ...clockInput, placeholder: 'HHMM' },
     tidy: clock,
   },
   {
@@ -77,7 +77,7 @@ const flightFields: {
   {
     name: 'blockOn',
     label: 'block on',
-    input: { ...clockInput, placeholder: 'HH:MM' },
+    input: { ...clockInput, placeholder: 'HHMM' },
     tidy: clock,
   },
   {
@@ -450,7 +450,7 @@ export default function SessionEntry({
             name="start"
             aria-label="Duty start"
             {...invalidProps('start')}
-            placeholder="HH:MM"
+            placeholder="HHMM"
             pattern={clockPattern.source}
             title={clockHint}
             inputMode="numeric"
@@ -489,7 +489,7 @@ export default function SessionEntry({
                   .filter(Boolean)
                   .join(' ') || undefined
               }
-              placeholder="HH:MM"
+              placeholder="HHMM"
               pattern={clockPattern.source}
               title={clockHint}
               inputMode="numeric"
