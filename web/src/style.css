@@ -302,10 +302,6 @@ p {
 }
 
 @media (max-width: 56rem) {
-  .session-toolbar {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .document-form {
     width: min(100%, 24rem);
   }

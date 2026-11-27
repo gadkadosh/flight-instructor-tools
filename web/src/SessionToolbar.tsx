@@ -2,11 +2,11 @@ import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import InvoiceForm from './InvoiceForm';
 import DutyReportForm from './DutyReportForm';
 import { useDocumentDownload } from './documents';
-import { formatDuration, type sessionTotals } from './sessions';
+import { formatDuration, type Totals } from './sessions';
 
 type DocumentKind = 'invoice' | 'dutyReport';
 
-const totalLabels = {
+const totalLabels: Record<keyof Totals, string> = {
   preparation: 'prep',
   block: 'block',
   soloSupervision: 'solo supervision',
@@ -24,7 +24,7 @@ export default function SessionToolbar({
   onShowLogbook,
 }: {
   selectedSessionIds: ReadonlySet<string>;
-  selectionTotals: ReturnType<typeof sessionTotals>;
+  selectionTotals: Totals;
   sessionCount: number;
   countSessionsInMonth: (month: string) => number;
   timeZone: string;
@@ -41,10 +41,7 @@ export default function SessionToolbar({
   const invoiceOpen = expanded === 'invoice';
   const selectionHours = Object.entries(selectionTotals)
     .filter(([, minutes]) => minutes > 0)
-    .map(
-      ([kind, minutes]) =>
-        `${formatDuration(minutes)} ${totalLabels[kind as keyof typeof totalLabels]}`,
-    );
+    .map(([kind, minutes]) => `${formatDuration(minutes)} ${totalLabels[kind as keyof Totals]}`);
 
   function close() {
     setExpanded(null);

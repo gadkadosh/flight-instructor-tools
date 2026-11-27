@@ -37,11 +37,13 @@ export interface SessionView {
   timeZone: string;
 }
 
+export type Totals = Record<'preparation' | 'block' | 'soloSupervision', number>;
+
 export const activityKinds: Record<
   ActivityType,
   {
     label: string;
-    summary: 'preparation' | 'block' | 'soloSupervision';
+    summary: keyof Totals;
     studentRequired: boolean;
     // I'm on board as pilot in command, so the flight goes in my logbook.
     pic: boolean;
@@ -87,7 +89,7 @@ export function activityMinutes(activity: Activity) {
 }
 
 export function sessionTotals(sessions: Session[]) {
-  const totals = { preparation: 0, block: 0, soloSupervision: 0 };
+  const totals: Totals = { preparation: 0, block: 0, soloSupervision: 0 };
   for (const session of sessions) {
     for (const activity of session.activities) {
       totals[activityKinds[activity.type].summary] += activityMinutes(activity);
