@@ -388,7 +388,6 @@ export default function SessionEntry({
       onSaved(body, draft.id, another);
       if (another) {
         setDraft(newSessionDraft(body, date));
-        setProblems([]);
         setOvernightHintDate(undefined);
         setFocusFlight(undefined);
         focusStudent.current = true;
