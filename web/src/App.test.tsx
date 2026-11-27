@@ -457,6 +457,13 @@ test('totals each month and year under the duration columns', async () => {
   expect(totals('April 2026')).toEqual(['0:30', '0:45', '–0:00']);
   expect(totals('2025')).toEqual(['0:15', '1:05', '0:05']);
   expect(totals('December 2025')).toEqual(['0:15', '1:05', '0:05']);
+
+  const may = within(table).getByRole('rowheader', { name: 'May 2026' });
+  const color = () => getComputedStyle(within(may.closest('tr')!).getByText('1:05')).color;
+  await page.getByRole('heading', { name: 'Sessions' }).hover();
+  expect(color()).toBe('rgba(0, 0, 0, 0)');
+  await page.elementLocator(may).hover();
+  expect(color()).not.toBe('rgba(0, 0, 0, 0)');
 });
 
 test('preparation-only sessions have no flight expansion', async () => {

@@ -487,16 +487,18 @@ td {
   background: #f5f6f8;
 }
 
-/* Hidden until you point at the row or move into it, so the table stays calm. Screen readers
-   still read them. */
 :is(.year-heading, .month-heading) > td {
-  color: transparent;
+  color: var(--color-text-muted);
   font-size: 0.8125rem;
   font-weight: 400;
 }
 
-:is(.year-heading, .month-heading):is(:hover, :focus-within) > td {
-  color: var(--color-text-muted);
+/* Hidden until you point at the row or move into it, so the table stays calm. Screen readers
+   still read them, and touchscreens, which cannot hover, always show them. */
+@media (hover: hover) and (not (any-pointer: coarse)) {
+  :is(.year-heading, .month-heading):not(:hover, :focus-within) > td {
+    color: transparent;
+  }
 }
 
 /* Same height as the row edit button, so it fits the row height. */
