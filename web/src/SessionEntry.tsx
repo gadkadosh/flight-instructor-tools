@@ -277,7 +277,13 @@ export default function SessionEntry({
     } else if (prep > 0) {
       activities.push({ id: draft.preparationId, type: 'preparation', minutes: prep });
     } else if (entered.length === 0) {
-      problem('preparation', 'Enter preparation time or at least one flight.');
+      // A flight row with only carried-over details doesn't count until its times are filled in.
+      problem(
+        'preparation',
+        flights.length > 0
+          ? 'Enter preparation time or block times for a flight.'
+          : 'Enter preparation time or add a flight.',
+      );
     }
     const utcClock = (instant: number) => new Date(instant).toISOString().slice(11, 16);
     for (const flight of entered) {

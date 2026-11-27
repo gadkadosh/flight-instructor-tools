@@ -546,7 +546,7 @@ test('the save buttons follow their on-screen order and list every problem befor
     'Enter a student for training or preparation-only sessions.',
     'Enter duty start as a 24-hour time, such as 0900.',
     'Enter duty end as a 24-hour time, such as 1730.',
-    'Enter preparation time or at least one flight.',
+    'Enter preparation time or block times for a flight.',
   ]);
   const student = screen.getByLabelText('Student');
   expect(document.activeElement).toBe(student);
@@ -563,6 +563,10 @@ test('the save buttons follow their on-screen order and list every problem befor
   await userEvent.fill(student, 'New Student');
   expect(invalid()).toEqual(['Duty start', 'Duty end', 'Preparation duration']);
   expect(problems()).toHaveLength(3);
+
+  await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
+  await userEvent.click(saveAnother);
+  expect(problems()).toContain('Enter preparation time or add a flight.');
   expect(entries).toHaveLength(0);
 });
 
