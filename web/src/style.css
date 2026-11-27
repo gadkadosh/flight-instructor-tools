@@ -487,11 +487,19 @@ td {
   background: #f5f6f8;
 }
 
-/* Quieter than the sessions they total, so the table stays calm. */
-.month-heading > td {
+/* Quieter than the sessions they total, so the table stays calm; pointing at a row brings its
+   totals forward. */
+:is(.year-heading, .month-heading) > td {
   color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.month-heading > td {
   font-size: 0.8125rem;
-  font-weight: 500;
+}
+
+:is(.year-heading, .month-heading):hover > td {
+  color: var(--color-text);
 }
 
 /* Same height as the row edit button, so it fits the row height. */
