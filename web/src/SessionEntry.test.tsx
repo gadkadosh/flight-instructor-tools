@@ -1119,3 +1119,20 @@ test('highlights the saved session, and scrolls to it once the editor closes', a
   await expect.poll(() => inView(second)).toBe(true);
   await expect.poll(() => second.dataset.saved, { timeout: 5000 }).toBeUndefined();
 });
+
+test('placeholders describe the format rather than look like typed values', async () => {
+  sessionAPI();
+  await openEntry();
+  const placeholder = (label: string) => screen.getByLabelText<HTMLInputElement>(label).placeholder;
+  expect(
+    [
+      'Duty start',
+      'Duty end',
+      'Preparation duration',
+      'Flight 1 registration',
+      'Flight 1 departure',
+      'Flight 1 block off',
+      'Flight 1 block on',
+    ].map(placeholder),
+  ).toEqual(['HH:MM', 'HH:MM', 'H:MM', '', 'ICAO', 'HH:MM', 'HH:MM']);
+});
