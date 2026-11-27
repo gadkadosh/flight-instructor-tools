@@ -524,6 +524,16 @@ td {
   background: var(--color-active-bg);
 }
 
+.sessions-table > tbody > tr[data-saved] {
+  animation: saved-row 2.5s ease-in;
+}
+
+@keyframes saved-row {
+  from {
+    background-color: #fff3bf;
+  }
+}
+
 .time-zone,
 .time-note {
   color: var(--color-text-muted);

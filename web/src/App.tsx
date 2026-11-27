@@ -31,6 +31,8 @@ function SessionTable({
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(() => new Set());
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteNotice, setDeleteNotice] = useState('');
+  // Highlights the last saved session's row, and scrolls to it unless its editor stays open.
+  const [saved, setSaved] = useState<{ id: string; reveal: boolean }>();
   const [showingLogbook, setShowingLogbook] = useState(false);
   // Each open editor keeps the session as it was opened, so saving cannot overwrite a newer version.
   const [editing, setEditing] = useState<ReadonlyMap<string, Session>>(() => new Map());
@@ -74,6 +76,11 @@ function SessionTable({
       }),
     );
     editButtons.current.get(id)?.focus();
+  }
+
+  function sessionSaved(nextView: SessionView, id: string, another: boolean) {
+    updateView(nextView);
+    setSaved({ id, reveal: !another });
   }
 
   function updateView(nextView: SessionView) {
@@ -157,7 +164,7 @@ function SessionTable({
                 <SessionEntry
                   view={view}
                   initial={newSessionDraft(view)}
-                  onSaved={updateView}
+                  onSaved={sessionSaved}
                   onClose={onCloseEntry}
                 />
               </tbody>
@@ -203,7 +210,7 @@ function SessionTable({
                             view={view}
                             initial={sessionDraft(opened, view.timeZone)}
                             etag={opened.etag}
-                            onSaved={updateView}
+                            onSaved={sessionSaved}
                             onClose={() => closeEditor(session.id)}
                             onDelete={(trigger) => {
                               setDeleteNotice('');
@@ -217,6 +224,8 @@ function SessionTable({
                             dateFormat={dateFormat}
                             timeFormat={timeFormat}
                             selected={selectedSessionIds.has(session.id)}
+                            saved={saved?.id === session.id ? saved : undefined}
+                            onSavedShown={() => setSaved(undefined)}
                             onSelect={() => toggleSessions([session])}
                             editButtonRef={(button) => {
                               if (button) editButtons.current.set(session.id, button);

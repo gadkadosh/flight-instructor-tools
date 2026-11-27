@@ -126,7 +126,7 @@ export default function SessionEntry({
   view: SessionView;
   initial: SessionDraft;
   etag?: string;
-  onSaved: (view: SessionView) => void;
+  onSaved: (view: SessionView, id: string, another: boolean) => void;
   onClose: () => void;
   onDelete?: (trigger: HTMLButtonElement) => void;
 }) {
@@ -379,7 +379,7 @@ export default function SessionEntry({
         'Could not save session.',
       );
       const body = await response.json();
-      onSaved(body);
+      onSaved(body, draft.id, another);
       if (another) {
         setDraft(newSessionDraft(body, date));
         setProblems([]);

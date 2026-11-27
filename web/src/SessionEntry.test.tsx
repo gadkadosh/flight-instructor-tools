@@ -1081,3 +1081,41 @@ test('cancelling an edit restores the row without saving', async () => {
   expect(document.activeElement).toBe(editButton(/Edit session for Earlier/));
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+test('highlights the saved session, and scrolls to it once the editor closes', async () => {
+  const june = Array.from({ length: 30 }, (_, day): Session => ({
+    id: `june-${day}`,
+    etag: `"june-${day}"`,
+    student: `June Student ${day + 1}`,
+    dutyStart: `2026-06-${String(day + 1).padStart(2, '0')}T09:00:00Z`,
+    dutyEnd: `2026-06-${String(day + 1).padStart(2, '0')}T10:00:00Z`,
+    activities: [{ id: `june-${day}-prep`, type: 'preparation', minutes: 30 }],
+  }));
+  sessionAPI(june);
+  await openEntry();
+  const inView = (element: Element) => {
+    const { top, bottom } = element.getBoundingClientRect();
+    return top >= 0 && bottom <= window.innerHeight;
+  };
+  const savedRow = async (student: string) =>
+    (await screen.findByRole('rowheader', { name: student })).closest('tr')!;
+
+  // A May session sorts below all of June. With the editor still open, the page stays on it.
+  await fillBasics();
+  await userEvent.fill(screen.getByLabelText('Preparation duration'), '30');
+  await userEvent.click(screen.getByRole('button', { name: /Save and add another/ }));
+  const first = await savedRow('New Student');
+  expect(first.dataset.saved).toBe('true');
+  expect(inView(screen.getByLabelText('Student'))).toBe(true);
+  expect(inView(first)).toBe(false);
+
+  await userEvent.fill(screen.getByLabelText('Student'), 'Second Student');
+  await userEvent.fill(screen.getByLabelText('Duty start'), '1300');
+  await userEvent.fill(screen.getByLabelText('Duty end'), '1400');
+  await userEvent.fill(screen.getByLabelText('Preparation duration'), '30');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  const second = await savedRow('Second Student');
+  expect(second.dataset.saved).toBe('true');
+  await expect.poll(() => inView(second)).toBe(true);
+  await expect.poll(() => second.dataset.saved, { timeout: 5000 }).toBeUndefined();
+});
