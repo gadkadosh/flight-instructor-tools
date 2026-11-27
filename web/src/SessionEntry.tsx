@@ -41,7 +41,7 @@ const airfieldInput = {
   pattern: airfieldPattern.source,
   maxLength: 4,
   title: 'Four-character ICAO identifier, for example EDFE',
-  placeholder: 'ICAO',
+  placeholder: 'EDFE',
 };
 const clock = (value: string) => parseClock(value) ?? value;
 const saveAnotherKeys = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘↵' : 'Ctrl ↵';
@@ -53,13 +53,13 @@ const flightFields: {
   input: ComponentProps<'input'>;
   tidy?: (value: string) => string;
 }[] = [
-  { name: 'registration', label: 'registration', input: {} },
+  { name: 'registration', label: 'registration', input: { placeholder: 'D-EABC' } },
   { name: 'departure', label: 'departure', input: airfieldInput },
   { name: 'arrival', label: 'arrival', input: airfieldInput },
   {
     name: 'blockOff',
     label: 'block off',
-    input: { ...clockInput, placeholder: 'HHMM' },
+    input: { ...clockInput, placeholder: '0930' },
     tidy: clock,
   },
   {
@@ -77,7 +77,7 @@ const flightFields: {
   {
     name: 'blockOn',
     label: 'block on',
-    input: { ...clockInput, placeholder: 'HHMM' },
+    input: { ...clockInput, placeholder: '1030' },
     tidy: clock,
   },
   {
@@ -450,7 +450,7 @@ export default function SessionEntry({
             name="start"
             aria-label="Duty start"
             {...invalidProps('start')}
-            placeholder="HHMM"
+            placeholder="0900"
             pattern={clockPattern.source}
             title={clockHint}
             inputMode="numeric"
@@ -489,7 +489,7 @@ export default function SessionEntry({
                   .filter(Boolean)
                   .join(' ') || undefined
               }
-              placeholder="HHMM"
+              placeholder="1730"
               pattern={clockPattern.source}
               title={clockHint}
               inputMode="numeric"
