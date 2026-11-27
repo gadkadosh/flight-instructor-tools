@@ -491,11 +491,8 @@ td {
    still read them. */
 :is(.year-heading, .month-heading) > td {
   color: transparent;
-  font-weight: 400;
-}
-
-.month-heading > td {
   font-size: 0.8125rem;
+  font-weight: 400;
 }
 
 :is(.year-heading, .month-heading):is(:hover, :focus-within) > td {
