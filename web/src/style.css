@@ -198,17 +198,22 @@ p {
 
 .session-selection {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
+  white-space: nowrap;
 }
 
 .session-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 1rem;
-  margin-bottom: 0.5rem;
 }
 
 .document-buttons {
@@ -217,6 +222,7 @@ p {
   justify-content: flex-end;
   gap: 0.5rem;
   min-width: 0;
+  margin-inline-start: auto;
 }
 
 .toolbar-separator {
@@ -226,13 +232,11 @@ p {
 }
 
 .session-toolbar > .error {
-  grid-column: 1 / -1;
   justify-self: end;
   margin: 0;
 }
 
 .document-form {
-  grid-column: 1 / -1;
   justify-self: end;
   box-sizing: border-box;
   width: var(--document-form-width, 31rem);

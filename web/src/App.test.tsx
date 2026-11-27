@@ -279,7 +279,7 @@ test('special flights count as own block time and retain their types in flight r
   expect(
     screen.getByRole<HTMLButtonElement>('button', { name: 'Generate invoice…' }).disabled,
   ).toBe(false);
-  expect(screen.getByRole('status').textContent).toBe('1 of 2 sessions selected');
+  expect(screen.getByRole('status').textContent).toBe('1 of 2 selected');
 });
 
 test('clears selected sessions across months and keeps keyboard focus in the toolbar', async () => {
@@ -308,7 +308,7 @@ test('clears selected sessions across months and keeps keyboard focus in the too
   });
   const count = screen.getByRole('status');
   expect([alex.checked, sam.checked]).toEqual([false, false]);
-  expect(count.textContent).toBe('0 of 2 sessions selected');
+  expect(count.textContent).toBe('0 of 2 selected');
   expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
   // Actions on the selection come first; the duty report, which covers a month, comes last.
   expect(
@@ -322,9 +322,9 @@ test('clears selected sessions across months and keeps keyboard focus in the too
 
   await userEvent.click(alex.closest('td')!, { position: { x: 5, y: 5 } });
   expect([alex.checked, sam.checked]).toEqual([true, false]);
-  expect(count.textContent).toBe('1 of 2 sessions selected');
+  expect(count.textContent).toBe('1 of 2 selected');
   const hours = () => document.querySelector('.selection-hours')?.textContent;
-  expect(hours()).toBe('· 0:15 preparation · 1:05 block · 0:05 solo supervision');
+  expect(hours()).toBe('· 0:15 prep · 1:05 block · 0:05 solo supervision');
   expect(alex.closest('tr')?.getAttribute('data-selected')).toBe('true');
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
 
@@ -333,13 +333,25 @@ test('clears selected sessions across months and keeps keyboard focus in the too
   expect(alex.checked).toBe(true);
   await userEvent.click(sam);
   expect([alex.checked, sam.checked]).toEqual([true, true]);
-  expect(count.textContent).toBe('2 of 2 sessions selected');
-  expect(hours()).toBe('· 0:30 preparation · 2:10 block · 0:10 solo supervision');
+  expect(count.textContent).toBe('2 of 2 selected');
+  expect(hours()).toBe('· 0:30 prep · 2:10 block · 0:10 solo supervision');
+
+  // On a narrow window the selection and the buttons each stay on one line.
+  await page.viewport(1000, 720);
+  const lines = (elements: Element[]) =>
+    new Set(
+      elements.map((element) => {
+        const { top, bottom } = element.getBoundingClientRect();
+        return Math.round((top + bottom) / 2);
+      }),
+    ).size;
+  expect(lines([...document.querySelector('.session-selection')!.children])).toBe(1);
+  expect(lines([...document.querySelectorAll('.document-buttons button')])).toBe(1);
 
   screen.getByRole('button', { name: 'Clear selection' }).focus();
   await userEvent.keyboard('{Enter}');
   expect([alex.checked, sam.checked]).toEqual([false, false]);
-  expect(count.textContent).toBe('0 of 2 sessions selected');
+  expect(count.textContent).toBe('0 of 2 selected');
   expect(hours()).toBeUndefined();
   expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
   expect(alex.closest('tr')?.getAttribute('data-selected')).toBe('false');
@@ -398,7 +410,7 @@ test('groups sessions newest first by local year and month and toggles selection
   );
   await userEvent.click(monthButton('Select'));
   expect(selected()).toEqual(['January lesson', 'New Year lesson', 'December lesson']);
-  expect(screen.getByRole('status').textContent).toBe('3 of 4 sessions selected');
+  expect(screen.getByRole('status').textContent).toBe('3 of 4 selected');
 
   await userEvent.click(within(table).getByRole('checkbox', { name: /New Year lesson/ }));
   expect(selected()).toEqual(['January lesson', 'December lesson']);
@@ -454,7 +466,7 @@ test('preparation-only sessions have no flight expansion', async () => {
   expect(within(subject.closest('tr')!).getByText('0:15')).toBeTruthy();
   expect(screen.queryByRole('button', { name: /flights for/ })).toBeNull();
   fireEvent.click(screen.getByRole('checkbox', { name: /Select session for/ }));
-  expect(screen.getByRole('status').textContent).toBe('1 of 1 session selected');
+  expect(screen.getByRole('status').textContent).toBe('1 of 1 selected');
 });
 
 test('confirms the session being deleted from its editor and preserves other selected sessions', async () => {
@@ -510,7 +522,7 @@ test('confirms the session being deleted from its editor and preserves other sel
   expect(
     screen.getByRole<HTMLInputElement>('checkbox', { name: /Select session for Sam/ }).checked,
   ).toBe(true);
-  expect(screen.getByRole('status').textContent).toBe('1 of 1 session selected');
+  expect(screen.getByRole('status').textContent).toBe('1 of 1 selected');
 });
 
 test('keeps the session on a failed deletion and shows the empty state after a retry', async () => {
@@ -1025,7 +1037,7 @@ test('duty report download ignores table selection and preserves details after a
   expect(screen.queryByRole('alert')).toBeNull();
   expect(screen.getByLabelText<HTMLInputElement>('Issue date').value).toBe('2026-06-09');
   expect(juneSession.checked).toBe(true);
-  expect(screen.getByRole('status').textContent).toBe('1 of 3 sessions selected');
+  expect(screen.getByRole('status').textContent).toBe('1 of 3 selected');
 });
 
 test('exports the selected sessions to ForeFlight and shows export errors', async () => {
