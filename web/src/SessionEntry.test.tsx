@@ -243,7 +243,7 @@ test('rejects block times out of order without saving', async () => {
   for (const [label, time, message, focus] of [
     ['block on', '1000', 'Block on must be after block off.', 'block on'],
     ['block on', '0930', 'Block on must be after block off.', 'block on'],
-    ['takeoff time', '1005', 'Enter both takeoff and landing times, or neither.', 'takeoff time'],
+    ['takeoff time', '1005', 'Enter both takeoff and landing times, or neither.', 'landing time'],
     ['landing time', '1005', 'Takeoff and landing must be within the block', 'takeoff time'],
     ['takeoff time', '0955', 'Takeoff and landing must be within the block', 'takeoff time'],
     ['landing time', '1101', 'Takeoff and landing must be within the block', 'takeoff time'],
@@ -308,8 +308,9 @@ test.for([
     await userEvent.fill(screen.getByLabelText('Duty end'), dutyEnd);
     await fillFlight(1, blockOff, blockOn);
     await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    const clock = (time: string) => `${time.slice(0, 2)}:${time.slice(2)}`;
     expect((await screen.findByRole('alert')).textContent).toBe(
-      `${invalid === 'block off' ? 'Block off' : 'Block on'} must be within duty time.`,
+      `${invalid === 'block off' ? 'Block off' : 'Block on'} must be within duty, ${clock(dutyStart)}–${clock(dutyEnd)} UTC.`,
     );
     expect(document.activeElement).toBe(screen.getByLabelText(`Flight 1 ${invalid}`));
     expect(entries).toHaveLength(0);
@@ -390,8 +391,9 @@ test.for([
     await userEvent.fill(screen.getByLabelText('Duty end'), '1330');
     await fillFlight(1, blockOff, blockOn);
     await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+    // Duty is 08:30–13:30 in Berlin in winter, so the message gives it in UTC.
     expect((await screen.findByRole('alert')).textContent).toBe(
-      `${invalid === 'block off' ? 'Block off' : 'Block on'} must be within duty time.`,
+      `${invalid === 'block off' ? 'Block off' : 'Block on'} must be within duty, 07:30–12:30 UTC.`,
     );
     expect(fetch).toHaveBeenCalledTimes(1);
   },
@@ -525,7 +527,12 @@ test.for(['arrival', 'type'])('reports a flight with an edited %s but no times',
   expect(entries).toHaveLength(0);
 });
 
-test('the save buttons follow their on-screen order and check the fields before saving', async () => {
+const problems = () =>
+  within(within(screen.getByRole('alert')).getByRole('list'))
+    .getAllByRole('listitem')
+    .map((item) => item.textContent);
+
+test('the save buttons follow their on-screen order and list every problem before saving', async () => {
   const { entries } = sessionAPI();
   await openEntry();
   const saveAnother = screen.getByRole('button', { name: /Save and add another/ });
@@ -534,9 +541,96 @@ test('the save buttons follow their on-screen order and check the fields before 
   expect(document.activeElement).toBe(saveAnother);
   await userEvent.keyboard('{Tab}');
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save session' }));
-  // The browser's field checks focus the first missing field.
   await userEvent.click(saveAnother);
-  expect(document.activeElement).toBe(screen.getByLabelText('Duty start'));
+  expect(problems()).toEqual([
+    'Enter a student for training or preparation-only sessions.',
+    'Enter duty start as a 24-hour time, such as 0900.',
+    'Enter duty end as a 24-hour time, such as 1730.',
+    'Enter preparation time or block times for a flight.',
+  ]);
+  const student = screen.getByLabelText('Student');
+  expect(document.activeElement).toBe(student);
+  const invalid = () =>
+    ['Student', 'Duty start', 'Duty end', 'Preparation duration'].filter(
+      (label) => screen.getByLabelText(label).getAttribute('aria-invalid') === 'true',
+    );
+  expect(invalid()).toEqual(['Student', 'Duty start', 'Duty end', 'Preparation duration']);
+  expect(document.getElementById(student.getAttribute('aria-describedby')!)?.textContent).toBe(
+    'Enter a student for training or preparation-only sessions.',
+  );
+
+  // Changing a field clears its problem; the rest wait for the next save, untouched so the alert
+  // doesn't read them out again.
+  const items = () => within(screen.getByRole('alert')).getAllByRole('listitem');
+  const rest = items().slice(1);
+  await userEvent.fill(student, 'New Student');
+  expect(invalid()).toEqual(['Duty start', 'Duty end', 'Preparation duration']);
+  expect(items()).toHaveLength(3);
+  items().forEach((item, index) => expect(item).toBe(rest[index]));
+
+  // A problem fixed through another input goes away too, without new ones for the flight.
+  await userEvent.fill(screen.getByLabelText('Flight 1 block off'), '0930');
+  expect(invalid()).toEqual(['Duty start', 'Duty end']);
+  expect(problems()).toEqual([
+    'Enter duty start as a 24-hour time, such as 0900.',
+    'Enter duty end as a 24-hour time, such as 1730.',
+  ]);
+
+  await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
+  await userEvent.click(saveAnother);
+  expect(problems()).toContain('Enter preparation time or add a flight.');
+  expect(entries).toHaveLength(0);
+});
+
+test('lists every missing time of a flight at once', async () => {
+  const { entries } = sessionAPI();
+  await openEntry();
+  await fillBasics();
+  await fillFlight(1, '', '');
+  await userEvent.fill(screen.getByLabelText('Flight 1 takeoff time'), '1005');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  expect(problems()).toEqual([
+    'Enter block off in UTC as a 24-hour time, such as 0930.',
+    'Enter block on in UTC as a 24-hour time, such as 1030.',
+    'Enter both takeoff and landing times, or neither.',
+  ]);
+  expect(screen.getByLabelText('Flight 1 landing time').getAttribute('aria-invalid')).toBe('true');
+  expect(entries).toHaveLength(0);
+});
+
+test('a duty that ends when it starts adds no problems for its flights', async () => {
+  sessionAPI();
+  await openEntry();
+  await fillBasics();
+  await fillFlight(1, '0930', '1000');
+  await userEvent.fill(screen.getByLabelText('Duty end'), '0900');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  expect(problems()).toEqual(['Duty end must differ from duty start.']);
+});
+
+test('lists the problems of every flight, numbered by flight', async () => {
+  const { entries } = sessionAPI();
+  await openEntry();
+  await fillBasics();
+  await fillFlight(1, '0930', '1000');
+  await userEvent.fill(screen.getByLabelText('Flight 1 registration'), '');
+  await userEvent.click(screen.getByRole('button', { name: 'Add flight' }));
+  await fillFlight(2, '1300', '1330');
+  await userEvent.fill(screen.getByLabelText('Flight 2 landings'), '0');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  expect(problems()).toEqual([
+    'Flight 1: Enter the aircraft registration.',
+    'Flight 2: Block off must be within duty, 09:00–12:30 UTC.',
+    'Flight 2: Enter landings as a positive whole number.',
+  ]);
+  expect(document.activeElement).toBe(screen.getByLabelText('Flight 1 registration'));
+
+  // The remaining flight is the only one, so its problems need no number.
+  await userEvent.click(screen.getByRole('button', { name: 'Remove flight 1' }));
+  expect(problems()).toEqual([
+    'Block off must be within duty, 09:00–12:30 UTC.',
+    'Enter landings as a positive whole number.',
+  ]);
   expect(entries).toHaveLength(0);
 });
 
@@ -1028,4 +1122,42 @@ test('cancelling an edit restores the row without saving', async () => {
   expect(screen.getByRole('rowheader', { name: 'Earlier Student' })).toBeTruthy();
   expect(document.activeElement).toBe(editButton(/Edit session for Earlier/));
   expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+test('highlights the saved session, and scrolls to it once the editor closes', async () => {
+  const june = Array.from({ length: 30 }, (_, day): Session => ({
+    id: `june-${day}`,
+    etag: `"june-${day}"`,
+    student: `June Student ${day + 1}`,
+    dutyStart: `2026-06-${String(day + 1).padStart(2, '0')}T09:00:00Z`,
+    dutyEnd: `2026-06-${String(day + 1).padStart(2, '0')}T10:00:00Z`,
+    activities: [{ id: `june-${day}-prep`, type: 'preparation', minutes: 30 }],
+  }));
+  sessionAPI(june);
+  await openEntry();
+  const inView = (element: Element) => {
+    const { top, bottom } = element.getBoundingClientRect();
+    return top >= 0 && bottom <= window.innerHeight;
+  };
+  const savedRow = async (student: string) =>
+    (await screen.findByRole('rowheader', { name: student })).closest('tr')!;
+
+  // A May session sorts below all of June. With the editor still open, the page stays on it.
+  await fillBasics();
+  await userEvent.fill(screen.getByLabelText('Preparation duration'), '30');
+  await userEvent.click(screen.getByRole('button', { name: /Save and add another/ }));
+  const first = await savedRow('New Student');
+  expect(first.dataset.saved).toBe('true');
+  expect(inView(screen.getByLabelText('Student'))).toBe(true);
+  expect(inView(first)).toBe(false);
+
+  await userEvent.fill(screen.getByLabelText('Student'), 'Second Student');
+  await userEvent.fill(screen.getByLabelText('Duty start'), '1300');
+  await userEvent.fill(screen.getByLabelText('Duty end'), '1400');
+  await userEvent.fill(screen.getByLabelText('Preparation duration'), '30');
+  await userEvent.click(screen.getByRole('button', { name: 'Save session' }));
+  const second = await savedRow('Second Student');
+  expect(second.dataset.saved).toBe('true');
+  await expect.poll(() => inView(second)).toBe(true);
+  await expect.poll(() => second.dataset.saved, { timeout: 5000 }).toBeUndefined();
 });

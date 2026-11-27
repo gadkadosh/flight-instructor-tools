@@ -186,24 +186,34 @@ p {
 
 /* Session toolbar and document forms */
 
-.selection-count {
+:is(.selection-count, .selection-hours) {
   margin: 0;
   font-size: 0.875rem;
 }
 
+.selection-hours {
+  margin-inline-end: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .session-selection {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
+  white-space: nowrap;
 }
 
 .session-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 1rem;
-  margin-bottom: 0.5rem;
 }
 
 .document-buttons {
@@ -212,16 +222,21 @@ p {
   justify-content: flex-end;
   gap: 0.5rem;
   min-width: 0;
+  margin-inline-start: auto;
+}
+
+.toolbar-separator {
+  width: 1px;
+  margin-inline: 0.25rem;
+  background: var(--color-border);
 }
 
 .session-toolbar > .error {
-  grid-column: 1 / -1;
   justify-self: end;
   margin: 0;
 }
 
 .document-form {
-  grid-column: 1 / -1;
   justify-self: end;
   box-sizing: border-box;
   width: var(--document-form-width, 31rem);
@@ -287,10 +302,6 @@ p {
 }
 
 @media (max-width: 56rem) {
-  .session-toolbar {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .document-form {
     width: min(100%, 24rem);
   }
@@ -472,11 +483,18 @@ td {
   background: #f5f6f8;
 }
 
-/* Quieter than the sessions they total, so the table stays calm. */
-.month-heading > td {
+:is(.year-heading, .month-heading) > td {
   color: var(--color-text-muted);
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 400;
+}
+
+/* Hidden until you point at the row or move into it, so the table stays calm. Screen readers
+   still read them, and touchscreens, which cannot hover, always show them. */
+@media (hover: hover) and (not (any-pointer: coarse)) {
+  :is(.year-heading, .month-heading):not(:hover, :focus-within) > td {
+    color: transparent;
+  }
 }
 
 /* Same height as the row edit button, so it fits the row height. */
@@ -517,6 +535,16 @@ td {
 
 .sessions-table > tbody > tr[data-selected='true'] {
   background: var(--color-active-bg);
+}
+
+.sessions-table > tbody > tr[data-saved] {
+  animation: saved-row 2.5s ease-in;
+}
+
+@keyframes saved-row {
+  from {
+    background-color: #fff3bf;
+  }
 }
 
 .time-zone,
@@ -895,6 +923,11 @@ td {
 
 /* Session entry */
 
+.problems {
+  margin: 0 0 0.5rem;
+  padding-inline-start: 2rem;
+}
+
 .entry-row {
   background: #f0f6ff;
 }
@@ -916,7 +949,7 @@ td {
   background: #ffffff80;
 }
 
-:is(.entry-row, .flight-entry-table) input:enabled:user-invalid {
+:is(.entry-row, .flight-entry-table) :is(input:user-invalid, [aria-invalid='true']):enabled {
   border-bottom-color: var(--color-danger);
   background: var(--color-danger-bg);
 }
@@ -925,6 +958,10 @@ td {
   border-color: var(--color-field-border);
   border-radius: var(--control-radius);
   background: var(--color-surface);
+}
+
+:is(.entry-row, .flight-entry-table) [aria-invalid='true']:enabled:focus-visible {
+  border-color: var(--color-danger);
 }
 
 .entry-row input[inputmode='numeric'],

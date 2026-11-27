@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, type ComponentProps, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ComponentProps,
+  type KeyboardEvent,
+} from 'react';
 import FlightHeaderCells from './FlightHeaderCells';
 import { request } from './request';
 import { newFlight, newSessionDraft, type FlightDraft, type SessionDraft } from './sessionDraft';
@@ -17,6 +25,9 @@ import {
 } from './sessions';
 
 type FlightField = Exclude<keyof FlightDraft, 'id' | 'type' | 'untouched'>;
+// A problem shows under the flights; `name` is its input, which has at most one problem, and
+// `flight` numbers the message.
+type Problem = { name: string; message: string; flight?: string };
 const clockHint = '24-hour time, for example 0930 or 9:30';
 const dayMs = 24 * 60 * 60_000;
 const durationHint = 'Hours and two digits for minutes, for example 1:30 or 130';
@@ -116,7 +127,7 @@ export default function SessionEntry({
   view: SessionView;
   initial: SessionDraft;
   etag?: string;
-  onSaved: (view: SessionView) => void;
+  onSaved: (view: SessionView, id: string, another: boolean) => void;
   onClose: () => void;
   onDelete?: (trigger: HTMLButtonElement) => void;
 }) {
@@ -133,6 +144,8 @@ export default function SessionEntry({
   const [focusFlight, setFocusFlight] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // The inputs with problems at the last save, minus those changed since.
+  const [flagged, setFlagged] = useState<ReadonlySet<string>>(() => new Set());
   const overnightDateLabel = overnightHintDate
     ? endDateFormat.format(new Date(`${overnightHintDate}T00:00:00Z`))
     : undefined;
@@ -211,7 +224,7 @@ export default function SessionEntry({
   }
 
   function saveAnother() {
-    if (formRef.current?.reportValidity()) void save(true);
+    void save(true);
   }
 
   function shortcut(event: KeyboardEvent) {
@@ -222,83 +235,120 @@ export default function SessionEntry({
     }
   }
 
+  function clearProblem({ target }: ChangeEvent) {
+    const { name } = target as HTMLInputElement;
+    setFlagged((previous) => new Set([...previous].filter((flag) => flag !== name)));
+  }
+
+  // Marks an input with a problem and points it to the message.
+  function invalidProps(name: string) {
+    return problems.some((problem) => problem.name === name)
+      ? { 'aria-invalid': true, 'aria-describedby': `${formId}-problem-${name}` }
+      : {};
+  }
+
   function updateOvernightHint() {
     if (!saving && !savingRef.current) setOvernightHintDate(nextDay);
   }
 
-  async function save(another: boolean) {
-    if (savingRef.current) return;
-    updateOvernightHint();
-    setError('');
-    function invalid(message: string, name: string) {
-      setError(message);
-      (formRef.current?.elements.namedItem(name) as HTMLElement | null)?.focus();
-    }
+  // Every problem with the draft, in the order of the fields, and the activities to save when
+  // there are none.
+  function check() {
+    const problems: Problem[] = [];
+    const activities: Activity[] = [];
+    const problem = (name: string, message: string, flight?: string) =>
+      problems.push({ name, message, flight });
     if (!endDate) {
-      return invalid('Enter a valid session date and duty end within years 0001–9999.', 'date');
+      problem('date', 'Enter a valid session date and duty end within years 0001–9999.');
     }
-    // The inputs' pattern blocks submission before either can be missing.
-    if (!start || !end) return;
-    if (start === end) return invalid('Duty end must differ from duty start.', 'end');
+    const entered = flights.filter((flight) => !flight.untouched);
+    if (
+      !student.trim() &&
+      (entered.length === 0 || entered.some((flight) => activityKinds[flight.type].studentRequired))
+    ) {
+      problem('student', 'Enter a student for training or preparation-only sessions.');
+    }
+    if (!start) problem('start', 'Enter duty start as a 24-hour time, such as 0900.');
+    if (!end) problem('end', 'Enter duty end as a 24-hour time, such as 1730.');
+    else if (start === end) problem('end', 'Duty end must differ from duty start.');
     const prep = preparation.trim() ? parseDuration(preparation) : 0;
     if (prep === undefined) {
-      return invalid('Enter preparation as H:MM, such as 1:30 or 130.', 'preparation');
+      problem('preparation', 'Enter preparation as H:MM, such as 1:30 or 130.');
+    } else if (prep > 0) {
+      activities.push({ id: draft.preparationId, type: 'preparation', minutes: prep });
+    } else if (entered.length === 0) {
+      // A flight row with only carried-over details doesn't count until its times are filled in.
+      problem(
+        'preparation',
+        flights.length > 0
+          ? 'Enter preparation time or block times for a flight.'
+          : 'Enter preparation time or add a flight.',
+      );
     }
-    const inDuty = (clock: string) => flightInstant(clock) <= dutyEnd!;
-    const activities: Activity[] =
-      prep > 0 ? [{ id: draft.preparationId, type: 'preparation', minutes: prep }] : [];
-    for (const flight of flights) {
-      if (flight.untouched) continue;
-      const field = (name: FlightField) => `${flight.id}-${name}`;
-      // Input patterns block submission of malformed times, so undefined means blank.
+    const utcClock = (instant: number) => new Date(instant).toISOString().slice(11, 16);
+    for (const flight of entered) {
+      const found = problems.length;
+      const field = (name: FlightField, message: string) =>
+        problem(`${flight.id}-${name}`, message, flight.id);
+      if (!flight.registration.trim()) field('registration', 'Enter the aircraft registration.');
+      for (const name of ['departure', 'arrival'] as const) {
+        if (!airfieldPattern.test(flight[name])) {
+          field(name, `Enter the ${name} airfield as a four-character ICAO code, such as EDFE.`);
+        }
+      }
       const [off, on, takeoff, landing] = [
         flight.blockOff,
         flight.blockOn,
         flight.takeoff,
         flight.landing,
       ].map(parseClock);
-      if (!off)
-        return invalid(
-          'Enter block off in UTC as a 24-hour time, such as 0930.',
-          field('blockOff'),
-        );
-      if (!on)
-        return invalid('Enter block on in UTC as a 24-hour time, such as 1030.', field('blockOn'));
-      if (!inDuty(off)) return invalid('Block off must be within duty time.', field('blockOff'));
-      if (!inDuty(on)) return invalid('Block on must be within duty time.', field('blockOn'));
-      if (!blockMinutes(flight))
-        return invalid('Block on must be after block off.', field('blockOn'));
-      if (!takeoff !== !landing) {
-        return invalid('Enter both takeoff and landing times, or neither.', field('takeoff'));
+      const times = problems.length;
+      const malformed = (value: string, clock?: string) => Boolean(value.trim()) && !clock;
+      if (!off) field('blockOff', 'Enter block off in UTC as a 24-hour time, such as 0930.');
+      if (malformed(flight.takeoff, takeoff)) {
+        field('takeoff', 'Enter takeoff in UTC as a 24-hour time, such as 0940.');
       }
+      if (malformed(flight.landing, landing)) {
+        field('landing', 'Enter landing in UTC as a 24-hour time, such as 1020.');
+      }
+      if (!on) field('blockOn', 'Enter block on in UTC as a 24-hour time, such as 1030.');
+      // Marks the blank one, which has no other problem.
+      if (!flight.takeoff.trim() !== !flight.landing.trim()) {
+        field(
+          flight.takeoff.trim() ? 'landing' : 'takeoff',
+          'Enter both takeoff and landing times, or neither.',
+        );
+      }
+      // Comparing times needs all of them valid, so only the first such problem shows.
       if (
-        takeoff &&
-        landing &&
-        !(
-          flightInstant(off) <= flightInstant(takeoff) &&
-          flightInstant(takeoff) < flightInstant(landing) &&
-          flightInstant(landing) <= flightInstant(on)
-        )
+        problems.length === times &&
+        off &&
+        on &&
+        dutyStart !== undefined &&
+        dutyEnd !== undefined &&
+        start !== end
       ) {
-        return invalid(
-          'Takeoff and landing must be within the block, takeoff first.',
-          field('takeoff'),
-        );
-      }
-      if (!landingsPattern.test(flight.landings.trim())) {
-        return invalid('Enter landings as a positive whole number.', field('landings'));
-      }
-      for (const name of ['departure', 'arrival'] as const) {
-        if (!airfieldPattern.test(flight[name])) {
-          return invalid(
-            'Enter airfields as four-character ICAO identifiers, such as EDFE.',
-            field(name),
-          );
+        const inDuty = (clock: string) => flightInstant(clock) <= dutyEnd;
+        const dutyWindow = `${utcClock(dutyStart)}–${utcClock(dutyEnd)} UTC`;
+        if (!inDuty(off)) field('blockOff', `Block off must be within duty, ${dutyWindow}.`);
+        else if (!inDuty(on)) field('blockOn', `Block on must be within duty, ${dutyWindow}.`);
+        else if (!blockMinutes(flight)) field('blockOn', 'Block on must be after block off.');
+        else if (
+          takeoff &&
+          landing &&
+          !(
+            flightInstant(off) <= flightInstant(takeoff) &&
+            flightInstant(takeoff) < flightInstant(landing) &&
+            flightInstant(landing) <= flightInstant(on)
+          )
+        ) {
+          field('takeoff', 'Takeoff and landing must be within the block, takeoff first.');
         }
       }
-      if (!flight.registration.trim()) {
-        return invalid('Enter the aircraft registration.', field('registration'));
+      if (!landingsPattern.test(flight.landings.trim())) {
+        field('landings', 'Enter landings as a positive whole number.');
       }
+      if (problems.length > found || !off || !on) continue;
       const stamp = (clock: string) => new Date(flightInstant(clock)).toISOString();
       activities.push({
         id: flight.id,
@@ -314,15 +364,22 @@ export default function SessionEntry({
         landings: Number(flight.landings),
       });
     }
-    if (activities.length === 0) {
-      return invalid('Enter preparation time or at least one flight.', 'preparation');
-    }
-    const hasFlight = activities.some((activity) => activity.type !== 'preparation');
-    if (
-      !student.trim() &&
-      (!hasFlight || activities.some((activity) => activityKinds[activity.type].studentRequired))
-    ) {
-      return invalid('Enter a student for training or preparation-only sessions.', 'student');
+    return { problems, activities };
+  }
+
+  async function save(another: boolean) {
+    if (savingRef.current) return;
+    updateOvernightHint();
+    setError('');
+    const { problems, activities } = check();
+    const names = new Set(problems.map(({ name }) => name));
+    setFlagged(names);
+    if (problems.length > 0) {
+      const first = [...(formRef.current?.elements ?? [])].find((element) =>
+        names.has((element as HTMLInputElement).name),
+      );
+      (first as HTMLElement | undefined)?.focus();
+      return;
     }
     savingRef.current = true;
     setSaving(true);
@@ -343,7 +400,7 @@ export default function SessionEntry({
         'Could not save session.',
       );
       const body = await response.json();
-      onSaved(body);
+      onSaved(body, draft.id, another);
       if (another) {
         setDraft(newSessionDraft(body, date));
         setOvernightHintDate(undefined);
@@ -360,9 +417,12 @@ export default function SessionEntry({
     }
   }
 
+  // Checked again on every change, so a problem fixed through another input goes away.
+  const problems = check().problems.filter(({ name }) => flagged.has(name));
+
   return (
     <>
-      <tr className="entry-row" onKeyDown={shortcut}>
+      <tr className="entry-row" onKeyDown={shortcut} onChange={clearProblem}>
         <td colSpan={2}>
           <span className="visually-hidden">{title}</span>
         </td>
@@ -373,6 +433,7 @@ export default function SessionEntry({
             name="date"
             type="date"
             aria-label="Session date"
+            {...invalidProps('date')}
             value={date}
             onChange={(event) => set({ date: event.target.value })}
             onBlur={updateOvernightHint}
@@ -386,6 +447,7 @@ export default function SessionEntry({
             form={formId}
             name="student"
             aria-label="Student"
+            {...invalidProps('student')}
             list={suggestionsId}
             placeholder="Student"
             autoComplete="off"
@@ -404,6 +466,7 @@ export default function SessionEntry({
             form={formId}
             name="start"
             aria-label="Duty start"
+            {...invalidProps('start')}
             placeholder="0900"
             pattern={clockPattern.source}
             title={clockHint}
@@ -437,7 +500,12 @@ export default function SessionEntry({
               form={formId}
               name="end"
               aria-label="Duty end"
-              aria-describedby={overnightHintDate ? overnightHintId : undefined}
+              {...invalidProps('end')}
+              aria-describedby={
+                [overnightHintDate && overnightHintId, invalidProps('end')['aria-describedby']]
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              }
               placeholder="1730"
               pattern={clockPattern.source}
               title={clockHint}
@@ -458,6 +526,7 @@ export default function SessionEntry({
             form={formId}
             name="preparation"
             aria-label="Preparation duration"
+            {...invalidProps('preparation')}
             placeholder="H:MM"
             pattern={durationPattern.source}
             title={durationHint}
@@ -476,12 +545,13 @@ export default function SessionEntry({
         </td>
         <td />
       </tr>
-      <tr className="activity-details entry-details" onKeyDown={shortcut}>
+      <tr className="activity-details entry-details" onKeyDown={shortcut} onChange={clearProblem}>
         <td colSpan={10}>
           <form
             id={formId}
             ref={formRef}
             aria-label={title}
+            noValidate
             onSubmit={(event) => {
               event.preventDefault();
               void save(false);
@@ -528,6 +598,7 @@ export default function SessionEntry({
                             id={`${flight.id}-${name}`}
                             name={`${flight.id}-${name}`}
                             aria-label={`Flight ${index + 1} ${label}`}
+                            {...invalidProps(`${flight.id}-${name}`)}
                             value={flight[name]}
                             onChange={({ target }) =>
                               setField(flight.id, { [name]: target.value, untouched: false })
@@ -609,6 +680,24 @@ export default function SessionEntry({
                   </tr>
                 </tfoot>
               </table>
+              {problems.length > 0 && (
+                // On a wrapper, since the role would hide the list from screen readers.
+                <div role="alert">
+                  <ul className="error problems">
+                    {problems.map((problem) => {
+                      const number = flights.findIndex(({ id }) => id === problem.flight) + 1;
+                      return (
+                        // Keyed by input, so clearing one problem doesn't rewrite the others, which
+                        // the alert would read out again.
+                        <li key={problem.name} id={`${formId}-problem-${problem.name}`}>
+                          {number > 0 && flights.length > 1 && `Flight ${number}: `}
+                          {problem.message}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
               {error && (
                 <p role="alert" className="error">
                   {error}

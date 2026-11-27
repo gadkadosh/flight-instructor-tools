@@ -1,4 +1,4 @@
-import { useId, useState, type Ref } from 'react';
+import { useEffect, useId, useRef, useState, type Ref } from 'react';
 import FlightHeaderCells from './FlightHeaderCells';
 import {
   activityKinds,
@@ -65,6 +65,8 @@ export default function SessionRow({
   dateFormat,
   timeFormat,
   selected,
+  saved,
+  onSavedShown,
   onSelect,
   editButtonRef,
   onEdit,
@@ -73,11 +75,14 @@ export default function SessionRow({
   dateFormat: Intl.DateTimeFormat;
   timeFormat: Intl.DateTimeFormat;
   selected: boolean;
+  saved?: { reveal: boolean };
+  onSavedShown: () => void;
   onSelect: () => void;
   editButtonRef: Ref<HTMLButtonElement>;
   onEdit: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const rowRef = useRef<HTMLTableRowElement>(null);
   const detailsId = useId();
   const endDateId = useId();
   const { flights, subject, startDate, startTime, timeSuffix, description } = sessionSummary(
@@ -94,11 +99,19 @@ export default function SessionRow({
     endDate !== startDate &&
     Date.parse(dateInZone(timeZone, end)) - Date.parse(dateInZone(timeZone, start)) ===
       24 * 60 * 60 * 1000;
+  useEffect(() => {
+    if (saved?.reveal) rowRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [saved]);
   return (
     <>
       <tr
+        ref={rowRef}
         className={flights.length > 0 ? 'session-row' : undefined}
         data-selected={selected}
+        data-saved={saved ? true : undefined}
+        onAnimationEnd={(event) => {
+          if (event.animationName === 'saved-row') onSavedShown();
+        }}
         onClick={() => {
           if (flights.length > 0) setExpanded(!expanded);
         }}
